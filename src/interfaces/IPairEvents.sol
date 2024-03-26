@@ -55,4 +55,10 @@ interface IPairEvents {
     /// @param feeProtocolOld The gridId of the order to be canceled
     /// @param feeProtocol The orderId of the order to be canceled
     event SetFeeProtocol(uint8 feeProtocolOld, uint8 feeProtocol);
+
+    /// @notice Emitted when the collected protocol fees are withdrawn by the factory owner
+    /// @param sender The address that collects the protocol fees
+    /// @param recipient The address that receives the collected protocol fees
+    /// @param amount The amount of quote protocol fees that is withdrawn
+    event CollectProtocol(address indexed sender, address indexed recipient, uint256 amount);
 }

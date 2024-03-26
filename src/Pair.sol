@@ -537,4 +537,24 @@ contract Pair is IPair {
         slot0.feeProtocol = _feeProtocol;
         emit SetFeeProtocol(feeProtocolOld, _feeProtocol);
     }
+
+    /// @inheritdoc IPair
+    function collectProtocol(
+        address recipient,
+        uint256 amount
+    ) external override returns (uint256) {
+        require(msg.sender == IFactory(factory).owner());
+
+        amount = amount > protocolFees ? protocolFees : amount;
+
+        if (amount > 0) {
+            if (amount == protocolFees) amount--; // ensure that the slot is not cleared, for gas savings
+            protocolFees -= amount;
+            quoteToken.transfer(recipient, amount);
+        
+            emit CollectProtocol(msg.sender, recipient, amount);
+        }
+
+        return amount;
+    }
 }

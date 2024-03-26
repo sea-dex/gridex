@@ -79,9 +79,8 @@ interface IPair is IPairEvents {
     /// @return The fee
     function fee() external view returns (uint24);
 
-
     //////////////////////////////// States ////////////////////////////////
-    
+
     /// @notice The 0th storage slot in the pool stores many values, and is exposed as a single method to save gas
     /// when accessed externally.
     /// @return fee trading fee
@@ -92,11 +91,7 @@ interface IPair is IPairEvents {
     function slot0()
         external
         view
-        returns (
-            uint24 fee,
-            uint8 feeProtocol,
-            bool unlocked
-        );
+        returns (uint24 fee, uint8 feeProtocol, bool unlocked);
 
     /// @notice The amounts of quote that are owed to the protocol
     /// @dev Protocol fees will never exceed uint256 max, all fee is quote token
@@ -104,4 +99,13 @@ interface IPair is IPairEvents {
 
     /// @notice Set pair protocol fee
     function setFeeProtocol(uint8 _feeProtocol) external;
+
+    /// @notice Collect the protocol fee accrued to the pool
+    /// @param recipient The address to which collected protocol fees should be sent
+    /// @param amount The maximum amount
+    /// @return The protocol fee collected
+    function collectProtocol(
+        address recipient,
+        uint256 amount
+    ) external returns (uint256);
 }
