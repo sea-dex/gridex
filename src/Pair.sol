@@ -12,9 +12,9 @@ contract Pair is IPair {
     using CurrencyLibrary for Currency;
     using TransferHelper for IERC20Minimal;
 
-    uint8 constant BUY = 1;
-    uint8 constant SELL = 1;
-    uint256 constant PRICE_MULTIPLIER = 10 ** 30;
+    uint8 public constant BUY = 1;
+    uint8 public constant SELL = 1;
+    uint256 public constant PRICE_MULTIPLIER = 10 ** 30;
 
     /// @inheritdoc IPair
     address public immutable override factory;
@@ -40,14 +40,16 @@ contract Pair is IPair {
 
     /// order
     struct Order {
+        // order price
+        uint160 price;
+        // buy order: quote amount; sell order: base amount;
+        uint96 amount;
+        uint96 revAmount;
         // grid id, or address if limit order
         uint64 gridId;
         // order id
         uint64 orderId;
-        // buy order: quote amount; sell order: base amount;
-        uint96 amount;
-        // order price
-        uint160 price;
+        bool canceled;
     }
 
     mapping(uint64 orderId => Order) public bidOrders;
@@ -55,18 +57,23 @@ contract Pair is IPair {
 
     struct GridConfig {
         address owner;
+        uint128 profits; // quote token
         uint32 orders;
+        bool compound;
     }
 
     uint64 public nextGridId = 1;
-    uint64 public nextOrderId = 1; // next grid order Id
+    uint64 public nextBidOrderId = 1; // next grid order Id
+    uint64 public nextAskOrderId = 0x8000000000000001;
+    uint64 public constant AskOderMask = 0x8000000000000000;
+
     mapping(uint64 gridId => GridConfig) public gridConfigs;
 
     constructor() {
         uint24 _fee;
         address _base;
         address _quote;
-    
+
         (factory, _base, _quote, _fee) = IPairDeployer(msg.sender).parameters();
         slot0.fee = _fee;
         baseToken = Currency.wrap(_base);
@@ -89,11 +96,12 @@ contract Pair is IPair {
         uint96 baseAmount;
         uint16 asks;
         uint16 bids;
+        bool compound;
     }
 
     function validateGridOrderParam(
         GridOrderParam calldata params
-    ) private pure returns (uint256) {
+    ) private pure {
         uint256 sellPrice0 = params.sellPrice0;
         uint256 buyPrice0 = params.buyPrice0;
         uint256 sellGap = params.sellGap;
@@ -139,144 +147,127 @@ contract Pair is IPair {
                 revert InvalidGapPrice();
             }
             baseAmt = uint256(perBaseAmt) * uint256(asks);
-            if (baseAmt > type(uint160).max) {
+            if (baseAmt > type(uint96).max) {
                 revert ExceedMaxAmount();
             }
         }
-        return baseAmt;
+    }
+
+    function isAskGridOrder(uint64 orderId) public returns (bool) {
+        return orderId & AskOderMask > 0;
     }
 
     function placeGridOrders(GridOrderParam calldata params) public payable {
         // validate grid params
-        uint256 baseAmt = validateGridOrderParam(params);
-
+        validateGridOrderParam(params);
         uint64 gridId = nextGridId;
-        uint256 quoteAmt = 0;
+        uint64 askOrderId = 0;
+        uint64 bidOrderId = 0;
 
-        // initialize owner's grid config
-        GridConfig storage gridConf = gridConfigs[uint64(gridId)];
-        gridConf.owner = msg.sender;
-        unchecked {
-            // we don't think this would overflow
-            ++nextGridId;
-            gridConf.orders = uint32(params.asks + params.bids);
+        if (params.asks > 0) {
+            askOrderId = nextAskOrderId;
+            unchecked {
+                if (type(uint64).max - params.asks < askOrderId) {
+                    revert ExceedMaxAskOrder();
+                }
+                nextAskOrderId = askOrderId + params.asks;
+            }
+            // only create order0, other orders will be lazy created
+            askOrders[askOrderId] = Order({
+                gridId: gridId,
+                orderId: askOrderId,
+                amount: uint96(params.baseAmount),
+                revAmount: 0,
+                price: uint160(params.sellPrice0),
+                canceled: false
+            });
+            IERC20Minimal(Currency.unwrap(baseToken)).safeTransferFrom(
+                msg.sender,
+                address(this),
+                params.asks * params.baseAmount
+            );
         }
 
-        uint64 orderId = nextOrderId;
-        {
-            uint256 sellPrice0 = params.sellPrice0;
-            uint256 sellGap = params.sellGap;
+        if (params.bids > 0) {
             uint256 buyPrice0 = params.buyPrice0;
             uint256 buyGap = params.buyGap;
-            uint96 perBaseAmt = params.baseAmount;
-
-            // create ask orders
-            for (uint i = 0; i < params.asks; ) {
-                Order storage askOrder = askOrders[orderId];
-                Order storage revOrder = bidOrders[orderId];
-
-                askOrder.gridId = gridId;
-                askOrder.orderId = orderId;
-                askOrder.amount = perBaseAmt;
-                revOrder.gridId = gridId;
-                revOrder.orderId = orderId;
-                revOrder.amount = 0;
-
-                unchecked {
-                    ++i;
-                    ++orderId;
-                    if (orderId == type(uint64).max) {
-                        revert ExceedMaxOrder();
-                    }
-                    uint160 price = uint160(sellPrice0 + i * sellGap);
-                    askOrder.price = price;
-                    revOrder.price = uint160(price - sellGap);
-                }
-            }
-
+            uint256 amt0;
+            uint256 perBaseAmt = params.baseAmount;
+            uint256 quoteAmt = 0;
             // create bid orders
-            for (uint i = 0; i < params.bids; ) {
-                Order storage bidOrder = bidOrders[orderId];
-                Order storage revOrder = askOrders[orderId];
+            bidOrderId = nextBidOrderId;
 
-                bidOrder.gridId = gridId;
-                bidOrder.orderId = orderId;
-                revOrder.gridId = gridId;
-                revOrder.orderId = orderId;
-                revOrder.amount = 0;
+            unchecked {
+                if (AskOderMask - params.bids < bidOrderId) {
+                    revert ExceedMaxBidOrder();
+                }
+                nextBidOrderId = bidOrderId + params.bids;
 
-                unchecked {
-                    ++i;
-                    ++orderId;
-                    if (orderId == type(uint64).max) {
-                        revert ExceedMaxOrder();
+                for (uint i = 0; i < params.bids; ) {
+                    uint256 price = buyPrice0 - i * buyGap;
+                    uint256 amt = calcQuoteAmount(perBaseAmt, price);
+                    if (i == 0) {
+                        amt0 = amt;
                     }
-                    uint160 price = uint160(buyPrice0 - i * buyGap);
-                    bidOrder.price = price;
-                    revOrder.price = uint160(price + buyGap);
-                    uint96 amt = calcQuoteAmount(perBaseAmt, price);
-                    bidOrder.amount = amt;
+
                     quoteAmt += amt;
+                    ++i;
                 }
             }
-        }
-        nextOrderId = orderId;
-        // transfer base/quote tokens
-        if (baseAmt > 0) {
-            if (baseToken.isNative()) {
-                if (msg.value < baseAmt) revert NotEnoughBaseToken();
-                // refund
-                if (msg.value > baseAmt) {
-                    baseToken.transfer(msg.sender, msg.value-baseAmt);
-                }
-            } else {
-                IERC20Minimal(Currency.unwrap(baseToken)).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    baseAmt
-                );
-            }
-        }
-        if (quoteAmt > 0) {
+            // transfer base/quote tokens
             if (quoteAmt > type(uint160).max) {
                 revert ExceedMaxAmount();
             }
-            if (quoteToken.isNative()) {
-                if (msg.value < quoteAmt) revert NotEnoughQuoteToken();
-                // refund
-                if (msg.value > quoteAmt) {
-                    quoteToken.transfer(msg.sender, msg.value-quoteAmt);
-                }
-            } else {
-                IERC20Minimal(Currency.unwrap(quoteToken)).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    quoteAmt
-                );
-            }
+            IERC20Minimal(Currency.unwrap(quoteToken)).safeTransferFrom(
+                msg.sender,
+                address(this),
+                quoteAmt
+            );
+            bidOrders[bidOrderId] = Order({
+                gridId: gridId,
+                orderId: bidOrderId,
+                amount: uint96(amt0),
+                price: uint160(buyPrice0),
+                revAmount: 0,
+                canceled: false
+            });
         }
+
+        unchecked {
+            // we don't think this would overflow
+            ++nextGridId;
+        }
+        // initialize owner's grid config
+        gridConfigs[uint64(gridId)] = GridConfig({
+            owner: msg.sender,
+            orders: uint32(params.asks + params.bids),
+            profits: 0,
+            compound: params.compound
+        });
 
         emit GridOrderCreated(
             msg.sender,
             params.asks,
             params.bids,
             uint64(gridId),
-            orderId,
+            askOrderId,
+            bidOrderId,
             params.sellPrice0,
             params.sellGap,
             params.buyPrice0,
             params.buyGap,
-            params.baseAmount
+            params.baseAmount,
+            params.compound
         );
     }
 
-    function calcQuoteAmount(
-        uint96 baseAmt,
-        uint160 price
-    ) public pure returns (uint96) {
+    function calcQuoteAmount2(
+        uint256 baseAmt,
+        uint256 price
+    ) public pure returns (uint256) {
         uint256 amt = 0;
         unchecked {
-            amt = (uint256(baseAmt) * uint256(price)) / PRICE_MULTIPLIER;
+            amt = ((baseAmt) * (price)) / PRICE_MULTIPLIER;
         }
         if (amt == 0) {
             revert ZeroQuoteAmt();
@@ -284,15 +275,33 @@ contract Pair is IPair {
         if (amt >= uint256(type(uint96).max)) {
             revert ExceedQuoteAmt();
         }
-        return uint96(amt);
+        return (amt);
+    }
+
+    function calcQuoteAmount(
+        uint256 baseAmt,
+        uint256 price
+    ) public pure returns (uint256) {
+        uint256 amt = 0;
+        unchecked {
+            amt = ((baseAmt) * (price)) / PRICE_MULTIPLIER;
+        }
+        if (amt == 0) {
+            revert ZeroQuoteAmt();
+        }
+        if (amt >= uint256(type(uint96).max)) {
+            revert ExceedQuoteAmt();
+        }
+        return amt;
     }
 
     function calcBaseAmount(
-        uint96 quoteAmt,
-        uint160 price) public pure returns (uint96) {
+        uint256 quoteAmt,
+        uint256 price
+    ) public pure returns (uint96) {
         uint256 amt = 0;
         unchecked {
-            amt = (uint256(quoteAmt) * PRICE_MULTIPLIER / uint256(price));
+            amt = (((quoteAmt) * PRICE_MULTIPLIER) / (price));
         }
         if (amt == 0) {
             revert ZeroBaseAmt();
@@ -301,11 +310,10 @@ contract Pair is IPair {
             revert ExceedBaseAmt();
         }
         return uint96(amt);
-
     }
 
     // amount is always quote amount
-    function calcFee(uint96 amount) public returns (uint96, uint96) {
+    function calcFee(uint256 amount) public returns (uint96, uint96) {
         uint96 totalFee;
         uint96 protoFee = 0;
 
@@ -356,14 +364,14 @@ contract Pair is IPair {
                 filled = uint96(maxAmt - filledAmt);
             }
             order.amount -= filled;
-            uint96 vol = calcQuoteAmount(filled, order.price) + 1; // quoteVol = filled * price
+            uint256 vol = calcQuoteAmount(filled, uint256(order.price)) + 1; // quoteVol = filled * price
             (uint96 totalFee, uint96 lpFee) = calcFee(vol);
 
-            emit FilledOrder(order.orderId, vol, totalFee, lpFee);
+            emit FilledOrder(order.orderId, uint96(vol), totalFee, lpFee);
 
             Order storage bidOrder = bidOrders[id];
             // all sell and fee go to reversed grid order
-            bidOrder.amount += vol + lpFee;
+            bidOrder.amount += uint96(vol + lpFee);
 
             unchecked {
                 filledAmt += filled;
@@ -417,10 +425,10 @@ contract Pair is IPair {
 
         for (uint i = 0; i < idList.length; ) {
             uint64 id = idList[i];
-            uint96 filled = amtList[i];
+            uint256 filled = amtList[i];
             Order storage order = bidOrders[id];
             uint96 amount = order.amount;
-            uint160 price = order.price;
+            uint256 price = order.price;
 
             if (amount == 0) {
                 // order NOT exist or filled
@@ -429,7 +437,7 @@ contract Pair is IPair {
                 }
                 continue;
             }
-            uint96 vol = calcQuoteAmount(filled, price); // quoteVol = filled * price
+            uint256 vol = calcQuoteAmount(filled, price); // quoteVol = filled * price
             if (amount < vol) {
                 vol = amount;
                 filled = calcBaseAmount(vol, price);
@@ -443,9 +451,9 @@ contract Pair is IPair {
             (uint96 totalFee, uint96 makerFee) = calcFee(vol);
             Order storage revOrder = askOrders[id];
             // base token reversed
-            revOrder.amount += filled;
+            revOrder.amount += uint96(filled);
             unchecked {
-                order.amount -= vol - makerFee;
+                order.amount -= uint96(vol - makerFee);
                 filledAmt += filled;
                 filledVol += vol;
                 filledFee += totalFee;
@@ -481,6 +489,15 @@ contract Pair is IPair {
                 );
             }
         }
+    }
+
+    function getGridOrders(
+        uint64[] calldata idList
+    ) public returns (Order[] memory) {
+        Order[] memory orderList = new Order[](idList.length);
+
+        for (uint i = 0; i < idList.length; i++) {}
+        return orderList;
     }
 
     // cancel grid order will cancel both ask order and bid order
@@ -531,8 +548,7 @@ contract Pair is IPair {
     function setFeeProtocol(uint8 _feeProtocol) external override {
         require(msg.sender == IFactory(factory).owner());
 
-        require(
-            _feeProtocol == 0 || (_feeProtocol >= 4 && _feeProtocol <= 10));
+        require(_feeProtocol == 0 || (_feeProtocol >= 4 && _feeProtocol <= 10));
         uint8 feeProtocolOld = slot0.feeProtocol;
         slot0.feeProtocol = _feeProtocol;
         emit SetFeeProtocol(feeProtocolOld, _feeProtocol);
@@ -551,7 +567,7 @@ contract Pair is IPair {
             if (amount == protocolFees) amount--; // ensure that the slot is not cleared, for gas savings
             protocolFees -= amount;
             quoteToken.transfer(recipient, amount);
-        
+
             emit CollectProtocol(msg.sender, recipient, amount);
         }
 

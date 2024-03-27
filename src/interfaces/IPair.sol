@@ -43,8 +43,12 @@ interface IPair is IPairEvents {
     /// @notice Thrown when msg.sender is NOT order owner
     error NotOrderOwner();
 
-    /// @notice Thrown when max orderId reached
-    error ExceedMaxOrder();
+    /// @notice Thrown when max ask orderId reached
+    error ExceedMaxAskOrder();
+
+    /// @notice Thrown when max bid orderId reached
+    error ExceedMaxBidOrder();
+
 
     /// @notice Thrown when calculate quote amount is 0
     error ZeroQuoteAmt();

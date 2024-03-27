@@ -8,23 +8,27 @@ interface IPairEvents {
     /// @param asks How many ask orders
     /// @param bids How many ask orders
     /// @param gridId Grid Id
-    /// @param orderId The last orderId of the grid
+    /// @param askOrderId The highest price orderId of the ask grid orders
+    /// @param bidOrderId The lowest price orderId of the bid grid orders
     /// @param sellPrice0 The lowest price of sell grid orders
     /// @param sellGap Price gap between sell order and it's reverse order
     /// @param buyPrice0 The highest price of buy grid orders
     /// @param buyGap Price gap between buy order and it's reverse order
     /// @param amount the base amount of every grid order
+    /// @param compound if the grid order is compound
     event GridOrderCreated(
         address indexed owner,
         uint16 asks,
         uint16 bids,
         uint64 gridId,
-        uint64 orderId,
+        uint64 askOrderId,
+        uint64 bidOrderId,
         uint256 sellPrice0,
         uint256 sellGap,
         uint256 buyPrice0,
         uint256 buyGap,
-        uint256 amount
+        uint256 amount,
+        bool compound
     );
 
     /// @notice Emitted when a grid order was canceled

@@ -24,11 +24,11 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
         owner = msg.sender;
         emit OwnerChanged(address(0), msg.sender);
 
-        feeAmount[100] = 7;
-        feeAmount[200] = 7;
-        feeAmount[500] = 7;
+        feeAmount[100] = 6;
+        feeAmount[200] = 6;
+        feeAmount[500] = 6;
         feeAmount[2000] = 6;
-        feeAmount[10000] = 5;
+        feeAmount[10000] = 6;
 
         quotableTokens[address(0)] = 100;
     }
@@ -40,6 +40,9 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
         uint24 fee
     ) external override noDelegateCall returns (address pair) {
         require(tokenA != tokenB);
+        require(tokenA != address(0));
+        require(tokenB != address(0));
+
         uint8 p1 = quotableTokens[tokenA];
         uint8 p2 = quotableTokens[tokenB];
         require(p1 > 0 || p2 > 0);
@@ -52,8 +55,8 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
         } else {
             (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         }
+
         require(feeAmount[fee] != 0);
-        // require(token0 != address(0));
 
         require(getPair[token0][token1][fee] == address(0));
         pair = deploy(address(this), token0, token1, fee);
