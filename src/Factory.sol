@@ -24,10 +24,10 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
         owner = msg.sender;
         emit OwnerChanged(address(0), msg.sender);
 
-        feeAmount[100] = 5;
-        feeAmount[200] = 5;
-        feeAmount[500] = 5;
-        feeAmount[3000] = 5;
+        feeAmount[100] = 7;
+        feeAmount[200] = 7;
+        feeAmount[500] = 7;
+        feeAmount[2000] = 6;
         feeAmount[10000] = 5;
 
         quotableTokens[address(0)] = 100;
@@ -52,6 +52,7 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
         } else {
             (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         }
+        require(feeAmount[fee] != 0);
         // require(token0 != address(0));
 
         require(getPair[token0][token1][fee] == address(0));
@@ -81,7 +82,10 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
     function enableFeeAmount(uint24 fee, uint8 feeProtocol) public override {
         require(msg.sender == owner);
         require(fee < 1000000);
+        require((feeProtocol >= 4 && feeProtocol <= 10));
 
         feeAmount[fee] = feeProtocol;
+
+        emit FeeAmountEnabled(fee, feeProtocol);
     }
 }

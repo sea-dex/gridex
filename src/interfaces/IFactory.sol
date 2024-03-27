@@ -23,9 +23,8 @@ interface IFactory {
 
     /// @notice Emitted when a new fee amount is enabled for pair creation via the factory
     /// @param fee The enabled fee, denominated in hundredths of a bip
-    /// @param tickSpacing The minimum number of ticks between initialized ticks for pairs created with the given fee
-    event FeeAmountEnabled(uint24 indexed fee, int24 indexed tickSpacing);
-
+    /// @param feeProtocol The fee protocol part
+    event FeeAmountEnabled(uint24 indexed fee, uint8 indexed feeProtocol);
 
     /// @notice Emitted when a new token was set quotable
     /// @param token The enabled quote token
