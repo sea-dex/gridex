@@ -12,8 +12,9 @@ interface IPairDeployer {
     /// Returns base The base token of the pair
     /// Returns quote The quote token of the pair
     /// Returns fee The fee collected upon every swap in the pair, denominated in hundredths of a bip
+    /// Returns feeProtocol The protocol fee part of total trading fee
     function parameters()
         external
         view
-        returns (address factory, address base, address quote, uint24 fee);
+        returns (address factory, address base, address quote, uint24 fee, uint8 feeProtocol);
 }

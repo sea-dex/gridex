@@ -67,7 +67,7 @@ interface IPair is IPairEvents {
 
     //////////////////////////////// Immutables ////////////////////////////////
 
-    /// @notice The contract that deployed the pool, which must adhere to the IUniswapV3Factory interface
+    /// @notice The contract that deployed the pair, which must adhere to the IUniswapV3Factory interface
     /// @return The contract address
     function factory() external view returns (address);
 
@@ -79,19 +79,23 @@ interface IPair is IPairEvents {
     /// @return The token contract address
     function quoteToken() external view returns (Currency);
 
-    /// @notice The pool's fee in hundredths of a bip, i.e. 1e-6
+    /// @notice The pair's trading fee in hundredths of a bip, i.e. 1e-6
     /// @return The fee
     function fee() external view returns (uint24);
 
+    /// @notice The pair's protocol fee part, 1/feeProtocol of total trading fee.
+    /// @return The protocol fee part
+    function feeProtocol() external view returns (uint8);
+
     //////////////////////////////// States ////////////////////////////////
 
-    /// @notice The 0th storage slot in the pool stores many values, and is exposed as a single method to save gas
+    /// @notice The 0th storage slot in the pair stores many values, and is exposed as a single method to save gas
     /// when accessed externally.
     /// @return fee trading fee
-    /// feeProtocol The protocol fee for both tokens of the pool.
+    /// feeProtocol The protocol fee for both tokens of the pair.
     /// Encoded as two 4 bit values, where the protocol fee of token1 is shifted 4 bits and the protocol fee of token0
     /// is the lower 4 bits. Used as the denominator of a fraction of the swap fee, e.g. 4 means 1/4th of the swap fee.
-    /// unlocked Whether the pool is currently locked to reentrancy
+    /// unlocked Whether the pair is currently locked to reentrancy
     function slot0()
         external
         view
@@ -104,7 +108,7 @@ interface IPair is IPairEvents {
     /// @notice Set pair protocol fee
     function setFeeProtocol(uint8 _feeProtocol) external;
 
-    /// @notice Collect the protocol fee accrued to the pool
+    /// @notice Collect the protocol fee accrued to the pair
     /// @param recipient The address to which collected protocol fees should be sent
     /// @param amount The maximum amount
     /// @return The protocol fee collected

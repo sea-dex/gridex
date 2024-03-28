@@ -55,11 +55,11 @@ contract Factory is IFactory, Deployer, NoDelegateCall {
         } else {
             (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         }
-
-        require(feeAmount[fee] != 0);
+        uint8 feeProtocol = feeAmount[fee];
+        require(feeProtocol != 0);
 
         require(getPair[token0][token1][fee] == address(0));
-        pair = deploy(address(this), token0, token1, fee);
+        pair = deploy(address(this), token0, token1, fee, feeProtocol);
         getPair[token0][token1][fee] = pair;
         // populate mapping in the reverse direction, deliberate choice to avoid the cost of comparing addresses
         getPair[token1][token0][fee] = pair;

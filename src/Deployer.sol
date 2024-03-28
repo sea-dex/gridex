@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-import './interfaces/IPairDeployer.sol';
+import "./interfaces/IPairDeployer.sol";
 
-import './Pair.sol';
+import "./Pair.sol";
 
 contract Deployer is IPairDeployer {
     struct Parameters {
@@ -11,6 +11,7 @@ contract Deployer is IPairDeployer {
         address base;
         address quote;
         uint24 fee;
+        uint8 feeProtocol;
     }
 
     /// @inheritdoc IPairDeployer
@@ -26,10 +27,19 @@ contract Deployer is IPairDeployer {
         address factory,
         address base,
         address quote,
-        uint24 fee
+        uint24 fee,
+        uint8 feeProtocol
     ) internal returns (address pool) {
-        parameters = Parameters({factory: factory, base: base, quote: quote, fee: fee});
-        pool = address(new Pair{salt: keccak256(abi.encode(base, quote, fee))}());
+        parameters = Parameters({
+            factory: factory,
+            base: base,
+            quote: quote,
+            fee: fee,
+            feeProtocol: feeProtocol
+        });
+        pool = address(
+            new Pair{salt: keccak256(abi.encode(base, quote, fee))}()
+        );
         delete parameters;
     }
 }

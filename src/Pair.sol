@@ -44,12 +44,12 @@ contract Pair is IPair {
         uint160 price;
         // buy order: quote amount; sell order: base amount;
         uint96 amount;
+        uint160 revPrice;
         uint96 revAmount;
         // grid id, or address if limit order
         uint64 gridId;
         // order id
         uint64 orderId;
-        bool canceled;
     }
 
     mapping(uint64 orderId => Order) public bidOrders;
@@ -57,9 +57,10 @@ contract Pair is IPair {
 
     struct GridConfig {
         address owner;
-        uint128 profits; // quote token
-        uint32 orders;
         bool compound;
+        uint32 orders;
+        uint128 profits; // quote token
+        uint96 baseAmt;
     }
 
     uint64 public nextGridId = 1;
@@ -73,19 +74,23 @@ contract Pair is IPair {
         uint24 _fee;
         address _base;
         address _quote;
+        uint8 _feeProtocol;
 
-        (factory, _base, _quote, _fee) = IPairDeployer(msg.sender).parameters();
+        (factory, _base, _quote, _fee, _feeProtocol) = IPairDeployer(msg.sender).parameters();
         slot0.fee = _fee;
+        slot0.feeProtocol = _feeProtocol;
         baseToken = Currency.wrap(_base);
         quoteToken = Currency.wrap(_quote);
     }
 
-    // make the pair contract send/receive ETH
-    receive() external payable {}
-
     // @inheritdoc IPair
     function fee() external view returns (uint24) {
         return slot0.fee;
+    }
+
+    // @inheritdoc IPair
+    function feeProtocol() external view returns (uint8) {
+        return slot0.feeProtocol;
     }
 
     struct GridOrderParam {
@@ -151,13 +156,20 @@ contract Pair is IPair {
                 revert ExceedMaxAmount();
             }
         }
+        // make sure the highest sell order quote amount not overflow
+        if (asks > 0) {
+            calcQuoteAmount(
+                uint256(perBaseAmt),
+                sellPrice0 + uint256(asks - 1) * sellGap
+            );
+        }
     }
 
-    function isAskGridOrder(uint64 orderId) public returns (bool) {
+    function isAskGridOrder(uint64 orderId) public pure returns (bool) {
         return orderId & AskOderMask > 0;
     }
 
-    function placeGridOrders(GridOrderParam calldata params) public payable {
+    function placeGridOrders(GridOrderParam calldata params) public {
         // validate grid params
         validateGridOrderParam(params);
         uint64 gridId = nextGridId;
@@ -173,14 +185,23 @@ contract Pair is IPair {
                 nextAskOrderId = askOrderId + params.asks;
             }
             // only create order0, other orders will be lazy created
-            askOrders[askOrderId] = Order({
-                gridId: gridId,
-                orderId: askOrderId,
-                amount: uint96(params.baseAmount),
-                revAmount: 0,
-                price: uint160(params.sellPrice0),
-                canceled: false
-            });
+            uint256 sellPrice0 = params.sellPrice0;
+            uint256 sellGap = params.sellGap;
+            for (uint i = 0; i < params.asks; ) {
+                askOrders[askOrderId] = Order({
+                    gridId: gridId,
+                    orderId: askOrderId,
+                    amount: uint96(params.baseAmount),
+                    revAmount: 0,
+                    price: uint160(sellPrice0),
+                    revPrice: uint160(sellPrice0 - sellGap)
+                });
+                unchecked {
+                    ++i;
+                    ++askOrderId;
+                    sellPrice0 += sellGap;
+                }
+            }
             IERC20Minimal(Currency.unwrap(baseToken)).safeTransferFrom(
                 msg.sender,
                 address(this),
@@ -191,7 +212,6 @@ contract Pair is IPair {
         if (params.bids > 0) {
             uint256 buyPrice0 = params.buyPrice0;
             uint256 buyGap = params.buyGap;
-            uint256 amt0;
             uint256 perBaseAmt = params.baseAmount;
             uint256 quoteAmt = 0;
             // create bid orders
@@ -206,12 +226,19 @@ contract Pair is IPair {
                 for (uint i = 0; i < params.bids; ) {
                     uint256 price = buyPrice0 - i * buyGap;
                     uint256 amt = calcQuoteAmount(perBaseAmt, price);
-                    if (i == 0) {
-                        amt0 = amt;
-                    }
+
+                    bidOrders[bidOrderId] = Order({
+                        gridId: gridId,
+                        orderId: bidOrderId,
+                        amount: uint96(amt),
+                        price: uint160(price),
+                        revPrice: uint160(price + buyGap),
+                        revAmount: 0
+                    });
 
                     quoteAmt += amt;
                     ++i;
+                    ++bidOrderId;
                 }
             }
             // transfer base/quote tokens
@@ -223,14 +250,6 @@ contract Pair is IPair {
                 address(this),
                 quoteAmt
             );
-            bidOrders[bidOrderId] = Order({
-                gridId: gridId,
-                orderId: bidOrderId,
-                amount: uint96(amt0),
-                price: uint160(buyPrice0),
-                revAmount: 0,
-                canceled: false
-            });
         }
 
         unchecked {
@@ -242,7 +261,8 @@ contract Pair is IPair {
             owner: msg.sender,
             orders: uint32(params.asks + params.bids),
             profits: 0,
-            compound: params.compound
+            compound: params.compound,
+            baseAmt: params.baseAmount
         });
 
         emit GridOrderCreated(
@@ -259,23 +279,6 @@ contract Pair is IPair {
             params.baseAmount,
             params.compound
         );
-    }
-
-    function calcQuoteAmount2(
-        uint256 baseAmt,
-        uint256 price
-    ) public pure returns (uint256) {
-        uint256 amt = 0;
-        unchecked {
-            amt = ((baseAmt) * (price)) / PRICE_MULTIPLIER;
-        }
-        if (amt == 0) {
-            revert ZeroQuoteAmt();
-        }
-        if (amt >= uint256(type(uint96).max)) {
-            revert ExceedQuoteAmt();
-        }
-        return (amt);
     }
 
     function calcQuoteAmount(
@@ -298,7 +301,7 @@ contract Pair is IPair {
     function calcBaseAmount(
         uint256 quoteAmt,
         uint256 price
-    ) public pure returns (uint96) {
+    ) public pure returns (uint256) {
         uint256 amt = 0;
         unchecked {
             amt = (((quoteAmt) * PRICE_MULTIPLIER) / (price));
@@ -309,18 +312,21 @@ contract Pair is IPair {
         if (amt >= uint256(type(uint96).max)) {
             revert ExceedBaseAmt();
         }
-        return uint96(amt);
+        return amt;
     }
 
     // amount is always quote amount
-    function calcFee(uint256 amount) public returns (uint96, uint96) {
-        uint96 totalFee;
-        uint96 protoFee = 0;
+    function collectProtocolFee(
+        uint256 amount
+    ) public returns (uint256, uint256) {
+        uint256 totalFee;
+        uint256 protoFee = 0;
 
         unchecked {
-            totalFee = uint96((uint256(slot0.fee) * uint256(amount)) / 1000000);
-            if (slot0.feeProtocol > 0) {
-                protoFee = totalFee / uint96(slot0.feeProtocol);
+            totalFee = (uint256(slot0.fee) * uint256(amount)) / 1000000;
+            uint8 feeProtocol = slot0.feeProtocol;
+            if (feeProtocol > 0) {
+                protoFee = totalFee / uint256(feeProtocol);
                 protocolFees += uint128(protoFee);
             }
         }
@@ -328,141 +334,161 @@ contract Pair is IPair {
         return (totalFee, totalFee - protoFee);
     }
 
+    function fillAskOrder(
+        uint64 id,
+        uint256 amt
+    ) private returns (uint256, uint256) {
+        // copy order to memory, save gas
+        Order memory order;
+        uint256 sellPrice;
+        uint256 orderBaseAmt; // base token amount of the grid order
+        uint256 orderQuoteAmt; // quote token amount of the grid order
+        bool isAsk = isAskGridOrder(id);
+
+        if (isAsk) {
+            order = askOrders[id];
+            if (order.amount == 0) {
+                return (0, 0);
+            }
+            orderBaseAmt = order.amount;
+            orderQuoteAmt = order.revAmount;
+            sellPrice = order.price;
+        } else {
+            order = bidOrders[id];
+            // rev amount is base token
+            if (order.revAmount == 0) {
+                return (0, 0);
+            }
+            orderBaseAmt = order.revAmount;
+            orderQuoteAmt = order.amount;
+            sellPrice = order.revPrice;
+        }
+
+        if (amt > orderBaseAmt) {
+            amt = orderBaseAmt;
+        }
+        uint256 vol = calcQuoteAmount(amt, uint256(sellPrice)); // quoteVol = filled * price
+        (uint256 totalFee, uint256 lpFee) = collectProtocolFee(vol);
+        unchecked {
+            if (vol + totalFee > type(uint96).max) {
+                revert ExceedQuoteAmt();
+            }
+        }
+
+        unchecked {
+            orderBaseAmt -= amt;
+        }
+        // avoid stacks too deep
+        {
+            uint64 gridId = order.gridId;
+            if (gridConfigs[gridId].compound) {
+                orderQuoteAmt += vol + lpFee; // all quote reverse
+                if (orderQuoteAmt > type(uint96).max) {
+                    revert ExceedQuoteAmt();
+                }
+            } else {
+                uint256 base = gridConfigs[gridId].baseAmt;
+                uint256 buyPrice = isAsk ? order.revPrice : order.price;
+                uint256 quota = calcQuoteAmount(base, buyPrice);
+                // increase profit if sell quote amount > baseAmt * price
+                unchecked {
+                    if (orderQuoteAmt >= quota) {
+                        gridConfigs[gridId].profits += uint128(vol + lpFee);
+                    } else {
+                        uint256 rev = orderQuoteAmt + vol + lpFee;
+                        if (rev > quota) {
+                            orderQuoteAmt = quota;
+                            gridConfigs[gridId].profits += uint128(rev - quota);
+                        } else {
+                            orderQuoteAmt += vol + lpFee;
+                        }
+                    }
+                }
+            }
+        }
+        emit FilledOrder(
+            order.orderId,
+            amt,
+            vol,
+            orderBaseAmt,
+            orderQuoteAmt,
+            totalFee,
+            lpFee
+        );
+
+        // update storage order
+        if (isAsk) {
+            askOrders[id].amount = uint96(orderBaseAmt);
+            askOrders[id].revAmount = uint96(orderQuoteAmt);
+        } else {
+            bidOrders[id].amount = uint96(orderQuoteAmt);
+            bidOrders[id].revAmount = uint96(orderBaseAmt);
+        }
+
+        return (amt, vol + totalFee);
+    }
+
     // taker is BUY
     function fillAskOrders(
-        uint64[] calldata idList,
-        uint96[] calldata amtList,
+        uint64 id,
+        uint256 amt,
         uint256 maxAmt, // base amount
         uint256 minAmt // base amount
-    ) public payable {
-        if (idList.length != amtList.length) {
-            revert InvalidParam();
-        }
+    ) public {
+        if (maxAmt > 0) require(maxAmt >= amt);
+        if (minAmt > 0) require(minAmt <= amt);
 
-        uint256 filledAmt = 0; // accumulate base amount
-        uint256 filledVol = 0; // accumulate quote amount
-        uint256 filledFee = 0; // accumulate fee, by quote
-
-        for (uint i = 0; i < idList.length; ) {
-            uint64 id = idList[i];
-            uint96 filled = amtList[i];
-            Order storage order = askOrders[id];
-            uint96 amount = order.amount;
-
-            if (amount == 0) {
-                // order NOT exist or filled
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            if (amount < filled) {
-                filled = amount;
-            }
-            if (maxAmt > 0 && maxAmt - filledAmt < filled) {
-                filled = uint96(maxAmt - filledAmt);
-            }
-            order.amount -= filled;
-            uint256 vol = calcQuoteAmount(filled, uint256(order.price)) + 1; // quoteVol = filled * price
-            (uint96 totalFee, uint96 lpFee) = calcFee(vol);
-
-            emit FilledOrder(order.orderId, uint96(vol), totalFee, lpFee);
-
-            Order storage bidOrder = bidOrders[id];
-            // all sell and fee go to reversed grid order
-            bidOrder.amount += uint96(vol + lpFee);
-
-            unchecked {
-                filledAmt += filled;
-                filledVol += vol;
-                filledFee += totalFee;
-                ++i;
-            }
-            if (maxAmt > 0 && filledAmt >= maxAmt) {
-                break;
-            }
-        }
+        (uint256 filledAmt, uint256 filledVol) = fillAskOrder(id, amt);
 
         if (minAmt > 0 && filledAmt < minAmt) {
             revert NotEnoughToFill();
         }
+
         if (filledVol > 0) {
-            // transfer quote token from taker
-            filledVol += filledFee;
-            if (quoteToken.isNative()) {
-                if (msg.value < filledVol) revert NotEnoughQuoteToken();
-                if (msg.value > filledVol) {
-                    // refund
-                    quoteToken.transfer(msg.sender, msg.value - filledVol);
-                }
-            } else {
-                IERC20Minimal(Currency.unwrap(quoteToken)).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    filledVol
-                );
-            }
+            IERC20Minimal(Currency.unwrap(quoteToken)).safeTransferFrom(
+                msg.sender,
+                address(this),
+                filledVol
+            );
             // transfer base token to taker
             baseToken.transfer(msg.sender, filledAmt);
         }
     }
 
-    // taker is sell
-    function fillBidOrders(
+    // taker is BUY
+    function fillAskOrders(
         uint64[] calldata idList,
-        uint96[] calldata amtList,
-        uint256 maxAmt,
+        uint256[] calldata amtList,
+        uint256 maxAmt, // base amount
         uint256 minAmt // base amount
-    ) public payable {
+    ) public {
         if (idList.length != amtList.length) {
             revert InvalidParam();
         }
 
         uint256 filledAmt = 0; // accumulate base amount
         uint256 filledVol = 0; // accumulate quote amount
-        uint256 filledFee = 0; // accumulate fee, by quote
 
         for (uint i = 0; i < idList.length; ) {
-            uint64 id = idList[i];
-            uint256 filled = amtList[i];
-            Order storage order = bidOrders[id];
-            uint96 amount = order.amount;
-            uint256 price = order.price;
+            uint256 amt = amtList[i];
 
-            if (amount == 0) {
-                // order NOT exist or filled
-                unchecked {
-                    ++i;
-                }
-                continue;
+            if (maxAmt > 0 && maxAmt - filledAmt < amt) {
+                amt = maxAmt - filledAmt;
             }
-            uint256 vol = calcQuoteAmount(filled, price); // quoteVol = filled * price
-            if (amount < vol) {
-                vol = amount;
-                filled = calcBaseAmount(vol, price);
-            }
-            if (maxAmt > 0 && maxAmt - filledAmt < filled) {
-                unchecked {
-                    filled = uint96(maxAmt - filledAmt);
-                }
-                vol = calcQuoteAmount(filled, price);
-            }
-            (uint96 totalFee, uint96 makerFee) = calcFee(vol);
-            Order storage revOrder = askOrders[id];
-            // base token reversed
-            revOrder.amount += uint96(filled);
+
+            (
+                uint256 filledBaseAmt,
+                uint256 filledQuoteAmtWithFee
+            ) = fillAskOrder(idList[i], amt);
+
             unchecked {
-                order.amount -= uint96(vol - makerFee);
-                filledAmt += filled;
-                filledVol += vol;
-                filledFee += totalFee;
+                filledAmt += filledBaseAmt;
+                filledVol += filledQuoteAmtWithFee;
+                ++i;
             }
+
             if (maxAmt > 0 && filledAmt >= maxAmt) {
                 break;
-            }
-            unchecked {
-                ++i;
             }
         }
 
@@ -470,77 +496,275 @@ contract Pair is IPair {
             revert NotEnoughToFill();
         }
         if (filledVol > 0) {
-            unchecked {
-                filledVol -= filledFee;
+            IERC20Minimal(Currency.unwrap(quoteToken)).safeTransferFrom(
+                msg.sender,
+                address(this),
+                filledVol
+            );
+            // transfer base token to taker
+            baseToken.transfer(msg.sender, filledAmt);
+        }
+    }
+
+    // amt is base token
+    function fillBidOrder(
+        uint64 id,
+        uint256 amt
+    ) private returns (uint256, uint256) {
+        // copy order to memory, save gas
+        Order memory order;
+        uint256 buyPrice;
+        uint256 orderBaseAmt; // base token amount of the grid order
+        uint256 orderQuoteAmt; // quote token amount of the grid order
+        bool isAsk = isAskGridOrder(id);
+
+        if (isAsk) {
+            order = askOrders[id];
+            if (order.revAmount == 0) {
+                return (0, 0);
             }
+            orderBaseAmt = order.amount;
+            orderQuoteAmt = order.revAmount;
+            buyPrice = order.revPrice;
+        } else {
+            order = bidOrders[id];
+            // rev amount is base token
+            if (order.amount == 0) {
+                return (0, 0);
+            }
+            orderBaseAmt = order.revAmount;
+            orderQuoteAmt = order.amount;
+            buyPrice = order.price;
+        }
+        uint256 filledVol = calcQuoteAmount(amt, buyPrice);
+        if (filledVol > orderQuoteAmt) {
+            amt = calcBaseAmount(orderQuoteAmt, buyPrice);
+            filledVol = orderQuoteAmt; // calcQuoteAmount(amt, buyPrice);
+        }
+        (uint256 totalFee, uint256 lpFee) = collectProtocolFee(filledVol);
+        unchecked {
+            if (filledVol + totalFee > type(uint96).max) {
+                revert ExceedQuoteAmt();
+            }
+        }
+        unchecked {
+            orderBaseAmt += amt;
+        }
+
+        // avoid stacks too deep
+        {
+            uint64 gridId = order.gridId;
+            if (gridConfigs[gridId].compound) {
+                orderQuoteAmt -= filledVol - lpFee; // all quote reverse
+            } else {
+                // lpFee into profit
+                gridConfigs[gridId].profits += uint128(lpFee);
+                orderQuoteAmt -= filledVol;
+            }
+        }
+
+        emit FilledOrder(
+            order.orderId,
+            amt,
+            filledVol,
+            orderBaseAmt,
+            orderQuoteAmt,
+            totalFee,
+            lpFee
+        );
+
+        // update storage order
+        if (isAsk) {
+            askOrders[id].amount = uint96(orderBaseAmt);
+            askOrders[id].revAmount = uint96(orderQuoteAmt);
+        } else {
+            bidOrders[id].amount = uint96(orderQuoteAmt);
+            bidOrders[id].revAmount = uint96(orderBaseAmt);
+        }
+
+        return (amt, filledVol - totalFee);
+    }
+
+    // taker is sell, amtList, maxAmt, minAmt is base token amount
+    function fillBidOrders(
+        uint64 id,
+        uint256 amt,
+        uint256 maxAmt,
+        uint256 minAmt // base amount
+    ) public {
+        if (maxAmt > 0) require(maxAmt >= amt);
+        if (minAmt > 0) require(minAmt <= amt);
+
+        (uint256 filledAmt, uint256 filledVol) = fillBidOrder(id, amt);
+
+        if (minAmt > 0 && filledAmt < minAmt) {
+            revert NotEnoughToFill();
+        }
+        if (filledVol > 0) {
             // transfer quote token to taker
             quoteToken.transfer(msg.sender, filledVol);
             // transfer base token from taker
-            if (baseToken.isNative()) {
-                if (msg.value < filledAmt) revert NotEnoughQuoteToken();
-                if (msg.value > filledAmt) {
-                    baseToken.transfer(msg.sender, msg.value - filledAmt);
-                }
-            } else {
-                IERC20Minimal(Currency.unwrap(baseToken)).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    filledAmt
-                );
+
+            IERC20Minimal(Currency.unwrap(baseToken)).safeTransferFrom(
+                msg.sender,
+                address(this),
+                filledAmt
+            );
+        }
+    }
+
+    // taker is sell, amtList, maxAmt, minAmt is base token amount
+    function fillBidOrders(
+        uint64[] calldata idList,
+        uint96[] calldata amtList,
+        uint256 maxAmt,
+        uint256 minAmt // base amount
+    ) public {
+        if (idList.length != amtList.length) {
+            revert InvalidParam();
+        }
+
+        uint256 filledAmt = 0; // accumulate base amount
+        uint256 filledVol = 0; // accumulate quote amount
+
+        for (uint i = 0; i < idList.length; ) {
+            uint256 amt = amtList[i];
+
+            if (maxAmt > 0 && maxAmt - filledAmt < amt) {
+                amt = maxAmt - filledAmt;
             }
+
+            (
+                uint256 filledBaseAmt,
+                uint256 filledQuoteAmtSubFee
+            ) = fillBidOrder(idList[i], amt);
+
+            unchecked {
+                filledAmt += filledBaseAmt;
+                filledVol += filledQuoteAmtSubFee;
+                ++i;
+            }
+
+            if (maxAmt > 0 && filledAmt >= maxAmt) {
+                break;
+            }
+        }
+
+        if (minAmt > 0 && filledAmt < minAmt) {
+            revert NotEnoughToFill();
+        }
+        if (filledVol > 0) {
+            // transfer quote token to taker
+            quoteToken.transfer(msg.sender, filledVol);
+            // transfer base token from taker
+
+            IERC20Minimal(Currency.unwrap(baseToken)).safeTransferFrom(
+                msg.sender,
+                address(this),
+                filledAmt
+            );
+        }
+    }
+
+    function getGridOrder(uint64 id) public view returns (Order memory order) {
+        if (isAskGridOrder(id)) {
+            order = askOrders[id];
+        } else {
+            order = bidOrders[id];
         }
     }
 
     function getGridOrders(
         uint64[] calldata idList
-    ) public returns (Order[] memory) {
+    ) public view returns (Order[] memory) {
         Order[] memory orderList = new Order[](idList.length);
 
-        for (uint i = 0; i < idList.length; i++) {}
+        for (uint i = 0; i < idList.length; i++) {
+            uint64 id = idList[i];
+            if (isAskGridOrder(idList[i])) {
+                orderList[i] = askOrders[id];
+            } else {
+                orderList[i] = bidOrders[id];
+            }
+        }
         return orderList;
+    }
+
+    function getGridProfits(uint64 gridId) public view returns (uint256) {
+        return gridConfigs[gridId].profits;
+    }
+
+    function sweepGridProfits(uint64 gridId, uint256 amt, address to) public {
+        GridConfig memory conf = gridConfigs[gridId];
+        require(conf.owner == msg.sender);
+
+        if (conf.profits > amt) {
+            amt = conf.profits;
+        }
+        if (amt == 0) {
+            return;
+        }
+
+        gridConfigs[gridId].profits = conf.profits - uint128(amt);
+        IERC20Minimal(Currency.unwrap(quoteToken)).safeTransferFrom(
+            msg.sender,
+            to,
+            amt
+        );
     }
 
     // cancel grid order will cancel both ask order and bid order
     function cancelGridOrders(uint64[] calldata idList) public {
-        uint96 baseAmt = 0;
-        uint96 quoteAmt = 0;
+        uint256 baseAmt = 0;
+        uint256 quoteAmt = 0;
+        uint256 totalBaseAmt = 0;
+        uint256 totalQuoteAmt = 0;
+
         for (uint i = 0; i < idList.length; ) {
             uint64 id = idList[i];
+            Order memory order;
+            bool isAsk = isAskGridOrder(id);
 
-            Order storage askOrder = askOrders[id];
-            Order storage bidOrder = bidOrders[id];
-            uint64 gridId = uint64(askOrder.gridId);
-            if (gridId == 0) {
-                // invalid order
-                revert InvalidGridId();
+            if (isAsk) {
+                order = askOrders[id];
+                baseAmt = order.amount;
+                quoteAmt = order.revAmount;
+            } else {
+                order = bidOrders[id];
+                baseAmt = order.revAmount;
+                quoteAmt = order.amount;
             }
-            GridConfig storage conf = gridConfigs[gridId];
+            uint64 gridId = order.gridId;
+            GridConfig memory conf = gridConfigs[gridId];
             if (msg.sender != conf.owner) {
                 revert NotGridOrder();
             }
 
-            baseAmt += askOrder.amount;
-            quoteAmt += bidOrder.amount;
-            emit CancelGridOrder(gridId, id, askOrder.amount, bidOrder.amount);
+            emit CancelGridOrder(gridId, id, baseAmt, quoteAmt);
 
-            delete askOrders[id];
-            delete bidOrders[id];
+            if (isAsk) {
+                delete askOrders[id];
+            } else {
+                delete bidOrders[id];
+            }
 
             unchecked {
                 ++i;
-                conf.orders--;
+                --conf.orders;
+                totalBaseAmt += baseAmt;
+                totalQuoteAmt += quoteAmt;
             }
             if (conf.orders == 0) {
-                delete gridConfigs[uint64(gridId)];
+                delete gridConfigs[gridId];
             }
         }
         if (baseAmt > 0) {
             // transfer
-            baseToken.transfer(msg.sender, baseAmt);
+            baseToken.transfer(msg.sender, totalBaseAmt);
         }
         if (quoteAmt > 0) {
             // transfer
-            quoteToken.transfer(msg.sender, quoteAmt);
+            quoteToken.transfer(msg.sender, totalQuoteAmt);
         }
     }
 
