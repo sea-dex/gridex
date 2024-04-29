@@ -19,3 +19,5 @@ artifacts/
 foundry-out/
 crytic-export/
 typechain/
+
+address.json

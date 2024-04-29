@@ -32,13 +32,15 @@ interface IPairEvents {
     );
 
     /// @notice Emitted when a grid order was canceled
-    /// @param gridId The gridId of the order to be canceled
+    /// @param owner The owner of the canceled order
     /// @param orderId The orderId of the order to be canceled
+    /// @param gridId The gridId of the order to be canceled
     /// @param baseAmt sell order left amount(base token)
     /// @param quoteAmt buy order left amount(quote token)
     event CancelGridOrder(
+        address indexed owner,
+        uint64 indexed orderId,
         uint64 gridId,
-        uint64 orderId,
         uint256 baseAmt,
         uint256 quoteAmt
     );
@@ -52,7 +54,7 @@ interface IPairEvents {
     /// @param totalFee Total trading fee
     /// @param lpFee The LP trading fee
     event FilledOrder(
-        uint64 orderId,
+        uint64 indexed orderId,
         uint256 baseAmt,
         uint256 quoteVol,
         uint256 leftBaseAmt,

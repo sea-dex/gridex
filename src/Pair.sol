@@ -324,9 +324,9 @@ contract Pair is IPair {
 
         unchecked {
             totalFee = (uint256(slot0.fee) * uint256(amount)) / 1000000;
-            uint8 feeProtocol = slot0.feeProtocol;
-            if (feeProtocol > 0) {
-                protoFee = totalFee / uint256(feeProtocol);
+            uint8 feeProto = slot0.feeProtocol;
+            if (feeProto > 0) {
+                protoFee = totalFee / uint256(feeProto);
                 protocolFees += uint128(protoFee);
             }
         }
@@ -740,7 +740,7 @@ contract Pair is IPair {
                 revert NotGridOrder();
             }
 
-            emit CancelGridOrder(gridId, id, baseAmt, quoteAmt);
+            emit CancelGridOrder(msg.sender, id, gridId, baseAmt, quoteAmt);
 
             if (isAsk) {
                 delete askOrders[id];
