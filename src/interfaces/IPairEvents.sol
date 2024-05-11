@@ -47,20 +47,24 @@ interface IPairEvents {
 
     /// @notice Emitted when a grid order was filled
     /// @param orderId The orderId of the order to be canceled
+    /// @param sidePrice The grid order side: ASK=1 BID=2
     /// @param baseAmt The base token amount filled
     /// @param quoteVol The quote token amount filled
     /// @param leftBaseAmt The base token amount left in the order
     /// @param leftQuoteAmt The quote token amount left in the order
     /// @param totalFee Total trading fee
     /// @param lpFee The LP trading fee
+    /// @param taker The taker address
     event FilledOrder(
         uint64 indexed orderId,
+        uint256 sidePrice,
         uint256 baseAmt,
         uint256 quoteVol,
         uint256 leftBaseAmt,
         uint256 leftQuoteAmt,
         uint256 totalFee,
-        uint256 lpFee
+        uint256 lpFee,
+        address taker
     );
 
     /// @notice Emitted by a pair when fee protocol changed

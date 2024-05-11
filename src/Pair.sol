@@ -335,6 +335,7 @@ contract Pair is IPair {
     }
 
     function fillAskOrder(
+        address taker,
         uint64 id,
         uint256 amt
     ) private returns (uint256, uint256) {
@@ -408,12 +409,14 @@ contract Pair is IPair {
         }
         emit FilledOrder(
             order.orderId,
+            1<<160 | sellPrice, // ASK
             amt,
             vol,
             orderBaseAmt,
             orderQuoteAmt,
             totalFee,
-            lpFee
+            lpFee,
+            taker
         );
 
         // update storage order
@@ -438,7 +441,7 @@ contract Pair is IPair {
         if (maxAmt > 0) require(maxAmt >= amt);
         if (minAmt > 0) require(minAmt <= amt);
 
-        (uint256 filledAmt, uint256 filledVol) = fillAskOrder(id, amt);
+        (uint256 filledAmt, uint256 filledVol) = fillAskOrder(msg.sender, id, amt);
 
         if (minAmt > 0 && filledAmt < minAmt) {
             revert NotEnoughToFill();
@@ -479,7 +482,7 @@ contract Pair is IPair {
             (
                 uint256 filledBaseAmt,
                 uint256 filledQuoteAmtWithFee
-            ) = fillAskOrder(idList[i], amt);
+            ) = fillAskOrder(msg.sender, idList[i], amt);
 
             unchecked {
                 filledAmt += filledBaseAmt;
@@ -508,6 +511,7 @@ contract Pair is IPair {
 
     // amt is base token
     function fillBidOrder(
+        address taker,
         uint64 id,
         uint256 amt
     ) private returns (uint256, uint256) {
@@ -528,7 +532,7 @@ contract Pair is IPair {
             buyPrice = order.revPrice;
         } else {
             order = bidOrders[id];
-            // rev amount is base token
+            // amount is quote token
             if (order.amount == 0) {
                 return (0, 0);
             }
@@ -565,12 +569,14 @@ contract Pair is IPair {
 
         emit FilledOrder(
             order.orderId,
+            2<<160 | buyPrice, // BID
             amt,
             filledVol,
             orderBaseAmt,
             orderQuoteAmt,
             totalFee,
-            lpFee
+            lpFee,
+            taker
         );
 
         // update storage order
@@ -595,7 +601,7 @@ contract Pair is IPair {
         if (maxAmt > 0) require(maxAmt >= amt);
         if (minAmt > 0) require(minAmt <= amt);
 
-        (uint256 filledAmt, uint256 filledVol) = fillBidOrder(id, amt);
+        (uint256 filledAmt, uint256 filledVol) = fillBidOrder(msg.sender, id, amt);
 
         if (minAmt > 0 && filledAmt < minAmt) {
             revert NotEnoughToFill();
@@ -637,7 +643,7 @@ contract Pair is IPair {
             (
                 uint256 filledBaseAmt,
                 uint256 filledQuoteAmtSubFee
-            ) = fillBidOrder(idList[i], amt);
+            ) = fillBidOrder(msg.sender, idList[i], amt);
 
             unchecked {
                 filledAmt += filledBaseAmt;
