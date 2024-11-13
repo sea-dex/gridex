@@ -220,6 +220,21 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
         return amt;
     }
 
+    /// Calculate sum quote amount for grid order
+    function calcSumQuoteAmount(
+        uint128 baseAmt,
+        uint160 price0,
+        uint160 gap,
+        uint32 orderCount
+    ) public pure returns (uint256 quoteAmt) {
+        for (uint i = 0; i < orderCount; ++i) {
+            uint128 amt = calcQuoteAmount(baseAmt, price0, false);
+
+            quoteAmt += amt;
+            price0 -= gap;
+        }
+    }
+
     function isAskGridOrder(uint96 orderId) public pure returns (bool) {
         return orderId & AskOderMask > 0;
     }
