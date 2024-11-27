@@ -30,7 +30,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
         bool compound;
     }
 
-    /// Grid Order
+    /// @dev Grid Order
     struct Order {
         // order price
         uint160 price;

@@ -9,8 +9,8 @@ interface IGridEx {
     /// @param quote The quote token of the pair
     /// @param pairId The pair id
     event PairCreated(
-        address indexed base,
-        address indexed quote,
+        Currency indexed base,
+        Currency indexed quote,
         uint256 indexed pairId
     );
 
@@ -18,7 +18,7 @@ interface IGridEx {
     /// @param quote The quote token
     /// @param priority The priority of the quote token
     event QuotableTokenUpdated(
-        address quote,
+        Currency quote,
         uint priority
     );
 
@@ -29,19 +29,13 @@ interface IGridEx {
     /// @param amt Amount
     event WithdrawProfit(
         uint96 gridId,
-        address quote,
+        Currency quote,
         address to,
         uint256 amt
     );
 
     /// @notice WETH address
     function WETH() external returns (address);
-
-    /// @notice set or update the quote token priority
-    /// @dev Must be called by the current owner
-    /// @param token The quotable token
-    /// @param priority The priority of the quotable token
-    function setQuoteToken(address token, uint priority) external;
     
     /// Grid order param
     struct GridOrderParam {
@@ -62,8 +56,8 @@ interface IGridEx {
     /// @param quote The quote token
     function placeGridOrders(
         address maker,
-        address base,
-        address quote,
+        Currency base,
+        Currency quote,
         GridOrderParam calldata param
     ) external;
 
@@ -115,11 +109,17 @@ interface IGridEx {
     /// @param pairId The pair id
     function cancelGridOrders(uint64 pairId, address recipient, uint64[] calldata idList) external;
 
+    /// @notice set or update the quote token priority
+    /// @dev Must be called by the current owner
+    /// @param token The quotable token
+    /// @param priority The priority of the quotable token
+    function setQuoteToken(Currency token, uint priority) external;
+    
     /// @notice Collect the protocol fee
     /// @param recipient The address to which collected protocol fees should be sent
     /// @param amount The maximum amount
     function collectProtocolFee(
-        address token,
+        Currency token,
         address recipient,
         uint256 amount
     ) external;

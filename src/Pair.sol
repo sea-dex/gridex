@@ -6,22 +6,23 @@ import "./interfaces/IFactory.sol";
 import "./interfaces/IPairDeployer.sol";
 
 import "./libraries/TransferHelper.sol";
+import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
 
 abstract contract Pair is IPair {
     /// pair id
     uint64 public nextPairId = 1;
 
     /// pair index by base/quote address
-    mapping(address => mapping(address => Pair)) public getPair;
+    mapping(Currency => mapping(Currency => Pair)) public getPair;
     /// pair index by base/quote address
     mapping(uint64 => Pair) public getPairById;
 
     /// quotable tokens
-    mapping(address => uint) public quotableTokens;
+    mapping(Currency => uint) public quotableTokens;
 
     function getPairTokens(
         uint64 pairId
-    ) public view override returns (address base, address quote) {
+    ) public view override returns (Currency base, Currency quote) {
         Pair memory pair = getPairById[pairId];
         if (pair.pairId == 0) {
             revert InvalidPairId();
@@ -31,16 +32,16 @@ abstract contract Pair is IPair {
     }
 
     function getPairIdByTokens(
-        address base,
-        address quote
+        Currency base,
+        Currency quote
     ) public view returns (uint64) {
         Pair memory pair = getPair[base][quote];
         return pair.pairId;
     }
 
     function getOrCreatePair(
-        address base,
-        address quote
+        Currency base,
+        Currency quote
     ) public override returns (Pair memory) {
         Pair memory pair = getPair[base][quote];
         if (pair.pairId > 0) {

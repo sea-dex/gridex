@@ -28,15 +28,15 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
 
     mapping(uint96 orderId => Order) public bidOrders;
     mapping(uint96 orderId => Order) public askOrders;
-    mapping(address => uint) public protocolFees;
+    mapping(Currency => uint) public protocolFees;
 
     uint96 public nextGridId = 1;
     mapping(uint96 gridId => GridConfig) public gridConfigs;
 
     constructor(address weth_, address usd_) Owned(msg.sender) {
         // usd is the most priority quote token
-        quotableTokens[usd_] = 1 << 20;
-        quotableTokens[weth_] = 1 << 10;
+        quotableTokens[Currency.wrap(usd_)] = 1 << 20;
+        quotableTokens[Currency.wrap(weth_)] = 1 << 10;
         WETH = weth_;
     }
 
@@ -65,10 +65,10 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
     /// place both side grid orders
     function placeGridOrders(
         address maker,
-        address base,
-        address quote,
+        Currency base,
+        Currency quote,
         GridOrderParam calldata param
-    ) public override nonReentrant {
+    ) public payable override nonReentrant {
         Pair memory pair = getOrCreatePair(base, quote);
         uint96 gridId = createGridConfig(
             maker,
@@ -87,22 +87,22 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         ) = placeGridOrder(gridId, param, askOrders, bidOrders);
         // transfer base token
         if (baseAmt > 0) {
-            uint256 balanceBefore = _balance(pair.base);
+            uint256 balanceBefore = pair.base.balanceOf(address(this));
             IGridExCallback(msg.sender).gridExPlaceOrderCallback(
                 pair.base,
                 baseAmt
             );
-            require(balanceBefore + baseAmt <= _balance(pair.base), "G1");
+            require(balanceBefore + baseAmt <= pair.base.balanceOf(address(this)), "G1");
         }
 
         // transfer quote token
         if (quoteAmt > 0) {
-            uint256 balanceBefore = _balance(pair.quote);
+            uint256 balanceBefore = pair.quote.balanceOf(address(this));
             IGridExCallback(msg.sender).gridExPlaceOrderCallback(
                 pair.quote,
                 quoteAmt
             );
-            require(balanceBefore + quoteAmt <= _balance(pair.quote), "G2");
+            require(balanceBefore + quoteAmt <= pair.quote.balanceOf(address(this)), "G2");
         }
 
         emit GridOrderCreated(
@@ -121,27 +121,13 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         );
     }
 
-    /// @dev Get the pool's balance of token
-    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// check
-    function _balance(address token) private view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSelector(
-                IERC20Minimal.balanceOf.selector,
-                address(this)
-            )
-        );
-        require(success && data.length >= 32);
-        return abi.decode(data, (uint256));
-    }
-
     // taker is BUY
     function fillAskOrder(
         address taker,
         uint96 orderId,
         uint128 amt,
         uint128 minAmt // base amount
-    ) public override nonReentrant {
+    ) public payable override nonReentrant {
         bool isAsk = isAskGridOrder(orderId);
         Order storage order = isAsk ? askOrders[orderId] : bidOrders[orderId];
         GridConfig storage gridConfig = gridConfigs[order.gridId];
@@ -162,9 +148,9 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         protocolFees[pair.quote] += protocolFee;
 
         // ensure receive enough quote token
-        uint256 balanceBefore = _balance(pair.quote);
+        uint256 balanceBefore = pair.quote.balanceOf(address(this));
         IGridExCallback(msg.sender).gridExSwapCallback(pair.quote, filledVol);
-        require(balanceBefore + filledVol <= _balance(pair.quote), "G3");
+        require(balanceBefore + filledVol <= pair.quote.balanceOf(address(this)), "G3");
     }
 
     struct AccFilled {
@@ -181,7 +167,7 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt // base amount
-    ) public override nonReentrant {
+    ) public payable override nonReentrant {
         if (idList.length != amtList.length) {
             revert InvalidParam();
         }
@@ -224,7 +210,7 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         }
 
         Pair memory pair = getPairById[pairId];
-        address quote = pair.quote;
+        Currency quote = pair.quote;
         // transfer base token to taker
         SafeTransferLib.safeTransfer(ERC20(pair.base), taker, filled.amt);
         // protocol fee
@@ -242,7 +228,7 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         uint96 orderId,
         uint128 amt,
         uint128 minAmt // base amount
-    ) public override nonReentrant {
+    ) public payable override nonReentrant {
         bool isAsk = isAskGridOrder(orderId);
         Order storage order = isAsk ? askOrders[orderId] : bidOrders[orderId];
         GridConfig storage gridConfig = gridConfigs[order.gridId];
@@ -276,7 +262,7 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt // base amount
-    ) public override nonReentrant {
+    ) public payable override nonReentrant {
         if (idList.length != amtList.length) {
             revert InvalidParam();
         }
@@ -460,7 +446,7 @@ contract GridEx is IGridEx, GridOrder, Pair, Owned, ReentrancyGuard {
 
     /// @inheritdoc IGridEx
     function setQuoteToken(
-        address token,
+        Currency token,
         uint priority
     ) external override onlyOwner {
         quotableTokens[token] = priority;
