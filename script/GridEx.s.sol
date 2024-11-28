@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {Script, console} from "forge-std/Script.sol";
 
 import {GridEx} from "../src/GridEx.sol";
-import {Router} from "../src/Router.sol";
 
 contract GridExScript is Script {
     function setUp() public {}
@@ -14,8 +13,7 @@ contract GridExScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         GridEx gridEx = new GridEx(weth_, usd_);
-        Router router = new Router(address(gridEx));
-        router;
+        gridEx;
         vm.stopBroadcast();
     }
 }

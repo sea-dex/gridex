@@ -2,8 +2,6 @@
 pragma solidity ^0.8.25;
 
 import "./interfaces/IPair.sol";
-import "./interfaces/IFactory.sol";
-import "./interfaces/IPairDeployer.sol";
 
 import "./libraries/TransferHelper.sol";
 import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";

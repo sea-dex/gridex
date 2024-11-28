@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IGridEx} from "./interfaces/IGridEx.sol";
+import {IGridOrder} from "./interfaces/IGridOrder.sol";
 import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "./interfaces/IOrderEvents.sol";
 import {FullMath} from "./libraries/FullMath.sol";
@@ -18,32 +19,6 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
 
     uint96 public nextBidOrderId = 1; // next grid order Id
     uint96 public nextAskOrderId = 0x800000000000000000000001;
-
-    /// @dev Grid config
-    struct GridConfig {
-        address owner;
-        uint128 profits; // quote token
-        uint128 baseAmt;
-        uint64 pairId;
-        uint32 orderCount;
-        uint32 fee; // bps
-        bool compound;
-    }
-
-    /// @dev Grid Order
-    struct Order {
-        // order price
-        uint160 price;
-        // grid id, or address if limit order
-        uint96 gridId;
-        // order reverse price
-        uint160 revPrice;
-        // order id
-        uint96 orderId;
-        // buy order: quote amount; sell order: base amount;
-        uint128 amount;
-        uint128 revAmount;
-    }
 
     /// Validate grid order param
     function validateGridOrderParam(
@@ -101,8 +76,8 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
     function placeGridOrder(
         uint96 gridId,
         IGridEx.GridOrderParam calldata param,
-        mapping(uint96 orderId => Order) storage askorders,
-        mapping(uint96 orderId => Order) storage bidorders
+        mapping(uint96 orderId => IGridOrder.Order) storage askorders,
+        mapping(uint96 orderId => IGridOrder.Order) storage bidorders
     ) internal returns (uint96, uint128, uint96, uint128) {
         validateGridOrderParam(param);
 
@@ -118,7 +93,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
             uint160 gap = param.askGap;
             for (uint i = 0; i < param.askOrderCount; ++i) {
                 uint128 amt = baseAmt; // side == BID ? calcQuoteAmount(baseAmt, price0, false) : baseAmt;
-                askorders[orderId] = Order({
+                askorders[orderId] = IGridOrder.Order({
                     gridId: gridId,
                     orderId: orderId,
                     amount: amt,
@@ -140,7 +115,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
             uint160 gap = param.bidGap;
             for (uint i = 0; i < param.bidOrderCount; ++i) {
                 uint128 amt = calcQuoteAmount(baseAmt, price0, false);
-                bidorders[orderId] = Order({
+                bidorders[orderId] = IGridOrder.Order({
                     gridId: gridId,
                     orderId: orderId,
                     amount: amt,
@@ -254,8 +229,8 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
         bool isAsk,
         uint128 amt, // base token amt
         address taker,
-        Order storage order,
-        GridConfig storage gridConfig
+        IGridOrder.Order storage order,
+        IGridOrder.GridConfig storage gridConfig
     ) internal returns (uint256, uint256, uint256) {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
@@ -338,8 +313,8 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
         bool isAsk,
         uint128 amt, // base token amt
         address taker,
-        Order storage order,
-        GridConfig storage gridConfig
+        IGridOrder.Order storage order,
+        IGridOrder.GridConfig storage gridConfig
     ) internal returns (uint256, uint256, uint256) {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
