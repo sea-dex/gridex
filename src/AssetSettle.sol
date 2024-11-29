@@ -9,12 +9,7 @@ abstract contract AssetSettle {
     error NotEnough();
 
     /// @dev Transfer token between pool and user. More refund, less supplement
-    function _settle(
-        Currency token,
-        address addr,
-        uint256 amount,
-        uint256 paid
-    ) internal {
+    function _settle(Currency token, address addr, uint256 amount, uint256 paid) internal {
         if (token.isAddressZero()) {
             if (paid > amount) {
                 token.transfer(addr, paid - amount);
@@ -22,11 +17,7 @@ abstract contract AssetSettle {
                 revert NotEnough();
             }
         } else {
-            ERC20(Currency.unwrap(token)).transferFrom(
-                addr,
-                address(this),
-                amount
-            );
+            ERC20(Currency.unwrap(token)).transferFrom(addr, address(this), amount);
         }
     }
 }

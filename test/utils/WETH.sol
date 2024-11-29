@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import {ERC20} from "./ERC20.sol";
 
-import {SafeTransferLib} from "./SafeTransferLib.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 /// @notice Minimalist and modern Wrapped Ether implementation.
 /// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/tokens/WETH.sol)

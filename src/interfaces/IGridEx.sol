@@ -9,28 +9,19 @@ interface IGridEx {
     /// @param base The base token of the pair
     /// @param quote The quote token of the pair
     /// @param pairId The pair id
-    event PairCreated(
-        Currency indexed base,
-        Currency indexed quote,
-        uint256 indexed pairId
-    );
+    event PairCreated(Currency indexed base, Currency indexed quote, uint256 indexed pairId);
 
     /// @notice Emitted when quote token set
     /// @param quote The quote token
     /// @param priority The priority of the quote token
-    event QuotableTokenUpdated(Currency quote, uint priority);
+    event QuotableTokenUpdated(Currency quote, uint256 priority);
 
     /// @notice Emitted when withdraw grid profit
     /// @param gridId The grid order Id
     /// @param quote The quote token
     /// @param to The address receive quote token
     /// @param amt Amount
-    event WithdrawProfit(
-        uint96 gridId,
-        Currency quote,
-        address to,
-        uint256 amt
-    );
+    event WithdrawProfit(uint96 gridId, Currency quote, address to, uint256 amt);
 
     /// @notice WETH address
     function WETH() external returns (address);
@@ -51,11 +42,7 @@ interface IGridEx {
     /// @notice Place grid orders
     /// @param base The base token
     /// @param quote The quote token
-    function placeGridOrders(
-        Currency base,
-        Currency quote,
-        GridOrderParam calldata param
-    ) external payable;
+    function placeGridOrders(Currency base, Currency quote, GridOrderParam calldata param) external payable;
 
     /// @notice Fill ask grid order
     /// @param orderId The grid order id
@@ -97,48 +84,32 @@ interface IGridEx {
 
     /// @notice Cancel grid orders
     /// @param pairId The pair id
-    function cancelGridOrders(
-        uint64 pairId,
-        address recipient,
-        uint64[] calldata idList
-    ) external;
+    function cancelGridOrders(uint64 pairId, address recipient, uint64[] calldata idList) external;
 
     /// @notice set or update the quote token priority
     /// @dev Must be called by the current owner
     /// @param token The quotable token
     /// @param priority The priority of the quotable token
-    function setQuoteToken(Currency token, uint priority) external;
+    function setQuoteToken(Currency token, uint256 priority) external;
 
     /// @notice Collect the protocol fee
     /// @param recipient The address to which collected protocol fees should be sent
     /// @param amount The maximum amount
-    function collectProtocolFee(
-        Currency token,
-        address recipient,
-        uint256 amount
-    ) external;
+    function collectProtocolFee(Currency token, address recipient, uint256 amount) external;
 
     /// @notice withdraw grid profits
     /// @param gridId The grid order Id
     /// @param amt The amount to withdraw, 0 withdraw all profits
     /// @param to The address to receive
-    function withdrawGridProfits(
-        uint64 gridId,
-        uint256 amt,
-        address to
-    ) external;
+    function withdrawGridProfits(uint64 gridId, uint256 amt, address to) external;
 
     /// @notice Get grid order info
     /// @param id The grid order Id by orderId
-    function getGridOrder(
-        uint96 id
-    ) external view returns (IGridOrder.Order memory order);
+    function getGridOrder(uint96 id) external view returns (IGridOrder.Order memory order);
 
     /// @notice Get multiple grid orders info by id list
     /// @param idList The orderId list
-    function getGridOrders(
-        uint96[] calldata idList
-    ) external view returns (IGridOrder.Order[] memory);
+    function getGridOrders(uint96[] calldata idList) external view returns (IGridOrder.Order[] memory);
 
     /// @notice Get grid order profits
     /// @param gridId The grid order Id
@@ -146,7 +117,5 @@ interface IGridEx {
 
     /// @notice get grid config info
     /// @param gridId The grid order Id
-    function getGridConfig(
-        uint96 gridId
-    ) external returns (IGridOrder.GridConfig memory);
+    function getGridConfig(uint96 gridId) external returns (IGridOrder.GridConfig memory);
 }

@@ -9,7 +9,6 @@ import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
 
 import {Test, console} from "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {GridEx} from "../src/GridEx.sol";
 import {GridOrder} from "../src/GridOrder.sol";
@@ -19,7 +18,7 @@ import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
 import {WETH} from "./utils/WETH.sol";
 
-contract GridExTest is Test {
+contract GridExPlaceTest is Test {
     WETH public weth;
     GridEx public exchange;
     SEA public sea;
@@ -34,18 +33,15 @@ contract GridExTest is Test {
         exchange = new GridEx(address(weth), address(usdc));
     }
 
-    // Function to receive Ether. msg.data must be empty
-    receive() external payable {}
-
     function test_PlaceAskGridOrder() public {
         uint16 asks = 13;
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 baseAmt = uint256(asks) * perBaseAmt;
         uint160 askPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
-        address other = address(0x123);
+        address maker = address(0x123);
 
-        sea.transfer(other, baseAmt);
+        sea.transfer(maker, baseAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
@@ -59,16 +55,12 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
-        sea.approve(address(exchange), type(uint96).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        vm.startPrank(maker);
+        sea.approve(address(exchange), type(uint128).max);
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
-        assertEq(sea.balanceOf(other), 0);
+        assertEq(sea.balanceOf(maker), 0);
         assertEq(uint256(asks) * perBaseAmt, sea.balanceOf(address(exchange)));
     }
 
@@ -78,9 +70,9 @@ contract GridExTest is Test {
         uint256 baseAmt = uint256(asks) * perBaseAmt;
         uint160 askPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
-        address other = address(0x123);
+        address maker = address(0x123);
 
-        vm.deal(other, baseAmt);
+        vm.deal(maker, baseAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
@@ -94,15 +86,11 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
-        exchange.placeGridOrders{value: baseAmt}(
-            Currency.wrap(address(0)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        vm.startPrank(maker);
+        exchange.placeGridOrders{value: baseAmt}(Currency.wrap(address(0)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
-        assertEq(Currency.wrap(address(0)).balanceOf(other), 0);
+        assertEq(Currency.wrap(address(0)).balanceOf(maker), 0);
         assertEq(uint256(asks) * perBaseAmt, Currency.wrap(address(0)).balanceOf(address(exchange)));
     }
 
@@ -112,9 +100,9 @@ contract GridExTest is Test {
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
         uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
-        address other = address(0x123);
+        address maker = address(0x123);
 
-        usdc.transfer(other, usdcAmt);
+        usdc.transfer(maker, usdcAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: 0,
@@ -128,18 +116,14 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
-        usdc.approve(address(exchange), type(uint96).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        vm.startPrank(maker);
+        usdc.approve(address(exchange), type(uint128).max);
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
-        assertEq(usdc.balanceOf(other) > 0, true);
+        assertEq(usdc.balanceOf(maker) > 0, true);
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(usdcAmt, usdc.balanceOf(other) + usdc.balanceOf(address(exchange)));
+        assertEq(usdcAmt, usdc.balanceOf(maker) + usdc.balanceOf(address(exchange)));
     }
 
     function test_PlaceETHQuoteBidGridOrder() public {
@@ -148,9 +132,9 @@ contract GridExTest is Test {
         uint256 ethAmt = uint256(bids) * 5 * 100 * 10 ** 6;
         uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
-        address other = address(0x123);
+        address maker = address(0x123);
 
-        vm.deal(other, ethAmt);
+        vm.deal(maker, ethAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: 0,
@@ -164,17 +148,15 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
-        exchange.placeGridOrders{value: ethAmt}(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(0)),
-            param
-        );
+        vm.startPrank(maker);
+        exchange.placeGridOrders{value: ethAmt}(Currency.wrap(address(sea)), Currency.wrap(address(0)), param);
         vm.stopPrank();
 
-        assertEq(Currency.wrap(address(0)).balanceOf(other) > 0, true);
+        assertEq(Currency.wrap(address(0)).balanceOf(maker) > 0, true);
         assertEq(ethAmt > Currency.wrap(address(0)).balanceOf(address(exchange)), true);
-        assertEq(ethAmt, Currency.wrap(address(0)).balanceOf(address(exchange)) + Currency.wrap(address(0)).balanceOf(other));
+        assertEq(
+            ethAmt, Currency.wrap(address(0)).balanceOf(address(exchange)) + Currency.wrap(address(0)).balanceOf(maker)
+        );
     }
 
     function test_PlaceGridOrder() public {
@@ -182,15 +164,15 @@ contract GridExTest is Test {
         // buy order: 4 - 4.9
         uint16 asks = 10;
         uint16 bids = 20;
-        address other = address(0x123);
+        address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
         uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
-        usdc.transfer(other, usdcAmt);
-        sea.transfer(other, uint256(asks) * perBaseAmt);
+        usdc.transfer(maker, usdcAmt);
+        sea.transfer(maker, uint256(asks) * perBaseAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
@@ -204,21 +186,17 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
-        sea.approve(address(exchange), type(uint96).max);
-        usdc.approve(address(exchange), type(uint96).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        vm.startPrank(maker);
+        sea.approve(address(exchange), type(uint128).max);
+        usdc.approve(address(exchange), type(uint128).max);
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
-        assertEq(0, sea.balanceOf(other));
-        assertEq(usdc.balanceOf(other) > 0, true);
+        assertEq(0, sea.balanceOf(maker));
+        assertEq(usdc.balanceOf(maker) > 0, true);
         assertEq(uint256(asks) * perBaseAmt, sea.balanceOf(address(exchange)));
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(other));
+        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker));
     }
 
     function test_PlaceETHGridOrder() public {
@@ -226,7 +204,7 @@ contract GridExTest is Test {
         // buy order: 4 - 4.9
         uint16 asks = 10;
         uint16 bids = 20;
-        address other = address(0x123);
+        address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
         uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
@@ -234,8 +212,8 @@ contract GridExTest is Test {
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // eth/usdc
-        usdc.transfer(other, usdcAmt);
-        vm.deal(other, uint256(asks) * perBaseAmt);
+        usdc.transfer(maker, usdcAmt);
+        vm.deal(maker, uint256(asks) * perBaseAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
@@ -249,20 +227,18 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
-        usdc.approve(address(exchange), type(uint96).max);
+        vm.startPrank(maker);
+        usdc.approve(address(exchange), type(uint128).max);
         exchange.placeGridOrders{value: uint256(asks) * perBaseAmt}(
-            Currency.wrap(address(0)),
-            Currency.wrap(address(usdc)),
-            param
+            Currency.wrap(address(0)), Currency.wrap(address(usdc)), param
         );
         vm.stopPrank();
 
-        assertEq(0, Currency.wrap(address(0)).balanceOf(other));
-        assertEq(usdc.balanceOf(other) > 0, true);
+        assertEq(0, Currency.wrap(address(0)).balanceOf(maker));
+        assertEq(usdc.balanceOf(maker) > 0, true);
         assertEq(uint256(asks) * perBaseAmt, Currency.wrap(address(0)).balanceOf(address(exchange)));
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(other));
+        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker));
     }
 
     // weth/usdc
@@ -271,7 +247,7 @@ contract GridExTest is Test {
         // buy order: 4 - 4.9
         uint16 asks = 10;
         uint16 bids = 20;
-        address other = address(0x123);
+        address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
         uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
@@ -279,8 +255,8 @@ contract GridExTest is Test {
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // eth/usdc
-        usdc.transfer(other, usdcAmt);
-        vm.deal(other, uint256(asks) * perBaseAmt);
+        usdc.transfer(maker, usdcAmt);
+        vm.deal(maker, uint256(asks) * perBaseAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
@@ -294,22 +270,18 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
+        vm.startPrank(maker);
         weth.deposit{value: uint256(asks) * perBaseAmt}();
-        usdc.approve(address(exchange), type(uint96).max);
-        weth.approve(address(exchange), type(uint96).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        usdc.approve(address(exchange), type(uint128).max);
+        weth.approve(address(exchange), type(uint128).max);
+        exchange.placeGridOrders(Currency.wrap(address(weth)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
-        assertEq(0, Currency.wrap(address(weth)).balanceOf(other));
-        assertEq(usdc.balanceOf(other) > 0, true);
+        assertEq(0, Currency.wrap(address(weth)).balanceOf(maker));
+        assertEq(usdc.balanceOf(maker) > 0, true);
         assertEq(uint256(asks) * perBaseAmt, Currency.wrap(address(weth)).balanceOf(address(exchange)));
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(other));
+        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker));
     }
 
     // sea/weth
@@ -318,7 +290,7 @@ contract GridExTest is Test {
         // buy order: 4 - 4.9
         uint16 asks = 10;
         uint16 bids = 20;
-        address other = address(0x123);
+        address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 baseAmt = perBaseAmt * asks;
         uint256 ethAmt = uint256(bids) * 5 * 100 * 10 ** 6;
@@ -327,8 +299,8 @@ contract GridExTest is Test {
         uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // sea/weth
-        sea.transfer(other, baseAmt);
-        vm.deal(other, ethAmt);
+        sea.transfer(maker, baseAmt);
+        vm.deal(maker, ethAmt);
 
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
@@ -342,21 +314,17 @@ contract GridExTest is Test {
             compound: false
         });
 
-        vm.startPrank(other);
+        vm.startPrank(maker);
         weth.deposit{value: ethAmt}();
-        sea.approve(address(exchange), type(uint96).max);
-        weth.approve(address(exchange), type(uint96).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(weth)),
-            param
-        );
+        sea.approve(address(exchange), type(uint128).max);
+        weth.approve(address(exchange), type(uint128).max);
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(weth)), param);
         vm.stopPrank();
 
-        assertEq(0, Currency.wrap(address(sea)).balanceOf(other));
-        assertEq(weth.balanceOf(other) > 0, true);
+        assertEq(0, Currency.wrap(address(sea)).balanceOf(maker));
+        assertEq(weth.balanceOf(maker) > 0, true);
         assertEq(baseAmt, Currency.wrap(address(sea)).balanceOf(address(exchange)));
         assertEq(ethAmt > weth.balanceOf(address(exchange)), true);
-        assertEq(ethAmt, weth.balanceOf(other) + weth.balanceOf(address(exchange)));
+        assertEq(ethAmt, weth.balanceOf(maker) + weth.balanceOf(address(exchange)));
     }
 }

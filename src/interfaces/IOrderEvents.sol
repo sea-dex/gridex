@@ -38,11 +38,7 @@ interface IOrderEvents {
     /// @param baseAmt sell order left amount(base token)
     /// @param quoteAmt buy order left amount(quote token)
     event CancelGridOrder(
-        address indexed owner,
-        uint96 indexed orderId,
-        uint96 gridId,
-        uint256 baseAmt,
-        uint256 quoteAmt
+        address indexed owner, uint96 indexed orderId, uint96 gridId, uint256 baseAmt, uint256 quoteAmt
     );
 
     /// @notice Emitted when a grid order was filled

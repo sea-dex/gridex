@@ -15,9 +15,15 @@ import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
 import {Owned} from "solmate/auth/Owned.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard {
+contract GridEx is
+    IGridEx,
+    AssetSettle,
+    GridOrder,
+    Pair,
+    Owned,
+    ReentrancyGuard
+{
     using SafeCast for *;
     using CurrencyLibrary for Currency;
 
@@ -25,7 +31,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
 
     mapping(uint96 orderId => IGridOrder.Order) public bidOrders;
     mapping(uint96 orderId => IGridOrder.Order) public askOrders;
-    mapping(Currency => uint) public protocolFees;
+    mapping(Currency => uint256) public protocolFees;
 
     uint96 public nextGridId = 1;
     mapping(uint96 gridId => IGridOrder.GridConfig) public gridConfigs;
@@ -41,22 +47,22 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
     function _createGridConfig(
         address maker,
         uint64 pairId,
-        uint32 orderCount,
-        uint32 fee,
-        bool compound,
-        uint128 baseAmt
+        GridOrderParam calldata param
     ) private returns (uint96) {
         uint96 gridId = nextGridId++;
 
         gridConfigs[gridId] = IGridOrder.GridConfig({
             owner: maker,
             profits: 0,
-            baseAmt: baseAmt,
+            baseAmt: param.baseAmount,
+            askGap: param.askGap,
             pairId: pairId,
-            orderCount: orderCount,
-            fee: fee,
-            compound: compound
+            orderCount: param.askOrderCount + param.bidOrderCount,
+            bidGap: param.bidGap,
+            fee: param.fee,
+            compound: param.compound
         });
+
         return gridId;
     }
 
@@ -90,14 +96,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
         GridOrderParam calldata param
     ) private returns (Pair memory pair, uint128 baseAmt, uint128 quoteAmt) {
         pair = getOrCreatePair(base, quote);
-        uint96 gridId = _createGridConfig(
-            maker,
-            pair.pairId,
-            param.askOrderCount + param.bidOrderCount,
-            param.fee,
-            param.compound,
-            param.baseAmount
-        );
+        uint96 gridId = _createGridConfig(maker, pair.pairId, param);
 
         uint96 startAskOrderId;
         uint96 startBidOrderId;
@@ -141,7 +140,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
             uint256 filledAmt,
             uint256 filledVol,
             uint256 protocolFee
-        ) = _fillAskOrder(isAsk, amt, taker, order, gridConfig);
+        ) = _fillAskOrder(isAsk, orderId, amt, taker, order, gridConfig);
 
         if (minAmt > 0 && filledAmt < minAmt) {
             revert NotEnoughToFill();
@@ -178,7 +177,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
 
         address taker = msg.sender;
         AccFilled memory filled;
-        for (uint i = 0; i < idList.length; ++i) {
+        for (uint256 i = 0; i < idList.length; ++i) {
             uint96 orderId = idList[i];
             uint128 amt = amtList[i];
 
@@ -199,7 +198,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
                 uint256 filledBaseAmt,
                 uint256 filledQuoteAmtWithFee,
                 uint256 fee
-            ) = _fillAskOrder(isAsk, amt, taker, order, gridConfig);
+            ) = _fillAskOrder(isAsk, orderId, amt, taker, order, gridConfig);
 
             unchecked {
                 filled.amt += filledBaseAmt;
@@ -245,7 +244,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
             uint256 filledAmt,
             uint256 filledVol,
             uint256 protocolFee
-        ) = _fillBidOrder(isAsk, amt, taker, order, gridConfig);
+        ) = _fillBidOrder(isAsk, orderId, amt, taker, order, gridConfig);
 
         if (minAmt > 0 && filledAmt < minAmt) {
             revert NotEnoughToFill();
@@ -279,7 +278,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
         uint256 filledVol = 0; // accumulate quote amount
         uint256 protocolFee = 0;
 
-        for (uint i = 0; i < idList.length; ++i) {
+        for (uint256 i = 0; i < idList.length; ++i) {
             uint96 orderId = idList[i];
             uint128 amt = amtList[i];
 
@@ -299,7 +298,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
                 uint256 filledBaseAmt,
                 uint256 filledQuoteAmtSubFee,
                 uint256 fee
-            ) = _fillBidOrder(isAsk, amt, taker, order, gridConfig);
+            ) = _fillBidOrder(isAsk, orderId, amt, taker, order, gridConfig);
 
             unchecked {
                 filledAmt += filledBaseAmt;
@@ -346,7 +345,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
             idList.length
         );
 
-        for (uint i = 0; i < idList.length; i++) {
+        for (uint256 i = 0; i < idList.length; i++) {
             uint96 id = idList[i];
             if (isAskGridOrder(idList[i])) {
                 orderList[i] = askOrders[id];
@@ -404,7 +403,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
         uint256 totalBaseAmt = 0;
         uint256 totalQuoteAmt = 0;
 
-        for (uint i = 0; i < idList.length; ) {
+        for (uint256 i = 0; i < idList.length; ) {
             uint64 id = idList[i];
             IGridOrder.Order memory order;
             bool isAsk = isAskGridOrder(id);
@@ -458,7 +457,7 @@ contract GridEx is IGridEx, AssetSettle, GridOrder, Pair, Owned, ReentrancyGuard
     /// @inheritdoc IGridEx
     function setQuoteToken(
         Currency token,
-        uint priority
+        uint256 priority
     ) external override onlyOwner {
         quotableTokens[token] = priority;
 

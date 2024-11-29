@@ -52,7 +52,6 @@ interface IOrderErrors {
     /// @notice Thrown when max bid orderId reached
     error ExceedMaxBidOrder();
 
-
     /// @notice Thrown when calculate quote amount is 0
     error ZeroQuoteAmt();
 

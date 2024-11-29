@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import "./ERC20.sol";
 
 contract SEA is ERC20 {
-
     address public admin;
 
     constructor() ERC20("SEA", "SEA", 18) {
