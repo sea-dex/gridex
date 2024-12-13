@@ -24,9 +24,7 @@ interface IGridOrder {
         uint128 revAmount;
         // order price
         uint160 price;
-        // grid id, or address if limit order
+        // grid id
         uint96 gridId;
-        // order reverse price
-        // uint160 revPrice;
     }
 }

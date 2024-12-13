@@ -116,7 +116,9 @@ contract GridEx is
             param.baseAmount,
             param.askOrderCount,
             param.bidOrderCount,
+            param.fee,
             gridId,
+            pair.pairId,
             param.compound,
             startAskOrderId,
             startBidOrderId

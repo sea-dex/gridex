@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {IPair} from "../src/interfaces/IPair.sol";
+import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IGridEx} from "../src/interfaces/IGridEx.sol";
 // import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
 import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
@@ -45,6 +46,7 @@ contract GridExFillTest is Test {
         sea.transfer(taker, initialSEAAmt);
         usdc.transfer(taker, initialUSDCAmt);
 
+
         vm.startPrank(maker);
         weth.approve(address(exchange), type(uint128).max);
         sea.approve(address(exchange), type(uint128).max);
@@ -82,11 +84,21 @@ contract GridExFillTest is Test {
 
         vm.startPrank(maker);
         if (base == address(0) || quote == address(0)) {
-            uint256 val = (base == address(0)) ? perBaseAmt * asks : perBaseAmt * bids * bidPrice0 / PRICE_MULTIPLIER;
+            uint256 val = (base == address(0))
+                ? perBaseAmt * asks
+                : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
 
-            exchange.placeGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
+            exchange.placeGridOrders{value: val}(
+                Currency.wrap(base),
+                Currency.wrap(quote),
+                param
+            );
         } else {
-            exchange.placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
+            exchange.placeGridOrders(
+                Currency.wrap(base),
+                Currency.wrap(quote),
+                param
+            );
         }
         vm.stopPrank();
     }
@@ -94,8 +106,98 @@ contract GridExFillTest is Test {
     function test_fillAskOrder() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        _placeOrders(address(sea), address(usdc), 20000 ether, 10, 0, askPrice0, 0, gap);
+        uint96 orderId = 0x800000000000000000000001;
+        uint128 amt = 20000 ether; // SEA
 
+        _placeOrders(
+            address(sea),
+            address(usdc),
+            amt,
+            10,
+            0,
+            askPrice0,
+            0,
+            gap
+        );
+
+        assertEq(amt * 10, sea.balanceOf(address(exchange)));
+        assertEq(0, usdc.balanceOf(address(exchange)));
+
+        vm.startPrank(taker);
+        exchange.fillAskOrder(orderId, amt, amt);
+        vm.stopPrank();
+
+        // grid order flipped
+        IGridOrder.Order memory order = exchange.getGridOrder(orderId);
+        IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
+
+        assertEq(0, order.amount);
+        assertEq(amt*(askPrice0-gap)/PRICE_MULTIPLIER, order.revAmount);
+        // sea balance
+        assertEq(initialSEAAmt + amt, sea.balanceOf(taker));
+        assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
+        assertEq(
+            initialSEAAmt * 2,
+            sea.balanceOf(maker) +
+                sea.balanceOf(taker) +
+                sea.balanceOf(address(exchange))
+        );
+        assertEq(
+            initialUSDCAmt * 2,
+            usdc.balanceOf(maker) +
+                usdc.balanceOf(taker) +
+                usdc.balanceOf(address(exchange))
+        );
+
+        // usdc balance
+        (uint128 usdcVol, uint128 fees) = exchange.calcQuoteAmountForAskOrder(
+            askPrice0,
+            amt,
+            500
+        );
+        assertEq(initialUSDCAmt - usdcVol - fees, usdc.balanceOf(taker));
+        assertEq(usdcVol+fees, usdc.balanceOf(address(exchange)));
+        assertEq(exchange.protocolFees(Currency.wrap(address(usdc))), fees >> 2);
+        
+        // grid profit
+        assertEq(gridConf.profits, fees - (fees >> 2) + amt * gap / PRICE_MULTIPLIER);
+
+
+        // fill reversed order
+        vm.startPrank(taker);
+        exchange.fillBidOrder(orderId, amt, amt);
+        vm.stopPrank();
+
+        assertEq(
+            initialUSDCAmt * 2,
+            usdc.balanceOf(maker) +
+                usdc.balanceOf(taker) +
+                usdc.balanceOf(address(exchange))
+        );
+        assertEq(
+            initialSEAAmt * 2,
+            sea.balanceOf(maker) +
+                sea.balanceOf(taker) +
+                sea.balanceOf(address(exchange))
+        );
+        order = exchange.getGridOrder(orderId);
+        assertEq(amt, order.amount);
+        assertEq(0, order.revAmount);
+
+
+        (uint128 usdcVol2, uint128 fees2) = exchange.calcQuoteAmountByBidOrder(
+            askPrice0-gap,
+            amt,
+            500
+        );
+        gridConf = exchange.getGridConfig(1);
+        // grid profit
+        assertEq(gridConf.profits, fees - (fees >> 2) + amt * gap / PRICE_MULTIPLIER + fees2 - (fees2 >> 2));
+        assertEq(exchange.protocolFees(Currency.wrap(address(usdc))), (fees >> 2) + (fees2 >> 2));
+
+        // taker balance
+        assertEq(initialUSDCAmt - usdcVol - fees + usdcVol2 - fees2, usdc.balanceOf(taker));
+        assertEq(initialSEAAmt, sea.balanceOf(taker));
     }
 
     function test_partialFillAskOrder() public {}

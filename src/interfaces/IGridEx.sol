@@ -9,7 +9,7 @@ interface IGridEx {
     /// @param base The base token of the pair
     /// @param quote The quote token of the pair
     /// @param pairId The pair id
-    event PairCreated(Currency indexed base, Currency indexed quote, uint256 indexed pairId);
+    // event PairCreated(Currency indexed base, Currency indexed quote, uint256 indexed pairId);
 
     /// @notice Emitted when quote token set
     /// @param quote The quote token

@@ -6,15 +6,14 @@ import {IGridOrder} from "./interfaces/IGridOrder.sol";
 import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "./interfaces/IOrderEvents.sol";
 import {FullMath} from "./libraries/FullMath.sol";
-
-abstract contract GridOrder is IOrderErrors, IOrderEvents {
+import {Lens} from "./Lens.sol";
+abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
     uint32 public constant BID = 1;
     uint32 public constant ASK = 2;
 
     uint32 public constant MIN_FEE = 100; // 0.01%
     uint32 public constant MAX_FEE = 10000; // 1%
 
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
     uint96 public constant AskOderMask = 0x800000000000000000000000;
 
     uint96 public nextBidOrderId = 1; // next grid order Id
@@ -139,33 +138,6 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
             startBidOrderId,
             quoteAmt
         );
-    }
-
-    /// calculate how many quote can be filled with baseAmt
-    function calcQuoteAmount(
-        uint128 baseAmt,
-        uint160 price,
-        bool roundUp
-    ) public pure returns (uint128) {
-        uint256 amt = roundUp
-            ? FullMath.mulDivRoundingUp(
-                uint256(baseAmt),
-                uint256(price),
-                PRICE_MULTIPLIER
-            )
-            : FullMath.mulDiv(
-                uint256(baseAmt),
-                uint256(price),
-                PRICE_MULTIPLIER
-            );
-
-        if (amt == 0) {
-            revert ZeroQuoteAmt();
-        }
-        if (amt >= uint256(type(uint128).max)) {
-            revert ExceedQuoteAmt();
-        }
-        return uint128(amt);
     }
 
     /// calculate how many base can be filled with quoteAmt
@@ -297,13 +269,13 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
 
         emit FilledOrder(
             orderId,
+            order.gridId,
             sellPrice, // ASK
             amt,
             quoteVol,
             orderBaseAmt,
             orderQuoteAmt,
-            lpFee,
-            protocolFee,
+            true,
             taker
         );
 
@@ -366,13 +338,13 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents {
         }
         emit FilledOrder(
             orderId,
+            order.gridId,
             buyPrice, // BID
             amt,
             filledVol,
             orderBaseAmt,
             orderQuoteAmt,
-            lpFee,
-            protocolFee,
+            false,
             taker
         );
 

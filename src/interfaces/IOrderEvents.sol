@@ -16,6 +16,8 @@ interface IOrderEvents {
     /// @param bidGap Price gap between buy order and it's reverse order
     /// @param amount the base amount of every grid order
     /// @param compound if the grid order is compound
+    /// @param fee grid order fee bips
+    /// @param pairId pair Id
     event GridOrderCreated(
         address indexed owner,
         uint256 askPrice0,
@@ -25,7 +27,9 @@ interface IOrderEvents {
         uint256 amount,
         uint32 asks,
         uint32 bids,
+        uint32 fee,
         uint96 gridId,
+        uint64 pairId,
         bool compound,
         uint96 askOrderId,
         uint96 bidOrderId
@@ -38,28 +42,32 @@ interface IOrderEvents {
     /// @param baseAmt sell order left amount(base token)
     /// @param quoteAmt buy order left amount(quote token)
     event CancelGridOrder(
-        address indexed owner, uint96 indexed orderId, uint96 gridId, uint256 baseAmt, uint256 quoteAmt
+        address indexed owner,
+        uint96 indexed orderId,
+        uint96 gridId,
+        uint256 baseAmt,
+        uint256 quoteAmt
     );
 
-    /// @notice Emitted when a grid order was filled
-    /// @param orderId The orderId of the order to be canceled
+    /// @notice Emitted when a grid order was filled or partial filled
+    /// @param orderId The orderId of the order to be filled
+    /// @param orderId The gridId of the order to be filled
     /// @param price The grid order fill price
     /// @param baseAmt The base token amount filled
     /// @param quoteVol The quote token amount filled
     /// @param leftBaseAmt The base token amount left in the order
     /// @param leftQuoteAmt The quote token amount left in the order
-    /// @param lpFee The LP trading fee
-    /// @param protocolFee The protocol fee
+    /// @param isAsk The filled maker order is Ask: true; or else false;
     /// @param taker The taker address
     event FilledOrder(
         uint96 indexed orderId,
+        uint96 indexed gridId,
         uint256 price,
         uint256 baseAmt,
         uint256 quoteVol,
         uint256 leftBaseAmt,
         uint256 leftQuoteAmt,
-        uint256 lpFee,
-        uint256 protocolFee,
+        bool isAsk,
         address taker
     );
 
@@ -67,5 +75,9 @@ interface IOrderEvents {
     /// @param sender The address that collects the protocol fees
     /// @param recipient The address that receives the collected protocol fees
     /// @param amount The amount of quote protocol fees that is withdrawn
-    event CollectProtocol(address indexed sender, address indexed recipient, uint256 amount);
+    event CollectProtocol(
+        address indexed sender,
+        address indexed recipient,
+        uint256 amount
+    );
 }
