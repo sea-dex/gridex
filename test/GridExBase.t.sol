@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {IPair} from "../src/interfaces/IPair.sol";
+import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IGridEx} from "../src/interfaces/IGridEx.sol";
 // import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
 import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
@@ -18,7 +19,7 @@ import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
 import {WETH} from "./utils/WETH.sol";
 
-contract GridExFillCompoundTest is Test {
+contract GridExBaseTest is Test {
     WETH public weth;
     GridEx public exchange;
     SEA public sea;
@@ -36,8 +37,28 @@ contract GridExFillCompoundTest is Test {
         sea = new SEA();
         usdc = new USDC();
         exchange = new GridEx(address(weth), address(usdc));
+
+        vm.deal(maker, initialETHAmt);
+        sea.transfer(maker, initialSEAAmt);
+        usdc.transfer(maker, initialUSDCAmt);
+
+        vm.deal(taker, initialETHAmt);
+        sea.transfer(taker, initialSEAAmt);
+        usdc.transfer(taker, initialUSDCAmt);
+
+        vm.startPrank(maker);
+        weth.approve(address(exchange), type(uint128).max);
+        sea.approve(address(exchange), type(uint128).max);
+        usdc.approve(address(exchange), type(uint128).max);
+        vm.stopPrank();
+
+        vm.startPrank(taker);
+        weth.approve(address(exchange), type(uint128).max);
+        sea.approve(address(exchange), type(uint128).max);
+        usdc.approve(address(exchange), type(uint128).max);
+        vm.stopPrank();
     }
-        
+
     function _placeOrders(
         address base,
         address quote,
@@ -46,8 +67,10 @@ contract GridExFillCompoundTest is Test {
         uint16 bids,
         uint160 askPrice0,
         uint160 bidPrice0,
-        uint160 gap
-    ) private {
+        uint160 gap,
+        bool compound,
+        uint32 fee
+    ) internal {
         IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
             askOrderCount: asks,
             bidOrderCount: bids,
@@ -56,8 +79,8 @@ contract GridExFillCompoundTest is Test {
             bidPrice0: bidPrice0,
             askGap: gap,
             bidGap: gap,
-            fee: 500,
-            compound: true
+            fee: fee,
+            compound: compound
         });
 
         vm.startPrank(maker);
@@ -79,5 +102,30 @@ contract GridExFillCompoundTest is Test {
             );
         }
         vm.stopPrank();
+    }
+
+    // return: fillVol, reverse order quote amount, grid profit, fee
+    function calcQuoteVolReversed(
+        uint160 price,
+        uint160 gap,
+        uint128 fillAmt,
+        uint128 baseAmt,
+        uint128 currOrderQuoteAmt,
+        uint32 feebps
+    ) internal view returns (uint128, uint128, uint128, uint128) {
+        (uint128 quoteVol, uint128 fee) = exchange.calcQuoteAmountForAskOrder(
+            price,
+            fillAmt,
+            feebps
+        );
+        uint128 lpfee = fee - (fee >> 2);
+        uint128 quota = exchange.calcQuoteAmount(baseAmt, price - gap, false);
+        if (currOrderQuoteAmt >= quota) {
+            return (quoteVol, quota, quota+lpfee, fee);
+        }
+        if (currOrderQuoteAmt + quoteVol + lpfee > quota) {
+            return (quoteVol, quota, currOrderQuoteAmt + quoteVol + lpfee - quota, fee);
+        }
+        return (quoteVol, quoteVol + lpfee, 0, fee);
     }
 }
