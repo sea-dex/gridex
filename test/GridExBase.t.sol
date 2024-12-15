@@ -104,6 +104,7 @@ contract GridExBaseTest is Test {
         vm.stopPrank();
     }
 
+    // just for ask order
     // return: fillVol, reverse order quote amount, grid profit, fee
     function calcQuoteVolReversed(
         uint160 price,
@@ -127,5 +128,25 @@ contract GridExBaseTest is Test {
             return (quoteVol, quota, currOrderQuoteAmt + quoteVol + lpfee - quota, fee);
         }
         return (quoteVol, quoteVol + lpfee, 0, fee);
+    }
+
+    // just for ask order
+    // return: fillVol, reverse order quote amount, fee
+    function calcQuoteVolReversedCompound(
+        uint160 price,
+        uint128 fillAmt,
+        uint32 feebps
+    ) internal view returns (uint128, uint128, uint128) {
+        (uint128 quoteVol, uint128 fee) = exchange.calcQuoteAmountForAskOrder(
+            price,
+            fillAmt,
+            feebps
+        );
+        uint128 lpfee = fee - (fee >> 2);
+        return (quoteVol, quoteVol + lpfee, fee);
+    }
+
+    function makerFee(uint128 fee) internal pure returns (uint128) {
+        return fee - (fee >> 2);
     }
 }
