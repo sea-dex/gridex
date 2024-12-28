@@ -65,4 +65,53 @@ contract GridExCancelTest is GridExBaseTest {
                 usdc.balanceOf(address(exchange))
         );
     }
+
+
+    function test_cancelBidGridWithoutFill() public {
+        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint96 orderId = 0x000000000000000000000001;
+        uint128 amt = 20000 ether; // SEA
+
+        _placeOrders(
+            address(sea),
+            address(usdc),
+            amt,
+            0,
+            10,
+            0,
+            bidPrice0,
+            gap,
+            false,
+            500
+        );
+
+        (, uint128 usdcTotal) = exchange.calcGridAmount(amt, bidPrice0, gap, 0, 10);
+        assertEq(0, sea.balanceOf(address(exchange)));
+        assertEq(usdcTotal, usdc.balanceOf(address(exchange)));
+        assertEq(initialSEAAmt, sea.balanceOf(maker));
+        assertEq(initialUSDCAmt - usdcTotal, usdc.balanceOf(maker));
+
+        vm.startPrank(maker);
+        exchange.cancelGridOrders(1, maker, orderId, 10);
+        vm.stopPrank();
+
+        assertEq(0, sea.balanceOf(address(exchange)));
+        assertEq(0, usdc.balanceOf(address(exchange)));
+        assertEq(initialSEAAmt, sea.balanceOf(maker));
+        assertEq(initialUSDCAmt, usdc.balanceOf(maker));
+
+        assertEq(
+            initialSEAAmt * 2,
+            sea.balanceOf(maker) +
+                sea.balanceOf(taker) +
+                sea.balanceOf(address(exchange))
+        );
+        assertEq(
+            initialUSDCAmt * 2,
+            usdc.balanceOf(maker) +
+                usdc.balanceOf(taker) +
+                usdc.balanceOf(address(exchange))
+        );
+    }
 }
