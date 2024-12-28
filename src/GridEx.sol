@@ -394,11 +394,20 @@ contract GridEx is
         emit WithdrawProfit(gridId, pair.quote, to, amt);
     }
 
+    function cancelGridOrders(uint64 pairId, address recipient, uint96 startOrderId, uint96 howmany) public override {
+        uint96[] memory idList =  new uint96[](howmany);
+        for (uint96 i = 0; i < howmany; ++ i) {
+            idList[i] = startOrderId + i;
+        }
+
+        cancelGridOrders(pairId, recipient, idList);
+    }
+
     /// @inheritdoc IGridEx
     function cancelGridOrders(
         uint64 pairId,
         address recipient,
-        uint64[] calldata idList
+        uint96[] memory idList
     ) public override {
         uint256 baseAmt = 0;
         uint256 quoteAmt = 0;
@@ -406,7 +415,7 @@ contract GridEx is
         uint256 totalQuoteAmt = 0;
 
         for (uint256 i = 0; i < idList.length; ) {
-            uint64 id = idList[i];
+            uint96 id = idList[i];
             IGridOrder.Order memory order;
             bool isAsk = isAskGridOrder(id);
 

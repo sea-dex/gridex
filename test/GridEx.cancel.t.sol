@@ -18,18 +18,51 @@ import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
 import {WETH} from "./utils/WETH.sol";
 
-contract GridExCancelTest is Test {
-    WETH public weth;
-    GridEx public exchange;
-    SEA public sea;
-    USDC public usdc;
+import {GridExBaseTest} from "./GridExBase.t.sol";
 
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
+contract GridExCancelTest is GridExBaseTest {
 
-    function setUp() public {
-        weth = new WETH();
-        sea = new SEA();
-        usdc = new USDC();
-        exchange = new GridEx(address(weth), address(usdc));
+    function test_cancelAskGridWithoutFill() public {
+        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint160 gap = askPrice0 / 20; // 0.0001
+        uint96 orderId = 0x800000000000000000000001;
+        uint128 amt = 20000 ether; // SEA
+
+        _placeOrders(
+            address(sea),
+            address(usdc),
+            amt,
+            10,
+            0,
+            askPrice0,
+            0,
+            gap,
+            true,
+            500
+        );
+        assertEq(amt * 10, sea.balanceOf(address(exchange)));
+        assertEq(0, usdc.balanceOf(address(exchange)));
+        assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
+
+        vm.startPrank(maker);
+        exchange.cancelGridOrders(1, maker, orderId, 10);
+        vm.stopPrank();
+
+        assertEq(0, sea.balanceOf(address(exchange)));
+        assertEq(0, usdc.balanceOf(address(exchange)));
+        assertEq(initialSEAAmt, sea.balanceOf(maker));
+
+        assertEq(
+            initialSEAAmt * 2,
+            sea.balanceOf(maker) +
+                sea.balanceOf(taker) +
+                sea.balanceOf(address(exchange))
+        );
+        assertEq(
+            initialUSDCAmt * 2,
+            usdc.balanceOf(maker) +
+                usdc.balanceOf(taker) +
+                usdc.balanceOf(address(exchange))
+        );
     }
 }

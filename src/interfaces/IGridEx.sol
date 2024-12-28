@@ -84,7 +84,11 @@ interface IGridEx {
 
     /// @notice Cancel grid orders
     /// @param pairId The pair id
-    function cancelGridOrders(uint64 pairId, address recipient, uint64[] calldata idList) external;
+    function cancelGridOrders(uint64 pairId, address recipient, uint96[] memory idList) external;
+
+    /// @notice Cancel grid orders
+    /// @param pairId The pair id
+    function cancelGridOrders(uint64 pairId, address recipient, uint96 startOrderId, uint96 howmany) external;
 
     /// @notice set or update the quote token priority
     /// @dev Must be called by the current owner
