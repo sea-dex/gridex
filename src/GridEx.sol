@@ -41,8 +41,8 @@ contract GridEx is
     constructor(address weth_, address usd_) Owned(msg.sender) {
         // usd is the most priority quote token
         quotableTokens[Currency.wrap(usd_)] = 1 << 20;
-        quotableTokens[Currency.wrap(address(0))] = 1 << 19;
-        quotableTokens[Currency.wrap(weth_)] = 1 << 18;
+        // quotableTokens[Currency.wrap(address(0))] = 1 << 19;
+        quotableTokens[Currency.wrap(weth_)] = 1 << 19;
         WETH = weth_;
     }
 
