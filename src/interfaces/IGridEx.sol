@@ -39,6 +39,11 @@ interface IGridEx {
         uint128 baseAmount;
     }
 
+    /// @notice Place WETH grid orders, ether base or quote should be ETH
+    /// @param base The base token
+    /// @param quote The quote token
+    // function placeWETHGridOrders(Currency base, Currency quote, GridOrderParam calldata param) external payable;
+
     /// @notice Place grid orders
     /// @param base The base token
     /// @param quote The quote token
@@ -83,12 +88,12 @@ interface IGridEx {
     ) external payable;
 
     /// @notice Cancel grid orders
-    /// @param pairId The pair id
-    function cancelGridOrders(uint64 pairId, address recipient, uint96[] memory idList) external;
+    /// @param gridId The grid id
+    function cancelGridOrders(uint96 gridId, address recipient, uint96[] memory idList) external;
 
     /// @notice Cancel grid orders
-    /// @param pairId The pair id
-    function cancelGridOrders(uint64 pairId, address recipient, uint96 startOrderId, uint96 howmany) external;
+    /// @param gridId The grid id
+    function cancelGridOrders(uint96 gridId, address recipient, uint96 startOrderId, uint96 howmany) external;
 
     /// @notice set or update the quote token priority
     /// @dev Must be called by the current owner

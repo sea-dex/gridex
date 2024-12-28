@@ -63,7 +63,7 @@ contract Lens {
     /// @param feebps fee bps
     /// @return quoteVol filled quote volume, round up. taker should pay quoteVol + fee
     /// @return fee filled fee (LP fee + protocol fee)
-    function calcQuoteAmountForAskOrder(
+    function calcAskOrderQuoteAmount(
         uint160 price,
         uint128 baseAmt,
         uint32 feebps
@@ -80,7 +80,7 @@ contract Lens {
     /// @param feebps fee bps
     /// @return filledVol filled quote volume, round down. taker will get filledVol - fee
     /// @return fee filled fee (LP fee + protocol fee)
-    function calcQuoteAmountByBidOrder(
+    function calcBidOrderQuoteAmount(
         uint160 price,
         uint128 baseAmt,
         uint32 feebps

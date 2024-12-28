@@ -114,7 +114,7 @@ contract GridExBaseTest is Test {
         uint128 currOrderQuoteAmt,
         uint32 feebps
     ) internal view returns (uint128, uint128, uint128, uint128) {
-        (uint128 quoteVol, uint128 fee) = exchange.calcQuoteAmountForAskOrder(
+        (uint128 quoteVol, uint128 fee) = exchange.calcAskOrderQuoteAmount(
             price,
             fillAmt,
             feebps
@@ -137,7 +137,7 @@ contract GridExBaseTest is Test {
         uint128 fillAmt,
         uint32 feebps
     ) internal view returns (uint128, uint128, uint128) {
-        (uint128 quoteVol, uint128 fee) = exchange.calcQuoteAmountForAskOrder(
+        (uint128 quoteVol, uint128 fee) = exchange.calcAskOrderQuoteAmount(
             price,
             fillAmt,
             feebps

@@ -39,14 +39,10 @@ interface IOrderEvents {
     /// @param owner The owner of the canceled order
     /// @param orderId The orderId of the order to be canceled
     /// @param gridId The gridId of the order to be canceled
-    /// @param baseAmt sell order left amount(base token)
-    /// @param quoteAmt buy order left amount(quote token)
     event CancelGridOrder(
         address indexed owner,
         uint96 indexed orderId,
-        uint96 gridId,
-        uint256 baseAmt,
-        uint256 quoteAmt
+        uint96 gridId
     );
 
     /// @notice Emitted when a grid order was filled or partial filled

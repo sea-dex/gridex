@@ -27,6 +27,8 @@ contract GridEx is
     using SafeCast for *;
     using CurrencyLibrary for Currency;
 
+    // uint32 public constant ETHBase = 1;  // Base token is ETH
+    // uint32 public constant ETHQuote = 2; // Quote token is ETH
     address public immutable WETH;
 
     mapping(uint96 orderId => IGridOrder.Order) public bidOrders;
@@ -65,6 +67,38 @@ contract GridEx is
 
         return gridId;
     }
+
+    // function placeWETHGridOrders(
+    //     Currency base,
+    //     Currency quote,
+    //     GridOrderParam calldata param
+    // ) public payable {
+        // bool baseIsETH = false;
+        // if (base.isAddressZero()) {
+        //     baseIsETH = true;
+        //     base = Currency.wrap(WETH);
+        // } else if (quote.isAddressZero()) {
+        //     quote = Currency.wrap(WETH);
+        // } else {
+        //     revert InvalidParam();
+        // }
+
+        // (
+        //     ,
+        //     uint128 baseAmt,
+        //     uint128 quoteAmt
+        // ) = _placeGridOrders(msg.sender, base, quote, param);
+
+        // if (baseIsETH) {
+        //     IWETH(WETH).deposit();
+        //     IWETH(WETH).transfer(address(this), baseAmt);
+        //     ERC20(Currency.unwrap(quote)).transferFrom(msg.sender, address(this), quoteAmt);
+        // } else {
+        //     IWETH(WETH).deposit();
+        //     IWETH(WETH).transfer(address(this), quoteAmt);
+        //     ERC20(Currency.unwrap(base)).transferFrom(msg.sender, address(this), baseAmt);
+        // }
+    // }
 
     /// @inheritdoc IGridEx
     function placeGridOrders(
@@ -394,74 +428,81 @@ contract GridEx is
         emit WithdrawProfit(gridId, pair.quote, to, amt);
     }
 
-    function cancelGridOrders(uint64 pairId, address recipient, uint96 startOrderId, uint96 howmany) public override {
-        uint96[] memory idList =  new uint96[](howmany);
-        for (uint96 i = 0; i < howmany; ++ i) {
+    function cancelGridOrders(
+        uint96 gridId,
+        address recipient,
+        uint96 startOrderId,
+        uint96 howmany
+    ) public override {
+        uint96[] memory idList = new uint96[](howmany);
+        for (uint96 i = 0; i < howmany; ++i) {
             idList[i] = startOrderId + i;
         }
 
-        cancelGridOrders(pairId, recipient, idList);
+        cancelGridOrders(gridId, recipient, idList);
     }
 
     /// @inheritdoc IGridEx
     function cancelGridOrders(
-        uint64 pairId,
+        uint96 gridId,
         address recipient,
         uint96[] memory idList
     ) public override {
+        require(idList.length > 0, "G9");
+
         uint256 baseAmt = 0;
         uint256 quoteAmt = 0;
-        uint256 totalBaseAmt = 0;
-        uint256 totalQuoteAmt = 0;
 
-        for (uint256 i = 0; i < idList.length; ) {
+        IGridOrder.GridConfig storage conf = gridConfigs[gridId];
+        if (msg.sender != conf.owner) {
+            revert NotGridOwer();
+        }
+
+        for (uint256 i = 0; i < idList.length; ++i) {
             uint96 id = idList[i];
             IGridOrder.Order memory order;
-            bool isAsk = isAskGridOrder(id);
 
+            bool isAsk = isAskGridOrder(id);
             if (isAsk) {
                 order = askOrders[id];
-                baseAmt = order.amount;
-                quoteAmt = order.revAmount;
+                unchecked {
+                    baseAmt += order.amount;
+                    quoteAmt += order.revAmount;
+                }
             } else {
                 order = bidOrders[id];
-                baseAmt = order.revAmount;
-                quoteAmt = order.amount;
+                unchecked {
+                    baseAmt += order.revAmount;
+                    quoteAmt += order.amount;
+                }
             }
-            uint96 gridId = order.gridId;
-            IGridOrder.GridConfig memory conf = gridConfigs[gridId];
-            require(conf.pairId == pairId, "G9");
-            if (msg.sender != conf.owner) {
-                revert NotGridOrder();
-            }
+            require(order.gridId == gridId, "GA");
 
-            emit CancelGridOrder(msg.sender, id, gridId, baseAmt, quoteAmt);
+            emit CancelGridOrder(msg.sender, id, gridId);
 
             if (isAsk) {
                 delete askOrders[id];
             } else {
                 delete bidOrders[id];
             }
-
-            unchecked {
-                ++i;
-                --conf.orderCount;
-                totalBaseAmt += baseAmt;
-                totalQuoteAmt += quoteAmt;
-            }
-            if (conf.orderCount == 0) {
-                delete gridConfigs[gridId];
-            }
         }
 
-        Pair memory pair = getPairById[pairId];
+        Pair memory pair = getPairById[conf.pairId];
+        conf.orderCount -= uint32(idList.length);
+        if (conf.orderCount == 0) {
+            unchecked {
+                quoteAmt += conf.profits;
+            }
+            delete gridConfigs[gridId];
+        }
+
         if (baseAmt > 0) {
             // transfer base
-            pair.base.transfer(recipient, totalBaseAmt);
+            pair.base.transfer(recipient, baseAmt);
         }
         if (quoteAmt > 0) {
             // transfer
-            pair.quote.transfer(recipient, totalQuoteAmt);
+            pair.quote.transfer(recipient, quoteAmt);
         }
     }
 

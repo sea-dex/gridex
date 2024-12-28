@@ -70,7 +70,7 @@ contract GridExFillTest is GridExBaseTest {
         );
 
         // usdc balance
-        (uint128 usdcVol, uint128 fees) = exchange.calcQuoteAmountForAskOrder(
+        (uint128 usdcVol, uint128 fees) = exchange.calcAskOrderQuoteAmount(
             askPrice0,
             amt,
             500
@@ -110,7 +110,7 @@ contract GridExFillTest is GridExBaseTest {
         assertEq(amt, order.amount);
         assertEq(0, order.revAmount);
 
-        (uint128 usdcVol2, uint128 fees2) = exchange.calcQuoteAmountByBidOrder(
+        (uint128 usdcVol2, uint128 fees2) = exchange.calcBidOrderQuoteAmount(
             askPrice0 - gap,
             amt,
             500
@@ -192,7 +192,7 @@ contract GridExFillTest is GridExBaseTest {
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
 
         // usdc balance
-        (uint128 usdcVol, uint128 fees) = exchange.calcQuoteAmountForAskOrder(
+        (uint128 usdcVol, uint128 fees) = exchange.calcAskOrderQuoteAmount(
             askPrice0,
             amt,
             500
@@ -379,7 +379,7 @@ contract GridExFillTest is GridExBaseTest {
         );
 
         // usdc balance
-        (uint128 usdcVol, uint128 fees) = exchange.calcQuoteAmountByBidOrder(
+        (uint128 usdcVol, uint128 fees) = exchange.calcBidOrderQuoteAmount(
             bidPrice0,
             amt,
             500
@@ -420,7 +420,7 @@ contract GridExFillTest is GridExBaseTest {
         assertEq(initialSEAAmt, sea.balanceOf(maker));
         assertEq(initialUSDCAmt - quoteAmt, usdc.balanceOf(maker));
 
-        (uint128 usdcVol2, uint128 fees2) = exchange.calcQuoteAmountForAskOrder(
+        (uint128 usdcVol2, uint128 fees2) = exchange.calcAskOrderQuoteAmount(
             bidPrice0 + gap,
             amt,
             500
@@ -511,7 +511,7 @@ contract GridExFillTest is GridExBaseTest {
         order0 = exchange.getGridOrder(orderId);
 
         // usdc balance
-        (uint128 usdcVol0, uint128 fees) = exchange.calcQuoteAmountByBidOrder(
+        (uint128 usdcVol0, uint128 fees) = exchange.calcBidOrderQuoteAmount(
             bidPrice0,
             fillAmt,
             500
@@ -559,7 +559,7 @@ contract GridExFillTest is GridExBaseTest {
         assertEq(initialSEAAmt, sea.balanceOf(maker));
         assertEq(initialUSDCAmt - totalQuoteAmt, usdc.balanceOf(maker));
 
-        (uint128 usdcVol1, uint128 fees1) = exchange.calcQuoteAmountForAskOrder(
+        (uint128 usdcVol1, uint128 fees1) = exchange.calcAskOrderQuoteAmount(
             bidPrice0 + gap,
             fillAmt1,
             500
@@ -679,17 +679,17 @@ contract GridExFillTest is GridExBaseTest {
         order1 = exchange.getGridOrder(orderId + 1);
         order2 = exchange.getGridOrder(orderId + 2);
 
-        (uint128 fillVol0, uint128 fee0) = exchange.calcQuoteAmountByBidOrder(
+        (uint128 fillVol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(
             price0,
             amts[0],
             500
         );
-        (uint128 fillVol1, uint128 fee1) = exchange.calcQuoteAmountByBidOrder(
+        (uint128 fillVol1, uint128 fee1) = exchange.calcBidOrderQuoteAmount(
             price1,
             amts[1],
             500
         );
-        (uint128 fillVol2, uint128 fee2) = exchange.calcQuoteAmountByBidOrder(
+        (uint128 fillVol2, uint128 fee2) = exchange.calcBidOrderQuoteAmount(
             price2,
             amts[2],
             500
