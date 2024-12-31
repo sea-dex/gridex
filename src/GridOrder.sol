@@ -192,7 +192,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
     ) public pure returns (uint128 lpFee, uint128 protocolFee) {
         unchecked {
             uint128 fee = uint128((uint256(vol) * uint256(bps)) / 1000000);
-            protocolFee = fee >> 2;
+            protocolFee = fee >> 1;
             lpFee = fee - protocolFee;
         }
     }

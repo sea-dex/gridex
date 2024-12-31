@@ -144,7 +144,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillAskOrders(1, orderIds, amts, amt*3, 0);
+        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -152,18 +152,39 @@ contract GridExCancelTest is GridExBaseTest {
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
-        assertEq(initialSEAAmt - 3*amt, sea.balanceOf(maker));
-        assertEq(initialSEAAmt + 3*amt, sea.balanceOf(taker));
+        assertEq(initialSEAAmt - 3 * amt, sea.balanceOf(maker));
+        assertEq(initialSEAAmt + 3 * amt, sea.balanceOf(taker));
 
-        (uint128 vol0, uint128 fee0) = exchange.calcAskOrderQuoteAmount(askPrice0, amt, 500);
-        (uint128 vol1, uint128 fee1) = exchange.calcAskOrderQuoteAmount(askPrice0+gap, amt, 500);
-        (uint128 vol2, uint128 fee2) = exchange.calcAskOrderQuoteAmount(askPrice0+gap*2, amt, 500);
-        uint128 protocolFee = (fee0>>2) + (fee1>>2) + (fee2>>2);
-        uint128 totalVol = vol0+vol1+vol2;
+        (uint128 vol0, uint128 fee0) = exchange.calcAskOrderQuoteAmount(
+            askPrice0,
+            amt,
+            500
+        );
+        (uint128 vol1, uint128 fee1) = exchange.calcAskOrderQuoteAmount(
+            askPrice0 + gap,
+            amt,
+            500
+        );
+        (uint128 vol2, uint128 fee2) = exchange.calcAskOrderQuoteAmount(
+            askPrice0 + gap * 2,
+            amt,
+            500
+        );
+        uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
+        uint128 totalVol = vol0 + vol1 + vol2;
         assertEq(protocolFee, usdc.balanceOf(address(exchange)));
-        assertEq(protocolFee, exchange.protocolFees(Currency.wrap(address(usdc))));
-        assertEq(initialUSDCAmt-totalVol-fee0-fee1-fee2, usdc.balanceOf(taker));
-        assertEq(initialUSDCAmt+totalVol+fee0+fee1+fee2-protocolFee, usdc.balanceOf(maker));
+        assertEq(
+            protocolFee,
+            exchange.protocolFees(Currency.wrap(address(usdc)))
+        );
+        assertEq(
+            initialUSDCAmt - totalVol - fee0 - fee1 - fee2,
+            usdc.balanceOf(taker)
+        );
+        assertEq(
+            initialUSDCAmt + totalVol + fee0 + fee1 + fee2 - protocolFee,
+            usdc.balanceOf(maker)
+        );
 
         assertEq(
             initialSEAAmt * 2,
@@ -212,29 +233,58 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillAskOrders(1, orderIds, amts, amt*3, 0);
+        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0);
         vm.stopPrank();
 
-        (uint128 vol0, uint128 fee0) = exchange.calcAskOrderQuoteAmount(askPrice0, amt, 500);
-        (uint128 vol1, uint128 fee1) = exchange.calcAskOrderQuoteAmount(askPrice0+gap, amt, 500);
-        (uint128 vol2, uint128 fee2) = exchange.calcAskOrderQuoteAmount(askPrice0+gap*2, amt, 500);
-        uint128 protocolFee = (fee0>>2) + (fee1>>2) + (fee2>>2);
-        uint128 totalVol = vol0+vol1+vol2;
+        (uint128 vol0, uint128 fee0) = exchange.calcAskOrderQuoteAmount(
+            askPrice0,
+            amt,
+            500
+        );
+        (uint128 vol1, uint128 fee1) = exchange.calcAskOrderQuoteAmount(
+            askPrice0 + gap,
+            amt,
+            500
+        );
+        (uint128 vol2, uint128 fee2) = exchange.calcAskOrderQuoteAmount(
+            askPrice0 + gap * 2,
+            amt,
+            500
+        );
+        uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
+        uint128 totalVol = vol0 + vol1 + vol2;
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
-        assertEq(gridConf.profits, amt*gap*3/PRICE_MULTIPLIER + fee0+fee1+fee2-protocolFee);
+        assertEq(
+            gridConf.profits,
+            (amt * gap * 3) /
+                PRICE_MULTIPLIER +
+                fee0 +
+                fee1 +
+                fee2 -
+                protocolFee
+        );
 
         vm.startPrank(maker);
         exchange.cancelGridOrders(1, maker, orderId, 10);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
-        assertEq(initialSEAAmt - 3*amt, sea.balanceOf(maker));
-        assertEq(initialSEAAmt + 3*amt, sea.balanceOf(taker));
+        assertEq(initialSEAAmt - 3 * amt, sea.balanceOf(maker));
+        assertEq(initialSEAAmt + 3 * amt, sea.balanceOf(taker));
 
-        assertEq(protocolFee, exchange.protocolFees(Currency.wrap(address(usdc))));
+        assertEq(
+            protocolFee,
+            exchange.protocolFees(Currency.wrap(address(usdc)))
+        );
         assertEq(protocolFee, usdc.balanceOf(address(exchange)));
-        assertEq(initialUSDCAmt-totalVol-fee0-fee1-fee2, usdc.balanceOf(taker));
-        assertEq(initialUSDCAmt+totalVol+fee0+fee1+fee2-protocolFee, usdc.balanceOf(maker));
+        assertEq(
+            initialUSDCAmt - totalVol - fee0 - fee1 - fee2,
+            usdc.balanceOf(taker)
+        );
+        assertEq(
+            initialUSDCAmt + totalVol + fee0 + fee1 + fee2 - protocolFee,
+            usdc.balanceOf(maker)
+        );
 
         assertEq(
             initialSEAAmt * 2,
@@ -269,7 +319,13 @@ contract GridExCancelTest is GridExBaseTest {
             500
         );
 
-        (, uint128 usdcTotal) = exchange.calcGridAmount(amt, bidPrice0, gap, 0, 10);
+        (, uint128 usdcTotal) = exchange.calcGridAmount(
+            amt,
+            bidPrice0,
+            gap,
+            0,
+            10
+        );
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(usdcTotal, usdc.balanceOf(address(exchange)));
         assertEq(initialSEAAmt, sea.balanceOf(maker));
@@ -317,7 +373,13 @@ contract GridExCancelTest is GridExBaseTest {
             500
         );
 
-        (, uint128 usdcTotal) = exchange.calcGridAmount(amt, bidPrice0, gap, 0, 10);
+        (, uint128 usdcTotal) = exchange.calcGridAmount(
+            amt,
+            bidPrice0,
+            gap,
+            0,
+            10
+        );
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(usdcTotal, usdc.balanceOf(address(exchange)));
         assertEq(initialSEAAmt, sea.balanceOf(maker));
@@ -375,7 +437,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillBidOrders(1, orderIds, amts, amt*3, 0);
+        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -383,18 +445,39 @@ contract GridExCancelTest is GridExBaseTest {
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
-        assertEq(initialSEAAmt + 3*amt, sea.balanceOf(maker));
-        assertEq(initialSEAAmt - 3*amt, sea.balanceOf(taker));
+        assertEq(initialSEAAmt + 3 * amt, sea.balanceOf(maker));
+        assertEq(initialSEAAmt - 3 * amt, sea.balanceOf(taker));
 
-        (uint128 vol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(bidPrice0, amt, 500);
-        (uint128 vol1, uint128 fee1) = exchange.calcBidOrderQuoteAmount(bidPrice0-gap, amt, 500);
-        (uint128 vol2, uint128 fee2) = exchange.calcBidOrderQuoteAmount(bidPrice0-gap*2, amt, 500);
-        uint128 protocolFee = (fee0>>2) + (fee1>>2) + (fee2>>2);
-        uint128 totalVol = vol0+vol1+vol2;
+        (uint128 vol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(
+            bidPrice0,
+            amt,
+            500
+        );
+        (uint128 vol1, uint128 fee1) = exchange.calcBidOrderQuoteAmount(
+            bidPrice0 - gap,
+            amt,
+            500
+        );
+        (uint128 vol2, uint128 fee2) = exchange.calcBidOrderQuoteAmount(
+            bidPrice0 - gap * 2,
+            amt,
+            500
+        );
+        uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
+        uint128 totalVol = vol0 + vol1 + vol2;
         assertEq(protocolFee, usdc.balanceOf(address(exchange)));
-        assertEq(protocolFee, exchange.protocolFees(Currency.wrap(address(usdc))));
-        assertEq(initialUSDCAmt+totalVol-fee0-fee1-fee2, usdc.balanceOf(taker));
-        assertEq(initialUSDCAmt-totalVol+fee0+fee1+fee2-protocolFee, usdc.balanceOf(maker));
+        assertEq(
+            protocolFee,
+            exchange.protocolFees(Currency.wrap(address(usdc)))
+        );
+        assertEq(
+            initialUSDCAmt + totalVol - fee0 - fee1 - fee2,
+            usdc.balanceOf(taker)
+        );
+        assertEq(
+            initialUSDCAmt - totalVol + fee0 + fee1 + fee2 - protocolFee,
+            usdc.balanceOf(maker)
+        );
 
         assertEq(
             initialSEAAmt * 2,
@@ -439,7 +522,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillBidOrders(1, orderIds, amts, amt*3, 0);
+        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -447,18 +530,39 @@ contract GridExCancelTest is GridExBaseTest {
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
-        assertEq(initialSEAAmt + 3*amt, sea.balanceOf(maker));
-        assertEq(initialSEAAmt - 3*amt, sea.balanceOf(taker));
+        assertEq(initialSEAAmt + 3 * amt, sea.balanceOf(maker));
+        assertEq(initialSEAAmt - 3 * amt, sea.balanceOf(taker));
 
-        (uint128 vol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(bidPrice0, amt, 500);
-        (uint128 vol1, uint128 fee1) = exchange.calcBidOrderQuoteAmount(bidPrice0-gap, amt, 500);
-        (uint128 vol2, uint128 fee2) = exchange.calcBidOrderQuoteAmount(bidPrice0-gap*2, amt, 500);
-        uint128 protocolFee = (fee0>>2) + (fee1>>2) + (fee2>>2);
-        uint128 totalVol = vol0+vol1+vol2;
+        (uint128 vol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(
+            bidPrice0,
+            amt,
+            500
+        );
+        (uint128 vol1, uint128 fee1) = exchange.calcBidOrderQuoteAmount(
+            bidPrice0 - gap,
+            amt,
+            500
+        );
+        (uint128 vol2, uint128 fee2) = exchange.calcBidOrderQuoteAmount(
+            bidPrice0 - gap * 2,
+            amt,
+            500
+        );
+        uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
+        uint128 totalVol = vol0 + vol1 + vol2;
         assertEq(protocolFee, usdc.balanceOf(address(exchange)));
-        assertEq(protocolFee, exchange.protocolFees(Currency.wrap(address(usdc))));
-        assertEq(initialUSDCAmt+totalVol-fee0-fee1-fee2, usdc.balanceOf(taker));
-        assertEq(initialUSDCAmt-totalVol+fee0+fee1+fee2-protocolFee, usdc.balanceOf(maker));
+        assertEq(
+            protocolFee,
+            exchange.protocolFees(Currency.wrap(address(usdc)))
+        );
+        assertEq(
+            initialUSDCAmt + totalVol - fee0 - fee1 - fee2,
+            usdc.balanceOf(taker)
+        );
+        assertEq(
+            initialUSDCAmt - totalVol + fee0 + fee1 + fee2 - protocolFee,
+            usdc.balanceOf(maker)
+        );
 
         assertEq(
             initialSEAAmt * 2,

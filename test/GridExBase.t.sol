@@ -119,7 +119,7 @@ contract GridExBaseTest is Test {
             fillAmt,
             feebps
         );
-        uint128 lpfee = fee - (fee >> 2);
+        uint128 lpfee = fee - (fee >> 1);
         uint128 quota = exchange.calcQuoteAmount(baseAmt, price - gap, false);
         if (currOrderQuoteAmt >= quota) {
             return (quoteVol, quota, quota+lpfee, fee);
@@ -142,11 +142,11 @@ contract GridExBaseTest is Test {
             fillAmt,
             feebps
         );
-        uint128 lpfee = fee - (fee >> 2);
+        uint128 lpfee = fee - (fee >> 1);
         return (quoteVol, quoteVol + lpfee, fee);
     }
 
     function makerFee(uint128 fee) internal pure returns (uint128) {
-        return fee - (fee >> 2);
+        return fee - (fee >> 1);
     }
 }

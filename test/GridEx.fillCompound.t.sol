@@ -81,7 +81,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(initialUSDCAmt, usdc.balanceOf(maker));
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 2
+            fees >> 1
         );
 
         // grid profit
@@ -121,7 +121,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(gridConf.profits, 0);
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fees >> 2) + (fees2 >> 2)
+            (fees >> 1) + (fees2 >> 1)
         );
 
         // taker balance
@@ -197,7 +197,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(initialUSDCAmt, usdc.balanceOf(maker));
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 2
+            fees >> 1
         );
 
         // grid profit
@@ -299,7 +299,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(initialUSDCAmt, usdc.balanceOf(maker));
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fee0 >> 2) + (fee1 >> 2) + (fee2 >> 2)
+            (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1)
         );
 
         // grid profit
@@ -373,7 +373,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(quoteAmt - usdcVol + fees, usdc.balanceOf(address(exchange)));
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 2
+            fees >> 1
         );
 
         // grid profit
@@ -414,7 +414,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(gridConf.profits, 0);
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fees >> 2) + (fees2 >> 2)
+            (fees >> 1) + (fees2 >> 1)
         );
 
         // taker balance
@@ -507,7 +507,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         );
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 2
+            fees >> 1
         );
 
         // grid profit
@@ -557,7 +557,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(gridConf.profits, 0);
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fees >> 2) + (fees1 >> 2)
+            (fees >> 1) + (fees1 >> 1)
         );
 
         // taker balance
@@ -667,7 +667,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(amts[2], order2.revAmount);
 
         // grid profits
-        uint128 protocolFee = (fee0 >> 2) + (fee1 >> 2) + (fee2 >> 2);
+        uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
         // protocol profits
         assertEq(
             exchange.protocolFees(Currency.wrap(address(usdc))),
