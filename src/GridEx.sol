@@ -89,14 +89,13 @@ contract GridEx is
         ) = _placeGridOrders(msg.sender, base, quote, param);
 
         if (baseIsETH) {
-            _transferETH(msg.sender, baseAmt, uint128(msg.value));
-            _transferToken(quote, msg.sender, quoteAmt);
+            _transferETHFrom(msg.sender, baseAmt, uint128(msg.value));
+            _transferTokenFrom(quote, msg.sender, quoteAmt);
         } else {
-            _transferETH(msg.sender, quoteAmt, uint128(msg.value));
-            _transferToken(base, msg.sender, baseAmt);
+            _transferETHFrom(msg.sender, quoteAmt, uint128(msg.value));
+            _transferTokenFrom(base, msg.sender, baseAmt);
         }
     }
-
 
     /// @inheritdoc IGridEx
     function placeGridOrders(
@@ -116,12 +115,12 @@ contract GridEx is
 
         // transfer base token
         if (baseAmt > 0) {
-            _transferToken(pair.base, msg.sender, baseAmt);
+            _transferTokenFrom(pair.base, msg.sender, baseAmt);
         }
 
         // transfer quote token
         if (quoteAmt > 0) {
-            _transferToken(pair.quote, msg.sender, quoteAmt);
+            _transferTokenFrom(pair.quote, msg.sender, quoteAmt);
         }
     }
 
@@ -165,7 +164,8 @@ contract GridEx is
     function fillAskOrder(
         uint96 orderId,
         uint128 amt,
-        uint128 minAmt // base amount
+        uint128 minAmt, // base amount
+        uint32 flag
     ) public payable override nonReentrant {
         bool isAsk = isAskGridOrder(orderId);
         address taker = msg.sender;
@@ -186,13 +186,14 @@ contract GridEx is
 
         Pair memory pair = getPairById[gridConfig.pairId];
         // transfer base token to taker
-        pair.base.transfer(taker, filledAmt);
+        // pair.base.transfer(taker, filledAmt);
         // SafeTransferLib.safeTransfer(ERC20(pair.base), taker, filledAmt);
         // protocol fee
         protocolFees[pair.quote] += protocolFee;
 
         // ensure receive enough quote token
-        _settle(pair.quote, taker, filledVol, msg.value);
+        // _settle(pair.quote, taker, filledVol, msg.value);
+        _settleAssetWith(pair.quote, pair.base, msg.sender, filledVol, filledAmt, msg.value, flag);
     }
 
     struct AccFilled {
@@ -207,7 +208,8 @@ contract GridEx is
         uint96[] calldata idList,
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
-        uint128 minAmt // base amount
+        uint128 minAmt, // base amount
+        uint32 flag
     ) public payable override nonReentrant {
         if (idList.length != amtList.length) {
             revert InvalidParam();
@@ -256,20 +258,22 @@ contract GridEx is
         Pair memory pair = getPairById[pairId];
         Currency quote = pair.quote;
         // transfer base token to taker
-        pair.base.transfer(taker, filled.amt);
+        // pair.base.transfer(taker, filled.amt);
         // SafeTransferLib.safeTransfer(ERC20(pair.base), taker, filled.amt);
         // protocol fee
         protocolFees[quote] += filled.fee;
 
         // ensure receive enough quote token
-        _settle(quote, taker, filled.vol, msg.value);
+        // _settle(quote, taker, filled.vol, msg.value);
+        _settleAssetWith(quote, pair.base, msg.sender, filled.vol, filled.amt, msg.value, flag);
     }
 
     /// @inheritdoc IGridEx
     function fillBidOrder(
         uint96 orderId,
         uint128 amt,
-        uint128 minAmt // base amount
+        uint128 minAmt, // base amount
+        uint32 flag
     ) public payable override nonReentrant {
         bool isAsk = isAskGridOrder(orderId);
         address taker = msg.sender;
@@ -290,13 +294,14 @@ contract GridEx is
 
         Pair memory pair = getPairById[gridConfig.pairId];
         // transfer quote token to taker
-        pair.quote.transfer(taker, filledVol);
+        // pair.quote.transfer(taker, filledVol);
         // SafeTransferLib.safeTransfer(ERC20(pair.quote), taker, filledVol);
         // protocol fee
         protocolFees[pair.quote] += protocolFee;
 
         // ensure receive enough base token
-        _settle(pair.base, taker, filledAmt, msg.value);
+        // _settle(pair.base, taker, filledAmt, msg.value);
+        _settleAssetWith(pair.base, pair.quote, taker, filledAmt, filledVol, msg.value, flag);
     }
 
     /// @inheritdoc IGridEx
@@ -305,7 +310,8 @@ contract GridEx is
         uint96[] calldata idList,
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
-        uint128 minAmt // base amount
+        uint128 minAmt, // base amount
+        uint32 flag
     ) public payable override nonReentrant {
         if (idList.length != amtList.length) {
             revert InvalidParam();
@@ -355,13 +361,14 @@ contract GridEx is
 
         Pair memory pair = getPairById[pairId];
         // transfer quote token to taker
-        pair.quote.transfer(taker, filledVol);
+        // pair.quote.transfer(taker, filledVol);
         // SafeTransferLib.safeTransfer(ERC20(pair.quote), taker, filledVol);
         // protocol fee
         protocolFees[pair.quote] += protocolFee;
 
         // ensure receive enough base token
-        _settle(pair.base, taker, filledAmt, msg.value);
+        // _settle(pair.base, taker, filledAmt, msg.value);
+        _settleAssetWith(pair.base, pair.quote, taker, filledAmt, filledVol, msg.value, flag);
     }
 
     /// @inheritdoc IGridEx
@@ -412,7 +419,8 @@ contract GridEx is
     function withdrawGridProfits(
         uint64 gridId,
         uint256 amt,
-        address to
+        address to,
+        uint32 flag
     ) public override {
         IGridOrder.GridConfig memory conf = gridConfigs[gridId];
         require(conf.owner == msg.sender);
@@ -425,7 +433,8 @@ contract GridEx is
 
         Pair memory pair = getPairById[conf.pairId];
         gridConfigs[gridId].profits = conf.profits - uint128(amt);
-        pair.quote.transfer(to, amt);
+        // pair.quote.transfer(to, amt);
+        _transferAssetTo(pair.quote, to, amt, flag);
 
         emit WithdrawProfit(gridId, pair.quote, to, amt);
     }
@@ -434,21 +443,23 @@ contract GridEx is
         uint96 gridId,
         address recipient,
         uint96 startOrderId,
-        uint96 howmany
+        uint96 howmany,
+        uint32 flag
     ) public override {
         uint96[] memory idList = new uint96[](howmany);
         for (uint96 i = 0; i < howmany; ++i) {
             idList[i] = startOrderId + i;
         }
 
-        cancelGridOrders(gridId, recipient, idList);
+        cancelGridOrders(gridId, recipient, idList, flag);
     }
 
     /// @inheritdoc IGridEx
     function cancelGridOrders(
         uint96 gridId,
         address recipient,
-        uint96[] memory idList
+        uint96[] memory idList,
+        uint32 flag
     ) public override {
         require(idList.length > 0, "G9");
 
@@ -500,11 +511,13 @@ contract GridEx is
 
         if (baseAmt > 0) {
             // transfer base
-            pair.base.transfer(recipient, baseAmt);
+            // pair.base.transfer(recipient, baseAmt);
+            _transferAssetTo(pair.base, recipient, baseAmt, flag & 0x1);
         }
         if (quoteAmt > 0) {
             // transfer
-            pair.quote.transfer(recipient, quoteAmt);
+            // pair.quote.transfer(recipient, quoteAmt);
+            _transferAssetTo(pair.quote, recipient, quoteAmt, flag & 0x2);
         }
     }
 
@@ -522,7 +535,8 @@ contract GridEx is
     function collectProtocolFee(
         Currency token,
         address recipient,
-        uint256 amount
+        uint256 amount,
+        uint32 flag
     ) external override onlyOwner {
         if (amount == 0) {
             amount = protocolFees[token] - 1;
@@ -532,6 +546,7 @@ contract GridEx is
                 : amount;
         }
 
-        token.transfer(recipient, amount);
+        // token.transfer(recipient, amount);
+        _transferAssetTo(token, recipient, amount, flag);
     }
 }

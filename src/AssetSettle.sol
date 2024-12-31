@@ -43,7 +43,57 @@ abstract contract AssetSettle {
         );
     }
 
-    function _transferToken(
+    function _settleAssetWith(
+        Currency inToken,
+        Currency outToken,
+        address addr,
+        uint256 inAmt,
+        uint256 outAmt,
+        uint256 paid,
+        uint32 flag
+    ) internal {
+        if (flag == 0) {
+            ERC20(Currency.unwrap(inToken)).transferFrom(addr, address(this), inAmt);
+            outToken.transfer(addr, outAmt);
+        } else {
+            // in token
+            if (flag & 0x01 > 0) {
+                assert(Currency.unwrap(inToken) == WETH);
+                IWETH(WETH).deposit{value: inAmt}();
+                if (paid > inAmt) {
+                    safeTransferETH(addr, paid - inAmt);
+                }
+            } else {
+                ERC20(Currency.unwrap(inToken)).transferFrom(addr, address(this), inAmt);
+            }
+
+            // out token
+            if (flag & 0x20 > 0) {
+                assert(Currency.unwrap(outToken) == WETH);
+                IWETH(WETH).withdraw(outAmt);
+                safeTransferETH(addr, outAmt);
+            } else {
+                outToken.transfer(addr, outAmt);
+            }
+        }
+    }
+
+    function _transferAssetTo(
+        Currency token,
+        address addr,
+        uint256 amount,
+        uint32 flag
+    ) internal {
+        if (flag == 0) {
+            token.transfer(addr, amount);
+        } else {
+            assert(Currency.unwrap(token) == WETH);
+            IWETH(WETH).withdraw(amount);
+            safeTransferETH(addr, amount);
+        }
+    }
+
+    function _transferTokenFrom(
         Currency token,
         address addr,
         uint256 amount
@@ -51,7 +101,7 @@ abstract contract AssetSettle {
         ERC20(Currency.unwrap(token)).transferFrom(addr, address(this), amount);
     }
 
-    function _transferETH(address from, uint128 amt, uint128 paid) internal {
+    function _transferETHFrom(address from, uint128 amt, uint128 paid) internal {
         IWETH(WETH).deposit{value: amt}();
         if (paid > amt) {
             safeTransferETH(from, paid - amt);
