@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
 // import "./interfaces/IWETH.sol";
 import "./interfaces/IPair.sol";
@@ -88,17 +88,13 @@ contract GridEx is
             uint128 quoteAmt
         ) = _placeGridOrders(msg.sender, base, quote, param);
 
-        _transferAsset(baseIsETH, base, baseAmt);
-        _transferAsset(!baseIsETH, quote, quoteAmt);
-        // if (base.isAddressZero()) {
-        //     IWETH(WETH).deposit();
-        //     IWETH(WETH).transfer(address(this), baseAmt);
-        //     ERC20(Currency.unwrap(quote)).transferFrom(msg.sender, address(this), quoteAmt);
-        // } else {
-        //     IWETH(WETH).deposit();
-        //     IWETH(WETH).transfer(address(this), quoteAmt);
-        //     ERC20(Currency.unwrap(base)).transferFrom(msg.sender, address(this), baseAmt);
-        // }
+        if (baseIsETH) {
+            _transferETH(msg.sender, baseAmt, uint128(msg.value));
+            _transferToken(quote, msg.sender, quoteAmt);
+        } else {
+            _transferETH(msg.sender, quoteAmt, uint128(msg.value));
+            _transferToken(base, msg.sender, baseAmt);
+        }
     }
 
 
