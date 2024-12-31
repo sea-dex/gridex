@@ -89,7 +89,7 @@ contract GridExBaseTest is Test {
                 ? perBaseAmt * asks
                 : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
 
-            exchange.placeGridOrders{value: val}(
+            exchange.placeETHGridOrders{value: val}(
                 Currency.wrap(base),
                 Currency.wrap(quote),
                 param

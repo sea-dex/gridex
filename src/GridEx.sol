@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-import "./interfaces/IWETH.sol";
+// import "./interfaces/IWETH.sol";
 import "./interfaces/IPair.sol";
 import "./interfaces/IGridEx.sol";
 import "./interfaces/IERC20Minimal.sol";
@@ -29,7 +29,6 @@ contract GridEx is
 
     // uint32 public constant ETHBase = 1;  // Base token is ETH
     // uint32 public constant ETHQuote = 2; // Quote token is ETH
-    address public immutable WETH;
 
     mapping(uint96 orderId => IGridOrder.Order) public bidOrders;
     mapping(uint96 orderId => IGridOrder.Order) public askOrders;
@@ -68,28 +67,30 @@ contract GridEx is
         return gridId;
     }
 
-    // function placeWETHGridOrders(
-    //     Currency base,
-    //     Currency quote,
-    //     GridOrderParam calldata param
-    // ) public payable {
-        // bool baseIsETH = false;
+    function placeETHGridOrders(
+        Currency base,
+        Currency quote,
+        GridOrderParam calldata param
+    ) public payable {
+        bool baseIsETH = false;
+        if (base.isAddressZero()) {
+            baseIsETH = true;
+            base = Currency.wrap(WETH);
+        } else if (quote.isAddressZero()) {
+            quote = Currency.wrap(WETH);
+        } else {
+            revert InvalidParam();
+        }
+
+        (
+            ,
+            uint128 baseAmt,
+            uint128 quoteAmt
+        ) = _placeGridOrders(msg.sender, base, quote, param);
+
+        _transferAsset(baseIsETH, base, baseAmt);
+        _transferAsset(!baseIsETH, quote, quoteAmt);
         // if (base.isAddressZero()) {
-        //     baseIsETH = true;
-        //     base = Currency.wrap(WETH);
-        // } else if (quote.isAddressZero()) {
-        //     quote = Currency.wrap(WETH);
-        // } else {
-        //     revert InvalidParam();
-        // }
-
-        // (
-        //     ,
-        //     uint128 baseAmt,
-        //     uint128 quoteAmt
-        // ) = _placeGridOrders(msg.sender, base, quote, param);
-
-        // if (baseIsETH) {
         //     IWETH(WETH).deposit();
         //     IWETH(WETH).transfer(address(this), baseAmt);
         //     ERC20(Currency.unwrap(quote)).transferFrom(msg.sender, address(this), quoteAmt);
@@ -98,14 +99,19 @@ contract GridEx is
         //     IWETH(WETH).transfer(address(this), quoteAmt);
         //     ERC20(Currency.unwrap(base)).transferFrom(msg.sender, address(this), baseAmt);
         // }
-    // }
+    }
+
 
     /// @inheritdoc IGridEx
     function placeGridOrders(
         Currency base,
         Currency quote,
         GridOrderParam calldata param
-    ) public payable override {
+    ) public override {
+        if (base.isAddressZero() || quote.isAddressZero()) {
+            revert InvalidParam();
+        }
+
         (
             Pair memory pair,
             uint128 baseAmt,
@@ -114,12 +120,12 @@ contract GridEx is
 
         // transfer base token
         if (baseAmt > 0) {
-            _settle(pair.base, msg.sender, baseAmt, msg.value);
+            _transferToken(pair.base, msg.sender, baseAmt);
         }
 
         // transfer quote token
         if (quoteAmt > 0) {
-            _settle(pair.quote, msg.sender, quoteAmt, msg.value);
+            _transferToken(pair.quote, msg.sender, quoteAmt);
         }
     }
 

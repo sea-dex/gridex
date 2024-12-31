@@ -23,8 +23,6 @@ interface IGridEx {
     /// @param amt Amount
     event WithdrawProfit(uint96 gridId, Currency quote, address to, uint256 amt);
 
-    /// @notice WETH address
-    function WETH() external returns (address);
 
     /// Grid order param
     struct GridOrderParam {
@@ -42,12 +40,12 @@ interface IGridEx {
     /// @notice Place WETH grid orders, ether base or quote should be ETH
     /// @param base The base token
     /// @param quote The quote token
-    // function placeWETHGridOrders(Currency base, Currency quote, GridOrderParam calldata param) external payable;
+    function placeETHGridOrders(Currency base, Currency quote, GridOrderParam calldata param) external payable;
 
     /// @notice Place grid orders
     /// @param base The base token
     /// @param quote The quote token
-    function placeGridOrders(Currency base, Currency quote, GridOrderParam calldata param) external payable;
+    function placeGridOrders(Currency base, Currency quote, GridOrderParam calldata param) external;
 
     /// @notice Fill ask grid order
     /// @param orderId The grid order id
