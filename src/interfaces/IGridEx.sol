@@ -63,6 +63,7 @@ interface IGridEx {
     /// @param orderId The grid order id
     /// @param amt The base amount of taker to buy
     /// @param minAmt The min base amount of taker to buy
+    /// @param flag 0: both base and quote is NOT ETH; 1: inToken(quote) is ETH; 2: outToken(base) is ETH
     function fillAskOrder(
         uint96 orderId,
         uint128 amt,
@@ -84,6 +85,7 @@ interface IGridEx {
     /// @param orderId The grid order id
     /// @param amt The base amt of taker to sell
     /// @param minAmt The min base amt of taker to sell
+    /// @param flag 0: both base and quote is NOT ETH; 1: inToken(base) is ETH; 2: outToken(quote) is ETH
     function fillBidOrder(
         uint96 orderId,
         uint128 amt,
@@ -103,6 +105,9 @@ interface IGridEx {
 
     /// @notice Cancel grid orders
     /// @param gridId The grid id
+    /// @param recipient The recieve address
+    /// @param idList The order Id list to cancel
+    /// @param flag: 0: both base and quote NOT ETH; 1: base is WETH and want ETH back; 2: quote is WETH and want ETH back 
     function cancelGridOrders(
         uint96 gridId,
         address recipient,
@@ -112,6 +117,10 @@ interface IGridEx {
 
     /// @notice Cancel grid orders
     /// @param gridId The grid id
+    /// @param recipient The recieve address
+    /// @param startOrderId The first order Id to cancel
+    /// @param howmany Order count to be canceled
+    /// @param flag: 0: both base and quote NOT ETH; 1: base is WETH and want ETH back; 2: quote is WETH and want ETH back 
     function cancelGridOrders(
         uint96 gridId,
         address recipient,

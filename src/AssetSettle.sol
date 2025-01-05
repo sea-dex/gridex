@@ -68,7 +68,7 @@ abstract contract AssetSettle {
             }
 
             // out token
-            if (flag & 0x20 > 0) {
+            if (flag & 0x02 > 0) {
                 assert(Currency.unwrap(outToken) == WETH);
                 IWETH(WETH).withdraw(outAmt);
                 safeTransferETH(addr, outAmt);
