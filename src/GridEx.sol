@@ -539,14 +539,18 @@ contract GridEx is
         uint32 flag
     ) external override onlyOwner {
         if (amount == 0) {
-            amount = protocolFees[token] - 1;
+            amount = protocolFees[token] - 1; // revert if overflow 
         } else {
             amount = amount >= protocolFees[token]
-                ? protocolFees[token] - 1
+                ? protocolFees[token] - 1 // revert if overflow
                 : amount;
+        }
+        if (amount == 0) {
+            return;
         }
 
         // token.transfer(recipient, amount);
         _transferAssetTo(token, recipient, amount, flag);
+        protocolFees[token] -= amount;
     }
 }
