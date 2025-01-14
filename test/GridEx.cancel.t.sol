@@ -577,4 +577,34 @@ contract GridExCancelTest is GridExBaseTest {
                 usdc.balanceOf(address(exchange))
         );
     }
+
+    // cannot be filled after cancel
+    function test_cancelAfter() public {
+        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint96 orderId = 0x000000000000000000000001;
+        uint128 amt = 20000 ether; // SEA
+
+        _placeOrders(
+            address(sea),
+            address(usdc),
+            amt,
+            0,
+            10,
+            0,
+            bidPrice0,
+            gap,
+            false,
+            500
+        );
+
+        vm.startPrank(maker);
+        exchange.cancelGridOrders(1, maker, orderId, 2, 0);
+        vm.stopPrank();
+
+        vm.startPrank(taker);
+        vm.expectRevert();
+        exchange.fillBidOrder(orderId, amt, 0, 0);
+        vm.stopPrank();
+    }
 }
