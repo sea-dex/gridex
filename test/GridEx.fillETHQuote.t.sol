@@ -26,7 +26,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_fillETHQuoteAskOrder() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        uint96 orderId = 0x800000000000000000000001;
+        uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(
@@ -46,19 +46,25 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(0, eth.balanceOf(address(exchange)));
         assertEq(0, weth.balanceOf(address(exchange)));
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
+        IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
+        assertEq(gridConf.startAskOrderId, orderId);
+        assertEq(gridConf.askOrderCount, 10);
 
         (uint128 ethVol, uint128 fee) = exchange.calcAskOrderQuoteAmount(
             askPrice0,
             amt,
             500
         );
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        assertEq(gridOrderId, 0x180000000000000000000000000000001);
+
         vm.startPrank(taker);
-        exchange.fillAskOrder{value: ethVol + fee}(orderId, amt, amt, 1); // intoken: ETH
+        exchange.fillAskOrder{value: ethVol + fee}(gridOrderId, amt, amt, 1); // intoken: ETH
         vm.stopPrank();
 
         // grid order flipped
-        IGridOrder.Order memory order = exchange.getGridOrder(orderId);
-        IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        gridConf = exchange.getGridConfig(1);
 
         assertEq(0, order.amount);
         assertEq((amt * (askPrice0 - gap)) / PRICE_MULTIPLIER, order.revAmount);
@@ -68,7 +74,6 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
             fee - fee / 2 + (amt * gap) / PRICE_MULTIPLIER,
             gridConf.profits
         );
-        assertEq(initialETHAmt - ethVol - fee, eth.balanceOf(taker));
         assertEq(
             initialETHAmt * 2,
             eth.balanceOf(maker) +
@@ -81,10 +86,10 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
                 sea.balanceOf(taker) +
                 sea.balanceOf(address(exchange))
         );
-
-        assertEq(initialETHAmt - ethVol - fee, eth.balanceOf(taker));
-        assertEq(ethVol + fee, weth.balanceOf(address(exchange)));
         assertEq(initialETHAmt, eth.balanceOf(maker));
+        assertEq(ethVol + fee, weth.balanceOf(address(exchange)));
+        assertEq(initialETHAmt - ethVol - fee, eth.balanceOf(taker));
+
         assertEq(exchange.protocolFees(Currency.wrap(address(weth))), fee >> 1);
 
         // grid profit
@@ -96,7 +101,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         // fill reversed order
         vm.startPrank(taker);
         // weth.deposit{value: amt}();
-        exchange.fillBidOrder(orderId, amt, amt, 0);
+        exchange.fillBidOrder(gridOrderId, amt, amt, 0);
         vm.stopPrank();
 
         assertEq(
@@ -112,7 +117,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
                 weth.balanceOf(taker) +
                 weth.balanceOf(address(exchange))
         );
-        order = exchange.getGridOrder(orderId);
+        order = exchange.getGridOrder(gridOrderId);
         assertEq(amt, order.amount);
         assertEq(0, order.revAmount);
 
@@ -149,7 +154,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_partialFillETHQuoteAskOrders() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        uint96 orderId = 0x800000000000000000000001;
+        uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(
@@ -169,10 +174,10 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(0, weth.balanceOf(address(exchange)));
         assertEq(0, eth.balanceOf(address(exchange)));
 
-        uint96[] memory orderIds = new uint96[](3);
-        orderIds[0] = orderId;
-        orderIds[1] = orderId + 1;
-        orderIds[2] = orderId + 2;
+        uint256[] memory orderIds = new uint256[](3);
+        orderIds[0] = toGridOrderId(1, orderId);
+        orderIds[1] = toGridOrderId(1, orderId + 1);
+        orderIds[2] = toGridOrderId(1, orderId + 2);
         uint128[] memory amts = new uint128[](3);
         amts[0] = amt;
         amts[1] = amt;
@@ -220,9 +225,15 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
                 usdc.balanceOf(address(exchange))
         );
         // grid order flipped
-        IGridOrder.Order memory order0 = exchange.getGridOrder(orderId);
-        IGridOrder.Order memory order1 = exchange.getGridOrder(orderId + 1);
-        IGridOrder.Order memory order2 = exchange.getGridOrder(orderId + 2);
+        IGridOrder.OrderInfo memory order0 = exchange.getGridOrder(
+            toGridOrderId(1, orderId)
+        );
+        IGridOrder.OrderInfo memory order1 = exchange.getGridOrder(
+            toGridOrderId(1, orderId + 1)
+        );
+        IGridOrder.OrderInfo memory order2 = exchange.getGridOrder(
+            toGridOrderId(1, orderId + 2)
+        );
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
 
         assertEq(amt - amts[0], order0.amount);
@@ -279,7 +290,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_fillETHQuoteBidOrder() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 200 ether; // ETH
 
         _placeOrders(
@@ -305,17 +316,23 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
 
         assertEq(quoteAmt, weth.balanceOf(address(exchange)));
         assertEq(0, sea.balanceOf(address(exchange)));
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        // grid order flipped
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        // console.log(order.amount);
+        // console.log(order.revAmount);
 
         vm.startPrank(taker);
-        exchange.fillBidOrder(orderId, amt, amt, 2); // outToken: ETH
+        exchange.fillBidOrder(gridOrderId, amt, amt, 2); // outToken: ETH
         vm.stopPrank();
 
         // grid order flipped
-        IGridOrder.Order memory order = exchange.getGridOrder(orderId);
+        order = exchange.getGridOrder(gridOrderId);
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
+        // console.log(gridConf.startBidOrderId);
 
-        assertEq(0, order.amount);
         assertEq(amt, order.revAmount);
+        assertEq(0, order.amount);
         // sea balance
         assertEq(initialSEAAmt - amt, sea.balanceOf(taker));
         assertEq(initialSEAAmt, sea.balanceOf(maker));
@@ -356,7 +373,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         );
         // fill reversed order
         vm.startPrank(taker);
-        exchange.fillAskOrder{value: ethVol2 + fees2}(orderId, amt, amt, 1); // inToken: ETH
+        exchange.fillAskOrder{value: ethVol2 + fees2}(gridOrderId, amt, amt, 1); // inToken: ETH
         vm.stopPrank();
 
         assertEq(
@@ -376,7 +393,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
                 eth.balanceOf(taker) +
                 weth.balanceOf(address(exchange))
         );
-        order = exchange.getGridOrder(orderId);
+        order = exchange.getGridOrder(gridOrderId);
         assertEq((amt * bidPrice0) / PRICE_MULTIPLIER, order.amount);
         assertEq(0, order.revAmount);
 
@@ -411,7 +428,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_partialFillETHQuoteBidOrders() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 2 ether; // SEA
 
         _placeOrders(
@@ -444,31 +461,30 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         uint128 quoteAmt0 = exchange.calcQuoteAmount(amt, price0, false);
         uint128 quoteAmt1 = exchange.calcQuoteAmount(amt, price1, false);
         uint128 quoteAmt2 = exchange.calcQuoteAmount(amt, price2, false);
-        IGridOrder.Order memory order0 = exchange.getGridOrder(orderId);
-        IGridOrder.Order memory order1 = exchange.getGridOrder(orderId + 1);
-        IGridOrder.Order memory order2 = exchange.getGridOrder(orderId + 2);
+        IGridOrder.OrderInfo memory order0 = exchange.getGridOrder(
+            toGridOrderId(1, orderId)
+        );
+        IGridOrder.OrderInfo memory order1 = exchange.getGridOrder(
+            toGridOrderId(1, orderId + 1)
+        );
+        IGridOrder.OrderInfo memory order2 = exchange.getGridOrder(
+            toGridOrderId(1, orderId + 2)
+        );
         assertEq(order0.amount, quoteAmt0);
         assertEq(order1.amount, quoteAmt1);
         assertEq(order2.amount, quoteAmt2);
 
-        uint96[] memory orderIds = new uint96[](3);
-        orderIds[0] = orderId;
-        orderIds[1] = orderId + 1;
-        orderIds[2] = orderId + 2;
+        uint256[] memory orderIds = new uint256[](3);
+        orderIds[0] = toGridOrderId(1, orderId);
+        orderIds[1] = toGridOrderId(1, orderId + 1);
+        orderIds[2] = toGridOrderId(1, orderId + 2);
         uint128[] memory amts = new uint128[](3);
         amts[0] = amt;
         amts[1] = amt;
-        amts[2] = amt/5;
+        amts[2] = amt / 5;
 
         vm.startPrank(taker);
-        exchange.fillBidOrders(
-            1,
-            orderIds,
-            amts,
-            amt*2 + amt / 2,
-            0,
-            2
-        ); // outToken: ETH
+        exchange.fillBidOrders(1, orderIds, amts, amt * 2 + amt / 2, 0, 2); // outToken: ETH
         vm.stopPrank();
 
         assertEq(
@@ -485,9 +501,9 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         );
         // grid order flipped
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
-        order0 = exchange.getGridOrder(orderId);
-        order1 = exchange.getGridOrder(orderId + 1);
-        order2 = exchange.getGridOrder(orderId + 2);
+        order0 = exchange.getGridOrder(toGridOrderId(1, orderId));
+        order1 = exchange.getGridOrder(toGridOrderId(1, orderId + 1));
+        order2 = exchange.getGridOrder(toGridOrderId(1, orderId + 2));
 
         (uint128 fillVol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(
             price0,
@@ -529,13 +545,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
             sea.balanceOf(taker)
         );
         assertEq(
-            initialETHAmt +
-                fillVol0 -
-                fee0 +
-                fillVol1 -
-                fee1 +
-                fillVol2 -
-                fee2,
+            initialETHAmt + fillVol0 - fee0 + fillVol1 - fee1 + fillVol2 - fee2,
             eth.balanceOf(taker)
         );
 

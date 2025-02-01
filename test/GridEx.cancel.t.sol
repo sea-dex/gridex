@@ -24,7 +24,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelAskGridWithoutFill1() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        uint96 orderId = 0x800000000000000000000001;
+        uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -44,7 +44,7 @@ contract GridExCancelTest is GridExBaseTest {
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -69,7 +69,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelAskGridWithoutFill2() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        uint96 orderId = 0x800000000000000000000001;
+        uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -89,7 +89,7 @@ contract GridExCancelTest is GridExBaseTest {
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -115,7 +115,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelAskGridFilled1() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        uint96 orderId = 0x800000000000000000000001;
+        uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -136,10 +136,10 @@ contract GridExCancelTest is GridExBaseTest {
 
         vm.startPrank(taker);
 
-        uint96[] memory orderIds = new uint96[](3);
-        orderIds[0] = orderId;
-        orderIds[1] = orderId + 1;
-        orderIds[2] = orderId + 2;
+        uint256[] memory orderIds = new uint256[](3);
+        orderIds[0] = toGridOrderId(1, orderId);
+        orderIds[1] = toGridOrderId(1, orderId + 1);
+        orderIds[2] = toGridOrderId(1, orderId + 2);
         uint128[] memory amts = new uint128[](3);
         amts[0] = amt;
         amts[1] = amt;
@@ -148,7 +148,7 @@ contract GridExCancelTest is GridExBaseTest {
         vm.stopPrank();
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -204,7 +204,8 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelAskGridFilled2() public {
         uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = askPrice0 / 20; // 0.0001
-        uint96 orderId = 0x800000000000000000000001;
+        //      uint96 orderId = 0x800000000000000000000001;
+        uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -225,10 +226,10 @@ contract GridExCancelTest is GridExBaseTest {
 
         vm.startPrank(taker);
 
-        uint96[] memory orderIds = new uint96[](3);
-        orderIds[0] = orderId;
-        orderIds[1] = orderId + 1;
-        orderIds[2] = orderId + 2;
+        uint256[] memory orderIds = new uint256[](3);
+        orderIds[0] = toGridOrderId(1, orderId);
+        orderIds[1] = toGridOrderId(1, orderId + 1);
+        orderIds[2] = toGridOrderId(1, orderId + 2);
         uint128[] memory amts = new uint128[](3);
         amts[0] = amt;
         amts[1] = amt;
@@ -265,7 +266,7 @@ contract GridExCancelTest is GridExBaseTest {
         );
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -276,13 +277,23 @@ contract GridExCancelTest is GridExBaseTest {
             protocolFee,
             exchange.protocolFees(Currency.wrap(address(usdc)))
         );
-        assertEq(protocolFee, usdc.balanceOf(address(exchange)));
         assertEq(
             initialUSDCAmt - totalVol - fee0 - fee1 - fee2,
             usdc.balanceOf(taker)
         );
+        // uint128 lpProfit = fee0 + fee1 + fee2;
         assertEq(
-            initialUSDCAmt + totalVol + fee0 + fee1 + fee2 - protocolFee,
+            protocolFee + gridConf.profits,
+            usdc.balanceOf(address(exchange))
+        );
+        assertEq(
+            initialUSDCAmt +
+                totalVol +
+                fee0 +
+                fee1 +
+                fee2 -
+                protocolFee -
+                gridConf.profits,
             usdc.balanceOf(maker)
         );
 
@@ -303,7 +314,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelBidGridWithoutFill1() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -332,7 +343,7 @@ contract GridExCancelTest is GridExBaseTest {
         assertEq(initialUSDCAmt - usdcTotal, usdc.balanceOf(maker));
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -357,7 +368,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelBidGridWithoutFill2() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -386,7 +397,7 @@ contract GridExCancelTest is GridExBaseTest {
         assertEq(initialUSDCAmt - usdcTotal, usdc.balanceOf(maker));
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -412,7 +423,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelBidGridFilled1() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -429,10 +440,10 @@ contract GridExCancelTest is GridExBaseTest {
         );
 
         vm.startPrank(taker);
-        uint96[] memory orderIds = new uint96[](3);
-        orderIds[0] = orderId;
-        orderIds[1] = orderId + 1;
-        orderIds[2] = orderId + 2;
+        uint256[] memory orderIds = new uint256[](3);
+        orderIds[0] = toGridOrderId(1, orderId);
+        orderIds[1] = toGridOrderId(1, orderId + 1);
+        orderIds[2] = toGridOrderId(1, orderId + 2);
         uint128[] memory amts = new uint128[](3);
         amts[0] = amt;
         amts[1] = amt;
@@ -441,7 +452,7 @@ contract GridExCancelTest is GridExBaseTest {
         vm.stopPrank();
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -497,7 +508,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelBidGridFilled2() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -514,10 +525,10 @@ contract GridExCancelTest is GridExBaseTest {
         );
 
         vm.startPrank(taker);
-        uint96[] memory orderIds = new uint96[](3);
-        orderIds[0] = orderId;
-        orderIds[1] = orderId + 1;
-        orderIds[2] = orderId + 2;
+        uint256[] memory orderIds = new uint256[](3);
+        orderIds[0] = toGridOrderId(1, orderId);
+        orderIds[1] = toGridOrderId(1, orderId + 1);
+        orderIds[2] = toGridOrderId(1, orderId + 2);
         uint128[] memory amts = new uint128[](3);
         amts[0] = amt;
         amts[1] = amt;
@@ -526,7 +537,7 @@ contract GridExCancelTest is GridExBaseTest {
         vm.stopPrank();
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 10, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 10, 0);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(address(exchange)));
@@ -550,7 +561,11 @@ contract GridExCancelTest is GridExBaseTest {
         );
         uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
         uint128 totalVol = vol0 + vol1 + vol2;
-        assertEq(protocolFee, usdc.balanceOf(address(exchange)));
+        IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
+        assertEq(
+            protocolFee + gridConf.profits,
+            usdc.balanceOf(address(exchange))
+        );
         assertEq(
             protocolFee,
             exchange.protocolFees(Currency.wrap(address(usdc)))
@@ -560,7 +575,13 @@ contract GridExCancelTest is GridExBaseTest {
             usdc.balanceOf(taker)
         );
         assertEq(
-            initialUSDCAmt - totalVol + fee0 + fee1 + fee2 - protocolFee,
+            initialUSDCAmt -
+                totalVol +
+                fee0 +
+                fee1 +
+                fee2 -
+                protocolFee -
+                gridConf.profits,
             usdc.balanceOf(maker)
         );
 
@@ -582,7 +603,7 @@ contract GridExCancelTest is GridExBaseTest {
     function test_cancelAfter() public {
         uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint160 gap = bidPrice0 / 20; // 0.0001
-        uint96 orderId = 0x000000000000000000000001;
+        uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(
@@ -599,7 +620,7 @@ contract GridExCancelTest is GridExBaseTest {
         );
 
         vm.startPrank(maker);
-        exchange.cancelGridOrders(1, maker, orderId, 2, 0);
+        exchange.cancelGridOrders(maker, toGridOrderId(1, orderId), 2, 0);
         vm.stopPrank();
 
         vm.startPrank(taker);

@@ -5,12 +5,6 @@ import "./IGridOrder.sol";
 import "../libraries/Currency.sol";
 
 interface IGridEx {
-    /// @notice Emitted when a pair is created
-    /// @param base The base token of the pair
-    /// @param quote The quote token of the pair
-    /// @param pairId The pair id
-    // event PairCreated(Currency indexed base, Currency indexed quote, uint256 indexed pairId);
-
     /// @notice Emitted when quote token set
     /// @param quote The quote token
     /// @param priority The priority of the quote token
@@ -22,24 +16,11 @@ interface IGridEx {
     /// @param to The address receive quote token
     /// @param amt Amount
     event WithdrawProfit(
-        uint96 gridId,
+        uint128 gridId,
         Currency quote,
         address to,
         uint256 amt
     );
-
-    /// Grid order param
-    struct GridOrderParam {
-        uint160 askPrice0;
-        uint160 askGap;
-        uint160 bidPrice0;
-        uint160 bidGap;
-        uint32 askOrderCount;
-        uint32 bidOrderCount;
-        uint32 fee; // bps
-        bool compound;
-        uint128 baseAmount;
-    }
 
     /// @notice Place WETH grid orders, ether base or quote should be ETH
     /// @param base The base token
@@ -47,7 +28,7 @@ interface IGridEx {
     function placeETHGridOrders(
         Currency base,
         Currency quote,
-        GridOrderParam calldata param
+        IGridOrder.GridOrderParam calldata param
     ) external payable;
 
     /// @notice Place grid orders
@@ -56,16 +37,16 @@ interface IGridEx {
     function placeGridOrders(
         Currency base,
         Currency quote,
-        GridOrderParam calldata param
+        IGridOrder.GridOrderParam calldata param
     ) external;
 
     /// @notice Fill ask grid order
-    /// @param orderId The grid order id
+    /// @param gridOrderId The gridId and order id
     /// @param amt The base amount of taker to buy
     /// @param minAmt The min base amount of taker to buy
     /// @param flag 0: both base and quote is NOT ETH; 1: inToken(quote) is ETH; 2: outToken(base) is ETH
     function fillAskOrder(
-        uint96 orderId,
+        uint256 gridOrderId,
         uint128 amt,
         uint128 minAmt, // base amount
         uint32 flag
@@ -74,7 +55,7 @@ interface IGridEx {
     /// @notice Fill multiple ask orders
     function fillAskOrders(
         uint64 pairId,
-        uint96[] calldata idList,
+        uint256[] calldata idList,
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt, // base amount
@@ -82,12 +63,12 @@ interface IGridEx {
     ) external payable;
 
     /// @notice Fill bid grid order
-    /// @param orderId The grid order id
+    /// @param gridOrderId The gridId and order id
     /// @param amt The base amt of taker to sell
     /// @param minAmt The min base amt of taker to sell
     /// @param flag 0: both base and quote is NOT ETH; 1: inToken(base) is ETH; 2: outToken(quote) is ETH
     function fillBidOrder(
-        uint96 orderId,
+        uint256 gridOrderId,
         uint128 amt,
         uint128 minAmt, // base amount
         uint32 flag
@@ -96,36 +77,41 @@ interface IGridEx {
     /// @notice Fill multiple bid orders
     function fillBidOrders(
         uint64 pairId,
-        uint96[] calldata idList,
+        uint256[] calldata idList,
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt, // base amount
         uint32 flag
     ) external payable;
 
-    /// @notice Cancel grid orders
+    /// @notice Cancel whole grid orders
+    function cancelGrid(
+        address recipient,
+        uint128 gridId,
+        uint32 flag
+    ) external;
+
+    /// @notice Cancel some of grid orders
     /// @param gridId The grid id
     /// @param recipient The recieve address
     /// @param idList The order Id list to cancel
-    /// @param flag: 0: both base and quote NOT ETH; 1: base is WETH and want ETH back; 2: quote is WETH and want ETH back 
+    /// @param flag: 0: both base and quote NOT ETH; 1: base is WETH and want ETH back; 2: quote is WETH and want ETH back
     function cancelGridOrders(
-        uint96 gridId,
+        uint128 gridId,
         address recipient,
-        uint96[] memory idList,
+        uint128[] memory idList,
         uint32 flag
     ) external;
 
     /// @notice Cancel grid orders
-    /// @param gridId The grid id
     /// @param recipient The recieve address
-    /// @param startOrderId The first order Id to cancel
+    /// @param startGridOrderId The first grid Id + order Id to cancel
     /// @param howmany Order count to be canceled
-    /// @param flag: 0: both base and quote NOT ETH; 1: base is WETH and want ETH back; 2: quote is WETH and want ETH back 
+    /// @param flag: 0: both base and quote NOT ETH; 1: base is WETH and want ETH back; 2: quote is WETH and want ETH back
     function cancelGridOrders(
-        uint96 gridId,
         address recipient,
-        uint96 startOrderId,
-        uint96 howmany,
+        uint256 startGridOrderId,
+        uint32 howmany,
         uint32 flag
     ) external;
 
@@ -152,7 +138,7 @@ interface IGridEx {
     /// @param to The address to receive
     /// @param flag If profit is WETH, flag = 1 will receive ETH or else WETH
     function withdrawGridProfits(
-        uint64 gridId,
+        uint128 gridId,
         uint256 amt,
         address to,
         uint32 flag
@@ -161,14 +147,14 @@ interface IGridEx {
     /// @notice Get grid order info
     /// @param id The grid order Id by orderId
     function getGridOrder(
-        uint96 id
-    ) external view returns (IGridOrder.Order memory order);
+        uint256 id
+    ) external view returns (IGridOrder.OrderInfo memory order);
 
     /// @notice Get multiple grid orders info by id list
     /// @param idList The orderId list
     function getGridOrders(
-        uint96[] calldata idList
-    ) external view returns (IGridOrder.Order[] memory);
+        uint256[] calldata idList
+    ) external view returns (IGridOrder.OrderInfo[] memory);
 
     /// @notice Get grid order profits
     /// @param gridId The grid order Id

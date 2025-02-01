@@ -66,4 +66,10 @@ interface IOrderErrors {
 
     /// @notice Thrown when gridId invalid
     error InvalidGridId();
+
+    /// @notice Thrown when grid order has been canceled
+    error OrderCanceled();
+
+    /// @notice Thrown when no profit on withdraw grid profits
+    error NoProfits();
 }

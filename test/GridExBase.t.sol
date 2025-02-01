@@ -59,6 +59,13 @@ contract GridExBaseTest is Test {
         vm.stopPrank();
     }
 
+    function toGridOrderId(
+        uint128 gridId,
+        uint128 orderId
+    ) internal pure returns (uint256) {
+        return uint256(uint256(gridId) << 128) | uint256(orderId);
+    }
+
     function _placeOrders(
         address base,
         address quote,
@@ -71,7 +78,7 @@ contract GridExBaseTest is Test {
         bool compound,
         uint32 fee
     ) internal {
-        IGridEx.GridOrderParam memory param = IGridEx.GridOrderParam({
+        IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
@@ -122,10 +129,15 @@ contract GridExBaseTest is Test {
         uint128 lpfee = fee - (fee >> 1);
         uint128 quota = exchange.calcQuoteAmount(baseAmt, price - gap, false);
         if (currOrderQuoteAmt >= quota) {
-            return (quoteVol, quota, quota+lpfee, fee);
+            return (quoteVol, quota, quota + lpfee, fee);
         }
         if (currOrderQuoteAmt + quoteVol + lpfee > quota) {
-            return (quoteVol, quota, currOrderQuoteAmt + quoteVol + lpfee - quota, fee);
+            return (
+                quoteVol,
+                quota,
+                currOrderQuoteAmt + quoteVol + lpfee - quota,
+                fee
+            );
         }
         return (quoteVol, quoteVol + lpfee, 0, fee);
     }
