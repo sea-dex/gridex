@@ -21,14 +21,23 @@ contract SEA is ERC20, Owned {
     /// @notice The timestamp of address last claimed
     mapping(address => uint256) lastClaimAt;
 
-    constructor(address[] memory addrs) ERC20("SEA", "SEA", 18) Owned(msg.sender) {
+    constructor(
+        address[] memory addrs
+    ) ERC20("SEA", "SEA", 18) Owned(msg.sender) {
         vault = addrs[0];
         developer = addrs[1];
         manager = addrs[2];
     }
 
     /// claim user's reward
-    function claim(address to, uint256 amount, uint256 ts, uint8 _v, bytes32 _r, bytes32 _s) external {
+    function claim(
+        address to,
+        uint256 amount,
+        uint256 ts,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) external {
         require(amount + ((amount * 55) / 100) < MAX_SUPPLY, "S0");
         require(ts < block.timestamp + 60, "S1");
         require(ts > block.timestamp - 60, "S2");
@@ -46,10 +55,18 @@ contract SEA is ERC20, Owned {
         lastClaimAt[to] = block.timestamp;
     }
 
-    function verifySignature(address to, uint256 amount, uint256 ts, uint8 _v, bytes32 _r, bytes32 _s) private view {
+    function verifySignature(
+        address to,
+        uint256 amount,
+        uint256 ts,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) private view {
         bytes32 hash = keccak256(
             abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32", keccak256(abi.encodePacked(block.chainid, to, amount, ts))
+                "\x19Ethereum Signed Message:\n32",
+                keccak256(abi.encodePacked(block.chainid, to, amount, ts))
             )
         );
         address signer = ecrecover(hash, _v, _r, _s);

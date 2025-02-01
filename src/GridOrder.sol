@@ -300,7 +300,11 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
                         (orderId - gridConf.startBidOrderId) *
                         gridConf.bidGap;
                 }
-                orderInfo.amount = calcQuoteAmount(gridConf.baseAmt, price, false);
+                orderInfo.amount = calcQuoteAmount(
+                    gridConf.baseAmt,
+                    price,
+                    false
+                );
             }
         } else {
             orderInfo.amount = order.amount;

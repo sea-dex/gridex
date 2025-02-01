@@ -53,7 +53,11 @@ abstract contract AssetSettle {
         uint32 flag
     ) internal {
         if (flag == 0) {
-            ERC20(Currency.unwrap(inToken)).transferFrom(addr, address(this), inAmt);
+            ERC20(Currency.unwrap(inToken)).transferFrom(
+                addr,
+                address(this),
+                inAmt
+            );
             outToken.transfer(addr, outAmt);
         } else {
             // in token
@@ -64,7 +68,11 @@ abstract contract AssetSettle {
                     safeTransferETH(addr, paid - inAmt);
                 }
             } else {
-                ERC20(Currency.unwrap(inToken)).transferFrom(addr, address(this), inAmt);
+                ERC20(Currency.unwrap(inToken)).transferFrom(
+                    addr,
+                    address(this),
+                    inAmt
+                );
             }
 
             // out token
@@ -101,7 +109,11 @@ abstract contract AssetSettle {
         ERC20(Currency.unwrap(token)).transferFrom(addr, address(this), amount);
     }
 
-    function _transferETHFrom(address from, uint128 amt, uint128 paid) internal {
+    function _transferETHFrom(
+        address from,
+        uint128 amt,
+        uint128 paid
+    ) internal {
         IWETH(WETH).deposit{value: amt}();
         if (paid > amt) {
             safeTransferETH(from, paid - amt);

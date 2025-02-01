@@ -11,7 +11,7 @@ contract Lens {
     /// @param baseAmt base token amount
     /// @param price price
     /// @param roundUp whether quote amount round up or not
-    /// @return amt amount 
+    /// @return amt amount
     function calcQuoteAmount(
         uint128 baseAmt,
         uint160 price,
