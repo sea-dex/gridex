@@ -2,9 +2,11 @@
 pragma solidity ^0.8.28;
 
 // import "./interfaces/IWETH.sol";
-import "./interfaces/IPair.sol";
-import "./interfaces/IGridEx.sol";
-import "./interfaces/IERC20Minimal.sol";
+import {IPair} from "./interfaces/IPair.sol";
+import {IGridOrder} from "./interfaces/IGridOrder.sol";
+import {IGridEx} from "./interfaces/IGridEx.sol";
+import {IERC20Minimal} from "./interfaces/IERC20Minimal.sol";
+import {IGridCallback} from "./interfaces/IGridCallback.sol";
 
 import {AssetSettle} from "./AssetSettle.sol";
 import {Pair} from "./Pair.sol";
@@ -139,6 +141,7 @@ contract GridEx is
         uint256 gridOrderId,
         uint128 amt, // base amount
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) public payable override nonReentrant {
         // bool isAsk = isAskGridOrder(gridOrderId);
@@ -177,21 +180,37 @@ contract GridEx is
 
         // ensure receive enough quote token
         // _settle(pair.quote, taker, filledVol, msg.value);
-        _settleAssetWith(
-            pair.quote,
-            pair.base,
-            msg.sender,
-            result.filledVol + result.lpFee + result.protocolFee,
-            result.filledAmt,
-            msg.value,
-            flag
-        );
+
+        uint128 inAmt = result.filledVol + result.lpFee + result.protocolFee;
+        if (data.length > 0) {
+            // always transfer ERC20 to msg.sender
+            pair.base.transfer(msg.sender, result.filledAmt);
+            uint256 balanceBefore = pair.quote.balanceOfSelf();
+            IGridCallback(msg.sender).gridFillCallback(
+                Currency.unwrap(pair.quote),
+                Currency.unwrap(pair.base),
+                inAmt,
+                result.filledAmt,
+                data
+            );
+            require(balanceBefore + inAmt <= pair.quote.balanceOfSelf(), "G1");
+        } else {
+            _settleAssetWith(
+                pair.quote,
+                pair.base,
+                msg.sender,
+                inAmt,
+                result.filledAmt,
+                msg.value,
+                flag
+            );
+        }
     }
 
     struct AccFilled {
-        uint256 amt; // base amount
-        uint256 vol; // quote amount
-        uint256 protocolFee; // protocol fee
+        uint128 amt; // base amount
+        uint128 vol; // quote amount
+        uint128 protocolFee; // protocol fee
     }
 
     /// @inheritdoc IGridEx
@@ -201,6 +220,7 @@ contract GridEx is
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) public payable override nonReentrant {
         if (idList.length != amtList.length) {
@@ -214,7 +234,7 @@ contract GridEx is
                 idList[i],
                 true
             );
-            require(orderInfo.pairId == pairId, "G4");
+            require(orderInfo.pairId == pairId, "G2");
 
             // uint96 orderId = idList[i];
             uint128 amt = amtList[i];
@@ -249,14 +269,9 @@ contract GridEx is
                 gridConfigs[orderInfo.gridId].profits += uint128(result.profit);
             }
 
-            unchecked {
-                filled.amt += result.filledAmt;
-                filled.vol +=
-                    result.filledVol +
-                    result.lpFee +
-                    result.protocolFee;
-                filled.protocolFee += result.protocolFee;
-            }
+            filled.amt += result.filledAmt;
+            filled.vol += result.filledVol + result.lpFee + result.protocolFee;
+            filled.protocolFee += result.protocolFee;
 
             if (maxAmt > 0 && filled.amt >= maxAmt) {
                 break;
@@ -277,15 +292,32 @@ contract GridEx is
 
         // ensure receive enough quote token
         // _settle(quote, taker, filled.vol, msg.value);
-        _settleAssetWith(
-            quote,
-            pair.base,
-            msg.sender,
-            filled.vol,
-            filled.amt,
-            msg.value,
-            flag
-        );
+        if (data.length > 0) {
+            // always transfer ERC20 to msg.sender
+            pair.base.transfer(msg.sender, filled.amt);
+            uint256 balanceBefore = pair.quote.balanceOfSelf();
+            IGridCallback(msg.sender).gridFillCallback(
+                Currency.unwrap(pair.quote),
+                Currency.unwrap(pair.base),
+                filled.vol,
+                filled.amt,
+                data
+            );
+            require(
+                balanceBefore + filled.vol <= pair.quote.balanceOfSelf(),
+                "G3"
+            );
+        } else {
+            _settleAssetWith(
+                quote,
+                pair.base,
+                msg.sender,
+                filled.vol,
+                filled.amt,
+                msg.value,
+                flag
+            );
+        }
     }
 
     /// @inheritdoc IGridEx
@@ -293,6 +325,7 @@ contract GridEx is
         uint256 gridOrderId,
         uint128 amt,
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) public payable override nonReentrant {
         // bool isAsk = isAskGridOrder(orderId);
@@ -334,15 +367,33 @@ contract GridEx is
 
         // ensure receive enough base token
         // _settle(pair.base, taker, filledAmt, msg.value);
-        _settleAssetWith(
-            pair.base,
-            pair.quote,
-            taker,
-            result.filledAmt,
-            result.filledVol - result.lpFee - result.protocolFee,
-            msg.value,
-            flag
-        );
+        uint128 outAmt = result.filledVol - result.lpFee - result.protocolFee;
+        if (data.length > 0) {
+            // always transfer ERC20 to msg.sender
+            pair.quote.transfer(msg.sender, outAmt);
+            uint256 balanceBefore = pair.base.balanceOfSelf();
+            IGridCallback(msg.sender).gridFillCallback(
+                Currency.unwrap(pair.base),
+                Currency.unwrap(pair.quote),
+                result.filledAmt,
+                outAmt,
+                data
+            );
+            require(
+                balanceBefore + result.filledAmt <= pair.base.balanceOfSelf(),
+                "G3"
+            );
+        } else {
+            _settleAssetWith(
+                pair.base,
+                pair.quote,
+                taker,
+                result.filledAmt,
+                outAmt,
+                msg.value,
+                flag
+            );
+        }
     }
 
     /// @inheritdoc IGridEx
@@ -352,6 +403,7 @@ contract GridEx is
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) public payable override nonReentrant {
         if (idList.length != amtList.length) {
@@ -359,9 +411,9 @@ contract GridEx is
         }
 
         address taker = msg.sender;
-        uint256 filledAmt = 0; // accumulate base amount
-        uint256 filledVol = 0; // accumulate quote amount
-        uint256 protocolFee = 0; // accumulate protocol fees
+        uint128 filledAmt = 0; // accumulate base amount
+        uint128 filledVol = 0; // accumulate quote amount
+        uint128 protocolFee = 0; // accumulate protocol fees
 
         for (uint256 i = 0; i < idList.length; ++i) {
             IGridOrder.OrderInfo memory orderInfo = getOrderInfo(
@@ -403,14 +455,9 @@ contract GridEx is
                 gridConfigs[orderInfo.gridId].profits += uint128(result.profit);
             }
 
-            unchecked {
-                filledAmt += result.filledAmt; // filledBaseAmt;
-                filledVol +=
-                    result.filledVol -
-                    result.lpFee -
-                    result.protocolFee; // filledQuoteAmtSubFee;
-                protocolFee += result.protocolFee;
-            }
+            filledAmt += result.filledAmt; // filledBaseAmt;
+            filledVol += result.filledVol - result.lpFee - result.protocolFee; // filledQuoteAmtSubFee;
+            protocolFee += result.protocolFee;
 
             if (maxAmt > 0 && filledAmt >= maxAmt) {
                 break;
@@ -430,15 +477,32 @@ contract GridEx is
 
         // ensure receive enough base token
         // _settle(pair.base, taker, filledAmt, msg.value);
-        _settleAssetWith(
-            pair.base,
-            pair.quote,
-            taker,
-            filledAmt,
-            filledVol,
-            msg.value,
-            flag
-        );
+        if (data.length > 0) {
+            // always transfer ERC20 to msg.sender
+            pair.quote.transfer(msg.sender, filledVol);
+            uint256 balanceBefore = pair.base.balanceOfSelf();
+            IGridCallback(msg.sender).gridFillCallback(
+                Currency.unwrap(pair.base),
+                Currency.unwrap(pair.quote),
+                filledAmt,
+                filledVol,
+                data
+            );
+            require(
+                balanceBefore + filledAmt <= pair.base.balanceOfSelf(),
+                "G3"
+            );
+        } else {
+            _settleAssetWith(
+                pair.base,
+                pair.quote,
+                taker,
+                filledAmt,
+                filledVol,
+                msg.value,
+                flag
+            );
+        }
     }
 
     /// @inheritdoc IGridEx

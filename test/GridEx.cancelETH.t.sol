@@ -152,7 +152,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         amts[2] = amt;
 
         vm.startPrank(taker);
-        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, 2);
+        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 2);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -244,7 +244,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         amts[2] = amt;
 
         vm.startPrank(taker);
-        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, 2);
+        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 2);
         vm.stopPrank();
 
         (uint128 vol0, uint128 fee0) = exchange.calcAskOrderQuoteAmount(
@@ -451,7 +451,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         amts[2] = amt;
 
         vm.startPrank(taker);
-        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, 2); // intoken: SEA
+        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 2); // intoken: SEA
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -537,7 +537,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         amts[2] = amt;
 
         vm.startPrank(taker);
-        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, 2); // intoken: SEA
+        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 2); // intoken: SEA
         vm.stopPrank();
 
         vm.startPrank(maker);

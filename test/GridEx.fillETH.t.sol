@@ -49,7 +49,7 @@ contract GridExFillETHTest is GridExBaseTest {
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
-        exchange.fillAskOrder(gridOrderId, amt, amt, 2);
+        exchange.fillAskOrder(gridOrderId, amt, amt, new bytes(0), 2);
         vm.stopPrank();
 
         // grid order flipped
@@ -97,7 +97,7 @@ contract GridExFillETHTest is GridExBaseTest {
         // fill reversed order
         vm.startPrank(taker);
         weth.deposit{value: amt}();
-        exchange.fillBidOrder(gridOrderId, amt, amt, 0);
+        exchange.fillBidOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -172,7 +172,7 @@ contract GridExFillETHTest is GridExBaseTest {
         uint256 gridOrderId = toGridOrderId(1, orderId);
         for (uint i = 0; i < amt / fillAmt1; i++) {
             vm.startPrank(taker);
-            exchange.fillAskOrder(gridOrderId, fillAmt1, fillAmt1, 2);
+            exchange.fillAskOrder(gridOrderId, fillAmt1, fillAmt1, new bytes(0), 2);
             vm.stopPrank();
 
             assertEq(
@@ -254,7 +254,7 @@ contract GridExFillETHTest is GridExBaseTest {
         amts[0] = 7835448663132175;
         amts[1] = 5464897156364648;
         amts[2] = 7897856465416784;
-        exchange.fillAskOrders(1, orderIds, amts, amt, 0, 2);
+        exchange.fillAskOrders(1, orderIds, amts, amt, 0, new bytes(0), 2);
         vm.stopPrank();
 
         assertEq(
@@ -366,7 +366,7 @@ contract GridExFillETHTest is GridExBaseTest {
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
-        exchange.fillBidOrder{value: amt}(gridOrderId, amt, amt, 1);
+        exchange.fillBidOrder{value: amt}(gridOrderId, amt, amt, new bytes(0), 1);
         vm.stopPrank();
 
         // grid order flipped
@@ -410,7 +410,7 @@ contract GridExFillETHTest is GridExBaseTest {
 
         // fill reversed order
         vm.startPrank(taker);
-        exchange.fillAskOrder(gridOrderId, amt, amt, 0);
+        exchange.fillAskOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -523,6 +523,7 @@ contract GridExFillETHTest is GridExBaseTest {
             amts,
             amt + amt / 2,
             0,
+            new bytes(0),
             1
         );
         vm.stopPrank();
@@ -654,7 +655,7 @@ contract GridExFillETHTest is GridExBaseTest {
 
         vm.startPrank(taker);
         weth.deposit{value: amt * 2}();
-        exchange.fillBidOrders(1, orderIds, amts, amt + amt / 2, 0, 0);
+        exchange.fillBidOrders(1, orderIds, amts, amt + amt / 2, 0, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(amt * 2 - amts[0] - amts[1] - amts[2], weth.balanceOf(taker));

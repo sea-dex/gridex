@@ -44,11 +44,13 @@ interface IGridEx {
     /// @param gridOrderId The gridId and order id
     /// @param amt The base amount of taker to buy
     /// @param minAmt The min base amount of taker to buy
+    /// @param data The callback params
     /// @param flag 0: both base and quote is NOT ETH; 1: inToken(quote) is ETH; 2: outToken(base) is ETH
     function fillAskOrder(
         uint256 gridOrderId,
         uint128 amt,
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) external payable;
 
@@ -59,6 +61,7 @@ interface IGridEx {
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) external payable;
 
@@ -71,6 +74,7 @@ interface IGridEx {
         uint256 gridOrderId,
         uint128 amt,
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) external payable;
 
@@ -81,6 +85,7 @@ interface IGridEx {
         uint128[] calldata amtList,
         uint128 maxAmt, // base amount
         uint128 minAmt, // base amount
+        bytes calldata data,
         uint32 flag
     ) external payable;
 

@@ -144,7 +144,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, 0);
+        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 0);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -234,7 +234,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, 0);
+        exchange.fillAskOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 0);
         vm.stopPrank();
 
         (uint128 vol0, uint128 fee0) = exchange.calcAskOrderQuoteAmount(
@@ -448,7 +448,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, 0);
+        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 0);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -533,7 +533,7 @@ contract GridExCancelTest is GridExBaseTest {
         amts[0] = amt;
         amts[1] = amt;
         amts[2] = amt;
-        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, 0);
+        exchange.fillBidOrders(1, orderIds, amts, amt * 3, 0, new bytes(0), 0);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -625,7 +625,7 @@ contract GridExCancelTest is GridExBaseTest {
 
         vm.startPrank(taker);
         vm.expectRevert();
-        exchange.fillBidOrder(orderId, amt, 0, 0);
+        exchange.fillBidOrder(orderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
     }
 }

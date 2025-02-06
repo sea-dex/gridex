@@ -55,7 +55,7 @@ contract GridExProfitTest is GridExBaseTest {
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
-        exchange.fillAskOrder{value: ethVol + fees}(gridOrderId, amt, amt, 1);
+        exchange.fillAskOrder{value: ethVol + fees}(gridOrderId, amt, amt, new bytes(0), 1);
         vm.stopPrank();
 
         assertEq(fees / 2, exchange.protocolFees(Currency.wrap(address(weth))));

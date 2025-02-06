@@ -59,7 +59,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(gridOrderId, 0x180000000000000000000000000000001);
 
         vm.startPrank(taker);
-        exchange.fillAskOrder{value: ethVol + fee}(gridOrderId, amt, amt, 1); // intoken: ETH
+        exchange.fillAskOrder{value: ethVol + fee}(gridOrderId, amt, amt, new bytes(0), 1); // intoken: ETH
         vm.stopPrank();
 
         // grid order flipped
@@ -101,7 +101,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         // fill reversed order
         vm.startPrank(taker);
         // weth.deposit{value: amt}();
-        exchange.fillBidOrder(gridOrderId, amt, amt, 0);
+        exchange.fillBidOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -208,6 +208,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
             amts,
             amt * 3,
             0,
+            new bytes(0),
             1
         ); // inToken: ETH
         vm.stopPrank();
@@ -323,7 +324,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         // console.log(order.revAmount);
 
         vm.startPrank(taker);
-        exchange.fillBidOrder(gridOrderId, amt, amt, 2); // outToken: ETH
+        exchange.fillBidOrder(gridOrderId, amt, amt, new bytes(0), 2); // outToken: ETH
         vm.stopPrank();
 
         // grid order flipped
@@ -373,7 +374,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         );
         // fill reversed order
         vm.startPrank(taker);
-        exchange.fillAskOrder{value: ethVol2 + fees2}(gridOrderId, amt, amt, 1); // inToken: ETH
+        exchange.fillAskOrder{value: ethVol2 + fees2}(gridOrderId, amt, amt, new bytes(0), 1); // inToken: ETH
         vm.stopPrank();
 
         assertEq(
@@ -484,7 +485,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         amts[2] = amt / 5;
 
         vm.startPrank(taker);
-        exchange.fillBidOrders(1, orderIds, amts, amt * 2 + amt / 2, 0, 2); // outToken: ETH
+        exchange.fillBidOrders(1, orderIds, amts, amt * 2 + amt / 2, 0, new bytes(0), 2); // outToken: ETH
         vm.stopPrank();
 
         assertEq(

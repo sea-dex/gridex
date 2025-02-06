@@ -46,7 +46,7 @@ contract GridExFillTest is GridExBaseTest {
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
-        exchange.fillAskOrder(gridOrderId, amt, amt, 0);
+        exchange.fillAskOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         // grid order flipped
@@ -93,7 +93,7 @@ contract GridExFillTest is GridExBaseTest {
 
         // fill reversed order
         vm.startPrank(taker);
-        exchange.fillBidOrder(gridOrderId, amt, amt, 0);
+        exchange.fillBidOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -168,7 +168,7 @@ contract GridExFillTest is GridExBaseTest {
         uint128 fillAmt1 = 1000 ether;
         for (uint i = 0; i < amt / fillAmt1; i++) {
             vm.startPrank(taker);
-            exchange.fillAskOrder(gridOrderId, fillAmt1, fillAmt1, 0);
+            exchange.fillAskOrder(gridOrderId, fillAmt1, fillAmt1, new bytes(0), 0);
             vm.stopPrank();
 
             assertEq(
@@ -250,7 +250,7 @@ contract GridExFillTest is GridExBaseTest {
         amts[0] = 10 ether + 783544866523132175;
         amts[1] = 200 ether + 54648971563646448;
         amts[2] = 20000 ether - 4897895643465416784;
-        exchange.fillAskOrders(1, orderIds, amts, amt, 0, 0);
+        exchange.fillAskOrders(1, orderIds, amts, amt, 0, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -360,7 +360,7 @@ contract GridExFillTest is GridExBaseTest {
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
-        exchange.fillBidOrder(gridOrderId, amt, amt, 0);
+        exchange.fillBidOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         // grid order flipped
@@ -404,7 +404,7 @@ contract GridExFillTest is GridExBaseTest {
 
         // fill reversed order
         vm.startPrank(taker);
-        exchange.fillAskOrder(gridOrderId, amt, amt, 0);
+        exchange.fillAskOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -499,7 +499,7 @@ contract GridExFillTest is GridExBaseTest {
 
         uint128 fillAmt = amt - 45455424988975486;
         vm.startPrank(taker);
-        exchange.fillBidOrder(gridOrderId, fillAmt, 0, 0);
+        exchange.fillBidOrder(gridOrderId, fillAmt, 0, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -548,7 +548,7 @@ contract GridExFillTest is GridExBaseTest {
         // fill reversed order
         uint128 fillAmt1 = fillAmt - 4156489783946137867;
         vm.startPrank(taker);
-        exchange.fillAskOrder(gridOrderId, fillAmt1, 0, 0);
+        exchange.fillAskOrder(gridOrderId, fillAmt1, 0, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
@@ -666,7 +666,7 @@ contract GridExFillTest is GridExBaseTest {
         amts[2] = 2000 ether + 542648971563646448;
 
         vm.startPrank(taker);
-        exchange.fillBidOrders(1, orderIds, amts, amt + amt / 2, 0, 0);
+        exchange.fillBidOrders(1, orderIds, amts, amt + amt / 2, 0, new bytes(0), 0);
         vm.stopPrank();
 
         assertEq(
