@@ -381,7 +381,7 @@ contract GridEx is
             );
             require(
                 balanceBefore + result.filledAmt <= pair.base.balanceOfSelf(),
-                "G3"
+                "G4"
             );
         } else {
             _settleAssetWith(
@@ -420,7 +420,7 @@ contract GridEx is
                 idList[i],
                 true
             );
-            require(orderInfo.pairId == pairId, "G4");
+            require(orderInfo.pairId == pairId, "G5");
 
             // uint96 orderId = idList[i];
             uint128 amt = amtList[i];
@@ -490,7 +490,7 @@ contract GridEx is
             );
             require(
                 balanceBefore + filledAmt <= pair.base.balanceOfSelf(),
-                "G3"
+                "G6"
             );
         } else {
             _settleAssetWith(
