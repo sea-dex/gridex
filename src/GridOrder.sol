@@ -410,6 +410,9 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         if (amt > orderBaseAmt) {
             amt = orderBaseAmt;
         }
+        if (amt == 0) {
+            revert ZeroBaseAmt();
+        }
         // quote volume taker will pay: quoteVol = filled * price
         uint128 quoteVol = calcQuoteAmount(amt, sellPrice, true);
 
@@ -598,6 +601,10 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             filledVol = orderQuoteAmt; // calcQuoteAmount(amt, buyPrice);
         }
 
+        if (amt == 0) {
+            revert ZeroBaseAmt();
+        }
+        
         (result.lpFee, result.protocolFee) = calculateFees(
             filledVol,
             orderInfo.fee

@@ -240,7 +240,7 @@ contract GridEx is
             uint128 amt = amtList[i];
 
             if (maxAmt > 0 && maxAmt < filled.amt + amt) {
-                amt = maxAmt - uint128(filled.amt);
+                amt = maxAmt - filled.amt;
             }
 
             // bool isAsk = isAskGridOrder(orderId);
@@ -776,6 +776,10 @@ contract GridEx is
             _transferAssetTo(pair.quote, recipient, quoteAmt, flag & 0x2);
         }
     }
+
+    //-------------------------------
+    //------- Admin functions -------
+    //-------------------------------
 
     /// @inheritdoc IGridEx
     function setQuoteToken(
