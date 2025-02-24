@@ -87,7 +87,8 @@ contract GridExBaseTest is Test {
             askGap: gap,
             bidGap: gap,
             fee: fee,
-            compound: compound
+            compound: compound,
+            oneshot: false
         });
 
         vm.startPrank(maker);

@@ -53,7 +53,8 @@ contract GridExPlaceTest is Test {
             askGap: gap,
             bidGap: 0,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -88,7 +89,8 @@ contract GridExPlaceTest is Test {
             askGap: gap,
             bidGap: 0,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -123,7 +125,8 @@ contract GridExPlaceTest is Test {
             askGap: 0,
             bidGap: gap,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -168,7 +171,8 @@ contract GridExPlaceTest is Test {
             askGap: 0,
             bidGap: gap,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -214,7 +218,8 @@ contract GridExPlaceTest is Test {
             askGap: gap,
             bidGap: gap,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -262,7 +267,8 @@ contract GridExPlaceTest is Test {
             askGap: gap,
             bidGap: gap,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -311,7 +317,8 @@ contract GridExPlaceTest is Test {
             askGap: gap,
             bidGap: gap,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);
@@ -365,7 +372,8 @@ contract GridExPlaceTest is Test {
             askGap: gap,
             bidGap: gap,
             fee: 500,
-            compound: false
+            compound: false,
+            oneshot: false
         });
 
         vm.startPrank(maker);

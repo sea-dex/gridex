@@ -72,4 +72,7 @@ interface IOrderErrors {
 
     /// @notice Thrown when no profit on withdraw grid profits
     error NoProfits();
+
+    /// @notice Thrown when order is oneshot but filled as reverse order
+    error FillReversedOneShotOrder();
 }

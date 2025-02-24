@@ -14,6 +14,7 @@ interface IGridOrder {
         uint32 bidOrderCount;
         uint32 fee; // bps
         bool compound;
+        bool oneshot;
         uint128 baseAmount;
     }
 
@@ -34,6 +35,7 @@ interface IGridOrder {
         uint32 fee; // bps
         uint128 gridId;
         bool compound;
+        bool oneshot;
         uint32 status; // 0: invalid; 1: normal; 2: canceled
     }
 
@@ -52,6 +54,7 @@ interface IGridOrder {
         // grid id
         bool isAsk;
         bool compound;
+        bool oneshot;
         uint32 fee;
         uint32 status; //  0: normal; 1: cancelled
         uint128 gridId;

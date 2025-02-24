@@ -217,6 +217,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             bidGap: param.bidGap,
             fee: param.fee,
             compound: param.compound,
+            oneshot: param.oneshot,
             status: GridStatusNormal
         });
 
@@ -335,6 +336,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
 
         orderInfo.isAsk = isAsk;
         orderInfo.compound = gridConf.compound;
+        orderInfo.oneshot = gridConf.oneshot;
         orderInfo.fee = gridConf.fee;
         orderInfo.pairId = gridConf.pairId;
 
@@ -388,6 +390,10 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         }
     }
 
+    function completeOneShotOrder(uint128 orderId) internal {
+        orderStatus[orderId] = GridStatusCanceled;
+    }
+
     function _fillAskOrder(
         uint128 amt, // base token amt
         address taker,
@@ -402,6 +408,9 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             orderQuoteAmt = orderInfo.revAmount;
             sellPrice = orderInfo.price;
         } else {
+            if (orderInfo.oneshot) {
+                revert FillReversedOneShotOrder();
+            }
             orderBaseAmt = orderInfo.revAmount;
             orderQuoteAmt = orderInfo.amount;
             sellPrice = orderInfo.revPrice;
@@ -459,6 +468,9 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         if (orderInfo.isAsk) {
             result.orderAmt = orderBaseAmt;
             result.orderRevAmt = orderQuoteAmt;
+            if (orderInfo.oneshot && orderBaseAmt == 0) {
+                completeOneShotOrder(orderInfo.orderId);
+            }
         } else {
             result.orderAmt = orderQuoteAmt;
             result.orderRevAmt = orderBaseAmt;
@@ -583,6 +595,9 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         // uint160 orderPrice;
 
         if (orderInfo.isAsk) {
+            if (orderInfo.oneshot) {
+                revert FillReversedOneShotOrder();
+            }
             orderBaseAmt = orderInfo.amount;
             orderQuoteAmt = orderInfo.revAmount;
             // orderPrice = gridConfig.startAskPrice + (orderId - gridConfig.startAskOrderId) * gridConfig.askGap;
@@ -632,6 +647,9 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         } else {
             result.orderAmt = orderQuoteAmt;
             result.orderRevAmt = orderBaseAmt;
+            if (orderInfo.oneshot && orderQuoteAmt == 0) {
+                completeOneShotOrder(orderInfo.orderId);
+            }
         }
 
         emit FilledOrder(
