@@ -112,6 +112,7 @@ contract GridEx is
         uint128 startAskOrderId;
         uint128 startBidOrderId;
         (startAskOrderId, baseAmt, startBidOrderId, quoteAmt) = placeGridOrder(
+            gridId,
             param
         );
 
@@ -121,10 +122,10 @@ contract GridEx is
         emit GridOrderCreated(
             msg.sender,
             pair.pairId,
-            param.askPrice0,
-            param.askGap,
-            param.bidPrice0,
-            param.bidGap,
+            // param.askPrice0,
+            // param.askGap,
+            // param.bidPrice0,
+            // param.bidGap,
             param.baseAmount,
             gridId,
             startAskOrderId,

@@ -13,6 +13,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {GridEx} from "../src/GridEx.sol";
 import {GridOrder} from "../src/GridOrder.sol";
+import {Linear} from "../src/strategy/Linear.sol";
 import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
 
 import {SEA} from "./utils/SEA.sol";
@@ -22,6 +23,7 @@ import {WETH} from "./utils/WETH.sol";
 contract GridExPlaceTest is Test {
     WETH public weth;
     GridEx public exchange;
+    Linear public linear;
     SEA public sea;
     USDC public usdc;
 
@@ -32,6 +34,7 @@ contract GridExPlaceTest is Test {
         sea = new SEA();
         usdc = new USDC();
         exchange = new GridEx(address(weth), address(usdc));
+        linear = new Linear();
     }
 
     function test_PlaceAskGridOrder() public {
@@ -48,10 +51,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: asks,
             bidOrderCount: 0,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: 0,
-            askGap: gap,
-            bidGap: 0,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(0, -int160(gap)),
+            // askPrice0: askPrice0,
+            // bidPrice0: 0,
+            // askGap: gap,
+            // bidGap: 0,
             fee: 500,
             compound: false,
             oneshot: false
@@ -84,10 +91,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: asks,
             bidOrderCount: 0,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: 0,
-            askGap: gap,
-            bidGap: 0,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(0, -int160(gap)),
+            // askPrice0: askPrice0,
+            // bidPrice0: 0,
+            // askGap: gap,
+            // bidGap: 0,
             fee: 500,
             compound: false,
             oneshot: false
@@ -120,10 +131,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: 0,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: 0,
-            bidPrice0: bidPrice0,
-            askGap: 0,
-            bidGap: gap,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            // askPrice0: 0,
+            // bidPrice0: bidPrice0,
+            // askGap: 0,
+            // bidGap: gap,
             fee: 500,
             compound: false,
             oneshot: false
@@ -166,10 +181,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: 0,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: 0,
-            bidPrice0: bidPrice0,
-            askGap: 0,
-            bidGap: gap,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            // askPrice0: 0,
+            // bidPrice0: bidPrice0,
+            // askGap: 0,
+            // bidGap: gap,
             fee: 500,
             compound: false,
             oneshot: false
@@ -213,10 +232,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: bidPrice0,
-            askGap: gap,
-            bidGap: gap,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
             fee: 500,
             compound: false,
             oneshot: false
@@ -262,10 +285,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: bidPrice0,
-            askGap: gap,
-            bidGap: gap,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
             fee: 500,
             compound: false,
             oneshot: false
@@ -312,10 +339,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: bidPrice0,
-            askGap: gap,
-            bidGap: gap,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
             fee: 500,
             compound: false,
             oneshot: false
@@ -367,10 +398,14 @@ contract GridExPlaceTest is Test {
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: bidPrice0,
-            askGap: gap,
-            bidGap: gap,
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
             fee: 500,
             compound: false,
             oneshot: false

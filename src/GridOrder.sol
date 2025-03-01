@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IGridEx} from "./interfaces/IGridEx.sol";
 import {IGridOrder} from "./interfaces/IGridOrder.sol";
+import {IGridStrategy} from "./interfaces/IGridStrategy.sol";
 import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "./interfaces/IOrderEvents.sol";
 import {FullMath} from "./libraries/FullMath.sol";
@@ -48,46 +49,50 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
 
             // buy price should great than 0
             if (param.bidOrderCount > 0) {
-                require(param.bidOrderCount > 1, "E1");
+                // require(param.bidOrderCount > 1, "E1");
+                param.bidStrategy.validateParams(false, param.bidData, param.bidOrderCount);
                 // the last order's price should great than 0
-                if (
-                    uint256(param.bidGap) * uint256(param.bidOrderCount - 1) >=
-                    uint256(param.bidPrice0)
-                ) {
-                    revert InvalidGridPrice();
-                }
+                // if (
+                //     uint256(param.bidGap) * uint256(param.bidOrderCount - 1) >=
+                //     uint256(param.bidPrice0)
+                // ) {
+                //     revert InvalidGridPrice();
+                // }
 
-                // the first order's reverse price
-                if (
-                    uint256(param.bidPrice0) + uint256(param.bidGap) >
-                    uint256(type(uint160).max)
-                ) {
-                    revert InvalidGridPrice();
-                }
+                // // the first order's reverse price
+                // if (
+                //     uint256(param.bidPrice0) + uint256(param.bidGap) >
+                //     uint256(type(uint160).max)
+                // ) {
+                //     revert InvalidGridPrice();
+                // }
             }
+            
             if (param.askOrderCount > 0) {
                 // ASK orders
+                param.askStrategy.validateParams(true, param.askData, param.askOrderCount);
                 // sell price should less than uint160.max
-                require(param.askOrderCount > 1, "E2");
+                // require(param.askOrderCount > 1, "E2");
 
-                if (
-                    uint256(param.askPrice0) +
-                        uint256(param.askOrderCount - 1) *
-                        uint256(param.askGap) >
-                    uint256(type(uint160).max)
-                ) {
-                    revert InvalidGridPrice();
-                }
+                // if (
+                //     uint256(param.askPrice0) +
+                //         uint256(param.askOrderCount - 1) *
+                //         uint256(param.askGap) >
+                //     uint256(type(uint160).max)
+                // ) {
+                //     revert InvalidGridPrice();
+                // }
 
-                /// the first sell order's reverse price
-                if (param.askGap > param.askPrice0) {
-                    revert InvalidGridPrice();
-                }
+                // /// the first sell order's reverse price
+                // if (param.askGap > param.askPrice0) {
+                //     revert InvalidGridPrice();
+                // }
             }
         }
     }
 
     function placeGridOrder(
+        uint128 gridId,
         IGridOrder.GridOrderParam calldata param
     ) internal returns (uint128, uint128, uint128, uint128) {
         validateGridOrderParam(param);
@@ -100,48 +105,36 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
 
         if (param.askOrderCount > 0) {
             startAskOrderId = nextAskOrderId;
-            // uint160 price0 = param.askPrice0;
-            // uint160 gap = param.askGap;
-            // for (uint256 i = 0; i < param.askOrderCount; ++i) {
-            //     uint128 amt = baseAmt; // side == BID ? calcQuoteAmount(baseAmt, price0, false) : baseAmt;
-            //     unchecked {
-            //         askorders[orderId] = IGridOrder.Order({
-            //             gridId: gridId,
-            //             // orderId: orderId,
-            //             amount: amt,
-            //             revAmount: 0,
-            //             price: price0
-            //             // revPrice: price0 - gap // side == BID ? price0 + gap : price0 - gap
-            //         });
-            //         ++orderId;
-            //         price0 += gap;
-            //     }
-            // }
             nextAskOrderId += param.askOrderCount;
+            IGridStrategy(param.askStrategy).initGridStrategy(gridId, param.askData);
         }
 
         if (param.bidOrderCount > 0) {
             startBidOrderId = nextBidOrderId;
-            uint160 price0 = param.bidPrice0;
-            uint160 gap = param.bidGap;
-            for (uint256 i = 0; i < param.bidOrderCount; ++i) {
-                uint128 amt = calcQuoteAmount(baseAmt, price0, false);
-                quoteAmt += amt;
-                unchecked {
-                    // bidorders[orderId] = IGridOrder.Order({
-                    //     gridId: gridId,
-                    //     // orderId: orderId,
-                    //     amount: amt,
-                    //     revAmount: 0,
-                    //     price: price0
-                    //     // revPrice: price0 + gap
-                    // });
-                    // ++orderId;
-
-                    price0 -= gap;
-                }
-            }
             nextBidOrderId += param.bidOrderCount;
+
+            IGridStrategy(param.bidStrategy).initGridStrategy(gridId, param.bidData);
+
+            // uint160 price0 = param.bidPrice0;
+            // uint160 gap = param.bidGap;
+            for (uint256 i = 0; i < param.bidOrderCount; ++i) {
+                uint160 price = IGridStrategy(param.bidStrategy).getPrice(gridId, uint128(i));
+                uint128 amt = calcQuoteAmount(baseAmt, price, false);
+                quoteAmt += amt;
+                // unchecked {
+                //     // bidorders[orderId] = IGridOrder.Order({
+                //     //     gridId: gridId,
+                //     //     // orderId: orderId,
+                //     //     amount: amt,
+                //     //     revAmount: 0,
+                //     //     price: price0
+                //     //     // revPrice: price0 + gap
+                //     // });
+                //     // ++orderId;
+
+                //     price0 -= gap;
+                // }
+            }
         }
 
         return (
@@ -203,18 +196,20 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
 
         gridConfigs[gridId] = IGridOrder.GridConfig({
             owner: maker,
+            askStrategy: param.askStrategy,
+            bidStrategy: param.bidStrategy,
             profits: 0,
             gridId: gridId,
             baseAmt: param.baseAmount,
-            askGap: param.askGap,
+            // askGap: param.askGap,
             pairId: pairId,
             startAskOrderId: 0,
             startBidOrderId: 0,
-            startAskPrice: param.askPrice0,
-            startBidPrice: param.bidPrice0,
+            // startAskPrice: param.askPrice0,
+            // startBidPrice: param.bidPrice0,
             askOrderCount: param.askOrderCount,
             bidOrderCount: param.bidOrderCount,
-            bidGap: param.bidGap,
+            // bidGap: param.bidGap,
             fee: param.fee,
             compound: param.compound,
             oneshot: param.oneshot,
@@ -295,12 +290,13 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
                 orderInfo.amount = gridConf.baseAmt;
             } else {
                 // fixme!!!
-                unchecked {
-                    price =
-                        gridConf.startBidPrice -
-                        (orderId - gridConf.startBidOrderId) *
-                        gridConf.bidGap;
-                }
+                // unchecked {
+                //     price =
+                //         gridConf.startBidPrice -
+                //         (orderId - gridConf.startBidOrderId) *
+                //         gridConf.bidGap;
+                // }
+                price = gridConf.bidStrategy.getPrice(gridId, orderId - gridConf.startBidOrderId);
                 orderInfo.amount = calcQuoteAmount(
                     gridConf.baseAmt,
                     price,
@@ -313,25 +309,27 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         }
 
         if (isAsk) {
-            unchecked {
-                price =
-                    gridConf.startAskPrice +
-                    (orderId - gridConf.startAskOrderId) *
-                    gridConf.askGap;
-            }
+            // unchecked {
+            //     price =
+            //         gridConf.startAskPrice +
+            //         (orderId - gridConf.startAskOrderId) *
+            //         gridConf.askGap;
+            // }
+            price = gridConf.askStrategy.getPrice(gridId, orderId - gridConf.startAskOrderId);
             orderInfo.price = price;
-            orderInfo.revPrice = price - gridConf.askGap;
+            orderInfo.revPrice = gridConf.askStrategy.getReversePrice(gridId, orderId - gridConf.startAskOrderId); //price - gridConf.askGap;
         } else {
             if (price == 0) {
-                unchecked {
-                    price =
-                        gridConf.startBidPrice -
-                        (orderId - gridConf.startBidOrderId) *
-                        gridConf.bidGap;
-                }
+                // unchecked {
+                //     price =
+                //         gridConf.startBidPrice -
+                //         (orderId - gridConf.startBidOrderId) *
+                //         gridConf.bidGap;
+                // }
+                price = gridConf.bidStrategy.getPrice(gridId, orderId - gridConf.startBidOrderId);
             }
             orderInfo.price = price;
-            orderInfo.revPrice = price + gridConf.bidGap;
+            orderInfo.revPrice = gridConf.bidStrategy.getReversePrice(gridId, orderId - gridConf.startBidOrderId);
         }
 
         orderInfo.isAsk = isAsk;
@@ -371,9 +369,10 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             if (isAsk) {
                 return (gridConf.baseAmt, 0);
             } else {
-                uint160 price = gridConf.startBidPrice -
-                    gridConf.bidGap *
-                    (orderId - gridConf.startBidOrderId);
+                uint160 price = gridConf.bidStrategy.getPrice(gridConf.gridId, orderId - gridConf.startBidOrderId);
+                // uint160 price = gridConf.startBidPrice -
+                //     gridConf.bidGap *
+                //     (orderId - gridConf.startBidOrderId);
                 uint128 quoteVol = calcQuoteAmount(
                     gridConf.baseAmt,
                     price,
@@ -492,97 +491,6 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         );
     }
 
-    /*
-    function _fillAskOrder(
-        bool isAsk,
-        uint128 orderId,
-        uint128 amt, // base token amt
-        address taker,
-        IGridOrder.Order storage order,
-        IGridOrder.GridConfig memory gridConfig
-    ) internal returns (uint256, uint256, uint256, uint256) {
-        uint128 orderBaseAmt; // base token amount of the grid order
-        uint128 orderQuoteAmt; // quote token amount of the grid order
-        uint160 sellPrice;
-        uint160 orderPrice;
-        uint128 profit;
-
-        if (isAsk) {
-            orderBaseAmt = order.amount;
-            orderQuoteAmt = order.revAmount;
-            orderPrice = gridConfig.startAskPrice + (orderId - gridConfig.startAskOrderId) * gridConfig.askGap;
-            sellPrice = orderPrice;
-        } else {
-            orderBaseAmt = order.revAmount;
-            orderQuoteAmt = order.amount;
-            orderPrice = gridConfig.startBidPrice - (orderId - gridConfig.startBidOrderId) * gridConfig.bidGap;
-            sellPrice = orderPrice + gridConfig.bidGap; // order.revPrice;
-        }
-
-        if (amt > orderBaseAmt) {
-            amt = orderBaseAmt;
-        }
-        // quote volume taker will pay: quoteVol = filled * price
-        uint128 quoteVol = calcQuoteAmount(amt, sellPrice, true);
-
-        (uint128 lpFee, uint128 protocolFee) = calculateFees(
-            quoteVol,
-            gridConfig.fee
-        );
-
-        unchecked {
-            orderBaseAmt -= amt;
-        }
-        // calculate orderQuoteAmt and update gridConfig
-        {
-            if (gridConfig.compound) {
-                orderQuoteAmt += quoteVol + lpFee; // all quote reverse
-            } else {
-                // reverse order only buy base amt
-                uint128 base = gridConfig.baseAmt;
-                uint160 buyPrice = isAsk ? (orderPrice - gridConfig.askGap) : orderPrice;
-                uint128 quota = calcQuoteAmount(base, buyPrice, false);
-                // increase profit if sell quote amount > baseAmt * price
-                unchecked {
-                    if (orderQuoteAmt >= quota) {
-                        profit = quoteVol + lpFee;
-                    } else {
-                        uint128 rev = orderQuoteAmt + quoteVol + lpFee;
-                        if (rev > quota) {
-                            orderQuoteAmt = quota;
-                            profit = rev - quota;
-                        } else {
-                            orderQuoteAmt += quoteVol + lpFee;
-                        }
-                    }
-                }
-            }
-        }
-
-        // update storage order
-        if (isAsk) {
-            order.amount = orderBaseAmt;
-            order.revAmount = orderQuoteAmt;
-        } else {
-            order.amount = orderQuoteAmt;
-            order.revAmount = orderBaseAmt;
-        }
-
-        emit FilledOrder(
-            orderId,
-            gridConfig.gridId,
-            sellPrice, // ASK
-            amt,
-            quoteVol,
-            orderBaseAmt,
-            orderQuoteAmt,
-            true,
-            taker
-        );
-
-        return (amt, quoteVol + lpFee + protocolFee, protocolFee, profit);
-    }
-    */
     // bid order has no profit
     function _fillBidOrder(
         uint128 amt, // base token amt
@@ -664,86 +572,4 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             taker
         );
     }
-
-    // function calcGridPrice(bool isAsk, uint128 level, uint160 price0, uint160 gap) pure internal returns (uint160){
-    //     if (isAsk) {
-    //         return price0 + level * gap;
-    //     }
-    //     return price0 - level * gap;
-    // }
-
-    /*
-    // bid order has no profit
-    function _fillBidOrder(
-        bool isAsk,
-        uint128 orderId,
-        uint128 amt, // base token amt
-        address taker,
-        IGridOrder.Order storage order,
-        IGridOrder.GridConfig memory gridConfig
-    ) internal returns (uint256, uint256, uint256) {
-        uint128 orderBaseAmt; // base token amount of the grid order
-        uint128 orderQuoteAmt; // quote token amount of the grid order
-        uint160 buyPrice;
-        uint160 orderPrice;
-
-        if (isAsk) {
-            orderBaseAmt = order.amount;
-            orderQuoteAmt = order.revAmount;
-            orderPrice = gridConfig.startAskPrice + (orderId - gridConfig.startAskOrderId) * gridConfig.askGap;
-            buyPrice = orderPrice - gridConfig.askGap; // order.revPrice;
-        } else {
-            orderBaseAmt = order.revAmount;
-            orderQuoteAmt = order.amount;
-            orderPrice = gridConfig.startBidPrice + (orderId - gridConfig.startBidOrderId) * gridConfig.bidGap;
-            buyPrice = orderPrice;
-        }
-
-        // quote volume maker pays
-        uint128 filledVol = calcQuoteAmount(amt, buyPrice, false);
-        if (filledVol > orderQuoteAmt) {
-            amt = uint128(calcBaseAmount(orderQuoteAmt, buyPrice, true));
-            filledVol = orderQuoteAmt; // calcQuoteAmount(amt, buyPrice);
-        }
-        (uint128 lpFee, uint128 protocolFee) = calculateFees(
-            filledVol,
-            gridConfig.fee
-        );
-
-        orderBaseAmt += amt;
-
-        // avoid stacks too deep
-        {
-            if (gridConfig.compound) {
-                orderQuoteAmt -= filledVol - lpFee; // all quote reverse
-            } else {
-                // lpFee into profit
-                gridConfig.profits += uint128(lpFee);
-                orderQuoteAmt -= filledVol;
-            }
-        }
-
-        // update storage order
-        if (isAsk) {
-            order.amount = orderBaseAmt;
-            order.revAmount = orderQuoteAmt;
-        } else {
-            order.amount = orderQuoteAmt;
-            order.revAmount = orderBaseAmt;
-        }
-        emit FilledOrder(
-            orderId,
-            gridConfig.gridId,
-            buyPrice, // BID
-            amt,
-            filledVol,
-            orderBaseAmt,
-            orderQuoteAmt,
-            false,
-            taker
-        );
-
-        return (amt, filledVol - lpFee - protocolFee, protocolFee);
-    }
-    */
 }

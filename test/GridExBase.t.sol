@@ -14,6 +14,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {GridEx} from "../src/GridEx.sol";
 import {GridOrder} from "../src/GridOrder.sol";
 import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
+import {Linear} from "../src/strategy/Linear.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -22,6 +23,7 @@ import {WETH} from "./utils/WETH.sol";
 contract GridExBaseTest is Test {
     WETH public weth;
     GridEx public exchange;
+    Linear public linear;
     SEA public sea;
     USDC public usdc;
 
@@ -37,6 +39,7 @@ contract GridExBaseTest is Test {
         sea = new SEA();
         usdc = new USDC();
         exchange = new GridEx(address(weth), address(usdc));
+        linear = new Linear();
 
         vm.deal(maker, initialETHAmt);
         sea.transfer(maker, initialSEAAmt);
@@ -79,13 +82,17 @@ contract GridExBaseTest is Test {
         uint32 fee
     ) internal {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            askPrice0: askPrice0,
-            bidPrice0: bidPrice0,
-            askGap: gap,
-            bidGap: gap,
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
             fee: fee,
             compound: compound,
             oneshot: false

@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.5.0;
 
+import "./IGridStrategy.sol";
 import "../libraries/Currency.sol";
 
 interface IGridOrder {
     /// Grid order param
     struct GridOrderParam {
-        uint160 askPrice0;
-        uint160 askGap;
-        uint160 bidPrice0;
-        uint160 bidGap;
+        IGridStrategy askStrategy;
+        IGridStrategy bidStrategy;
+        bytes askData;
+        bytes bidData;
+        // uint160 askPrice0;
+        // uint160 askGap;
+        // uint160 bidPrice0;
+        // uint160 bidGap;
         uint32 askOrderCount;
         uint32 bidOrderCount;
         uint32 fee; // bps
@@ -21,17 +26,19 @@ interface IGridOrder {
     /// @dev Grid config
     struct GridConfig {
         address owner;
+        IGridStrategy askStrategy;
+        IGridStrategy bidStrategy;
         uint128 profits; // quote token
         uint128 baseAmt;
         uint128 startAskOrderId;
         uint128 startBidOrderId;
-        uint160 startAskPrice;
-        uint160 startBidPrice;
-        uint160 askGap;
+        // uint160 startAskPrice;
+        // uint160 startBidPrice;
+        // uint160 askGap;
         uint64 pairId;
         uint32 askOrderCount;
         uint32 bidOrderCount;
-        uint160 bidGap;
+        // uint160 bidGap;
         uint32 fee; // bps
         uint128 gridId;
         bool compound;

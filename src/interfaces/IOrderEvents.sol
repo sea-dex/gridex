@@ -11,20 +11,16 @@ interface IOrderEvents {
     /// @param gridId Grid Id
     /// @param askOrderId The highest price orderId of the ask grid orders
     /// @param bidOrderId The lowest price orderId of the bid grid orders
-    /// @param askPrice0 The lowest price of sell grid orders
-    /// @param askGap Price gap between sell order and it's reverse order
-    /// @param bidPrice0 The highest price of buy grid orders
-    /// @param bidGap Price gap between buy order and it's reverse order
     /// @param amount The base amount of every grid order
     /// @param compound If the grid order is compound
     /// @param fee Grid order fee bips
     event GridOrderCreated(
         address indexed owner,
         uint64 pairId,
-        uint256 askPrice0,
-        uint256 askGap,
-        uint256 bidPrice0,
-        uint256 bidGap,
+        // uint256 askPrice0,
+        // uint256 askGap,
+        // uint256 bidPrice0,
+        // uint256 bidGap,
         uint256 amount,
         uint128 gridId,
         uint128 askOrderId,
