@@ -5,7 +5,7 @@ import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {FullMath} from "./libraries/FullMath.sol";
 
 contract Lens {
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
+    uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
 
     /// @dev calculate quote amount with baseAmt and price
     /// @param baseAmt base token amount
@@ -14,7 +14,7 @@ contract Lens {
     /// @return amt amount
     function calcQuoteAmount(
         uint128 baseAmt,
-        uint160 price,
+        uint256 price,
         bool roundUp
     ) public pure returns (uint128) {
         uint256 amt = roundUp
@@ -41,8 +41,8 @@ contract Lens {
     /// @dev calculate base token and quote token needed to place grid order
     function calcGridAmount(
         uint128 baseAmt,
-        uint160 bidPrice,
-        uint160 bidGap,
+        uint256 bidPrice,
+        uint256 bidGap,
         uint32 askCount,
         uint32 bidCount
     ) public pure returns (uint128, uint128) {
@@ -64,7 +64,7 @@ contract Lens {
     /// @return quoteVol filled quote volume, round up. taker should pay quoteVol + fee
     /// @return fee filled fee (LP fee + protocol fee)
     function calcAskOrderQuoteAmount(
-        uint160 price,
+        uint256 price,
         uint128 baseAmt,
         uint32 feebps
     ) public pure returns (uint128 quoteVol, uint128 fee) {
@@ -81,7 +81,7 @@ contract Lens {
     /// @return filledVol filled quote volume, round down. taker will get filledVol - fee
     /// @return fee filled fee (LP fee + protocol fee)
     function calcBidOrderQuoteAmount(
-        uint160 price,
+        uint256 price,
         uint128 baseAmt,
         uint32 feebps
     ) public pure returns (uint128 filledVol, uint128 fee) {

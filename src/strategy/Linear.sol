@@ -7,11 +7,11 @@ import {FullMath} from "../libraries/FullMath.sol";
 
 // Linear strategy
 contract Linear is IGridStrategy {
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
+    uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
 
     struct LinearStrategy {
-        uint160 basePrice;
-        int160 gap; // bid order should be negative
+        uint256 basePrice;
+        int256 gap; // bid order should be negative
     }
 
     mapping(uint256 => LinearStrategy) public strategies;
@@ -31,7 +31,7 @@ contract Linear is IGridStrategy {
         uint128 gridId,
         bytes memory data
     ) external override {
-        (uint160 price0, int160 gap) = abi.decode(data, (uint160, int160));
+        (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
         strategies[gridIdKey(isAsk, gridId)] = LinearStrategy(price0, gap);
     }
 
@@ -42,15 +42,15 @@ contract Linear is IGridStrategy {
         uint32 count
     ) external pure override {
         require(count > 1, "L0");
-        (uint160 price0, int160 gap) = abi.decode(data, (uint160, int160));
+        (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
         require(price0 > 0 && gap != 0, "L1");
 
         if (isAsk) {
             require(gap > 0, "L2");
-            require(uint160(gap) < price0, "L3");
+            require(uint256(gap) < price0, "L3");
             require(
                 uint256(price0) + uint256(count - 1) * uint256(int256(gap)) <
-                    uint256(type(uint160).max),
+                    uint256(type(uint256).max),
                 "L4"
             );
             require(
@@ -65,7 +65,7 @@ contract Linear is IGridStrategy {
             require(gap < 0, "L5");
             require(
                 uint256(price0) + uint256(-int256(gap)) <
-                    uint256(type(uint160).max),
+                    uint256(type(uint256).max),
                 "L6"
             );
             int256 priceLast = int256(uint256(price0)) +
@@ -87,18 +87,18 @@ contract Linear is IGridStrategy {
         bool isAsk,
         uint128 gridId,
         uint128 idx
-    ) external view override returns (uint160) {
+    ) external view override returns (uint256) {
         LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
-        return uint160(int160(s.basePrice) + s.gap * int160(uint160(idx)));
+        return uint256(int256(s.basePrice) + s.gap * int256(uint256(idx)));
     }
 
     function getReversePrice(
         bool isAsk,
         uint128 gridId,
         uint128 idx
-    ) external view override returns (uint160) {
+    ) external view override returns (uint256) {
         LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
         return
-            uint160(int160(s.basePrice) + s.gap * (int160(uint160(idx)) - 1));
+            uint256(int256(s.basePrice) + s.gap * (int256(uint256(idx)) - 1));
     }
 }

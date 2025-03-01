@@ -22,8 +22,8 @@ import {GridExBaseTest} from "./GridExBase.t.sol";
 
 contract GridExFillTest is GridExBaseTest {
     function test_fillAskOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
@@ -142,8 +142,8 @@ contract GridExFillTest is GridExBaseTest {
     }
 
     function test_partialFillAskOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
@@ -218,8 +218,8 @@ contract GridExFillTest is GridExBaseTest {
 
     // fill multiple ask orders
     function test_partialFillAskOrders() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
@@ -275,9 +275,9 @@ contract GridExFillTest is GridExBaseTest {
         assertEq(amt - amts[1], order1.amount);
         uint128 amtFilled3 = amt - (amts[0]) - (amts[1]);
         assertEq(amt - amtFilled3, order2.amount);
-        uint160 price0 = askPrice0;
-        uint160 price1 = askPrice0 + gap;
-        uint160 price2 = askPrice0 + gap * 2;
+        uint256 price0 = askPrice0;
+        uint256 price1 = askPrice0 + gap;
+        uint256 price2 = askPrice0 + gap * 2;
         (
             uint128 vol0,
             uint128 revVol0,
@@ -329,8 +329,8 @@ contract GridExFillTest is GridExBaseTest {
     }
 
     function test_fillBidOrder() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         // uint96 orderId = 0x000000000000000000000001;
         uint128 orderId = 0x00000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
@@ -349,7 +349,7 @@ contract GridExFillTest is GridExBaseTest {
         );
 
         uint128 quoteAmt = 0;
-        uint160 price = bidPrice0;
+        uint256 price = bidPrice0;
         for (int i = 0; i < 10; i++) {
             quoteAmt += exchange.calcQuoteAmount(amt, price, false);
             price = price - gap;
@@ -457,8 +457,8 @@ contract GridExFillTest is GridExBaseTest {
     }
 
     function test_partialFillBidOrder() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -476,7 +476,7 @@ contract GridExFillTest is GridExBaseTest {
         );
 
         // uint128 quoteAmt = 0;
-        // uint160 price = bidPrice0;
+        // uint256 price = bidPrice0;
         // for (int i = 0; i < 10; i++) {
         //     quoteAmt += exchange.calcQuoteAmount(amt, price, false);
         //     price = price - gap;
@@ -615,8 +615,8 @@ contract GridExFillTest is GridExBaseTest {
     }
 
     function test_partialFillBidOrders() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -642,9 +642,9 @@ contract GridExFillTest is GridExBaseTest {
         );
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(totalQuoteAmt, usdc.balanceOf(address(exchange)));
-        uint160 price0 = bidPrice0;
-        uint160 price1 = bidPrice0 - gap;
-        uint160 price2 = bidPrice0 - gap * 2;
+        uint256 price0 = bidPrice0;
+        uint256 price1 = bidPrice0 - gap;
+        uint256 price2 = bidPrice0 - gap * 2;
 
         uint128 quoteAmt0 = exchange.calcQuoteAmount(amt, price0, false);
         uint128 quoteAmt1 = exchange.calcQuoteAmount(amt, price1, false);

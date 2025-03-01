@@ -27,7 +27,7 @@ contract GridExBaseTest is Test {
     SEA public sea;
     USDC public usdc;
 
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
+    uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     address maker = address(0x100);
     address taker = address(0x200);
     uint256 initialETHAmt = 10 ether;
@@ -76,17 +76,17 @@ contract GridExBaseTest is Test {
         uint128 perBaseAmt,
         uint16 asks,
         uint16 bids,
-        uint160 askPrice0,
-        uint160 bidPrice0,
-        uint160 gap,
+        uint256 askPrice0,
+        uint256 bidPrice0,
+        uint256 gap,
         bool compound,
         uint32 fee
     ) internal {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
@@ -126,17 +126,17 @@ contract GridExBaseTest is Test {
         uint128 perBaseAmt,
         uint16 asks,
         uint16 bids,
-        uint160 askPrice0,
-        uint160 bidPrice0,
-        uint160 gap,
+        uint256 askPrice0,
+        uint256 bidPrice0,
+        uint256 gap,
         bool compound,
         uint32 fee
     ) internal {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
@@ -176,17 +176,17 @@ contract GridExBaseTest is Test {
         uint128 perBaseAmt,
         uint16 asks,
         uint16 bids,
-        uint160 askPrice0,
-        uint160 bidPrice0,
-        uint160 gap,
+        uint256 askPrice0,
+        uint256 bidPrice0,
+        uint256 gap,
         bool compound,
         uint32 fee
     ) internal {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
@@ -223,8 +223,8 @@ contract GridExBaseTest is Test {
     // just for ask order
     // return: fillVol, reverse order quote amount, grid profit, fee
     function calcQuoteVolReversed(
-        uint160 price,
-        uint160 gap,
+        uint256 price,
+        uint256 gap,
         uint128 fillAmt,
         uint128 baseAmt,
         uint128 currOrderQuoteAmt,
@@ -254,7 +254,7 @@ contract GridExBaseTest is Test {
     // just for ask order
     // return: fillVol, reverse order quote amount, fee
     function calcQuoteVolReversedCompound(
-        uint160 price,
+        uint256 price,
         uint128 fillAmt,
         uint32 feebps
     ) internal view returns (uint128, uint128, uint128) {

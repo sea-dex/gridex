@@ -6,9 +6,9 @@ import {GridExBaseTest} from "./GridExBase.t.sol";
 contract GridExRevertTest is GridExBaseTest {
     // should revert if trade a canceled order
     function test_revertWhenTradeCanceledOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
-        uint160 bidPrice0 = askPrice0 - gap;
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = askPrice0 - gap;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 bidOrderId = 0x0000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // ETH
@@ -107,9 +107,9 @@ contract GridExRevertTest is GridExBaseTest {
 
     // should revert if trade an oneshot order, which has been filled
     function test_revertWhenTradeOneshotOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
-        uint160 bidPrice0 = askPrice0 - gap;
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = askPrice0 - gap;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 bidOrderId = 0x0000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // ETH
@@ -163,9 +163,9 @@ contract GridExRevertTest is GridExBaseTest {
 
     // should revert if withdraw more profits
     function test_revertInvalidWithdraw() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
-        uint160 bidPrice0 = askPrice0 - gap;
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = askPrice0 - gap;
         uint128 orderId = 0x80000000000000000000000000000001;
         // uint128 bidOrderId = 0x0000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // ETH
@@ -207,9 +207,9 @@ contract GridExRevertTest is GridExBaseTest {
     // should revert if cancel NOT own order
     // should revert if cancel NOT own grid
     function test_revertWhenCancelOtherOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
-        uint160 bidPrice0 = askPrice0 - gap;
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = askPrice0 - gap;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 bidOrderId = 0x0000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // ETH

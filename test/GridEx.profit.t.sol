@@ -24,8 +24,8 @@ contract GridExProfitTest is GridExBaseTest {
     Currency eth = Currency.wrap(address(0));
 
     function test_profitAskOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20 ether; // SEA

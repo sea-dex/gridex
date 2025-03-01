@@ -702,68 +702,7 @@ contract GridEx is
             }
             orderStatus[orderId] = GridStatusCanceled;
             emit CancelGridOrder(msg.sender, orderId, gridId);
-            /*
-            uint128 orderId = idList[i];
-
-
-            IGridOrder.Order memory order;
-            bool isAsk = isAskGridOrder(orderId);
-            if (isAsk) {
-                require(
-                    orderId >= gridConf.startAskOrderId &&
-                        orderId <
-                        gridConf.startAskOrderId + gridConf.askOrderCount,
-                    "GA"
-                );
-
-                order = askOrders[orderId];
-                if (order.amount == 0 && order.revAmount == 0) {
-                    unchecked {
-                        baseAmt += gridConf.baseAmt;
-                    }
-                } else {
-                    unchecked {
-                        baseAmt += order.amount;
-                        quoteAmt += order.revAmount;
-                    }
-                }
-            } else {
-                require(
-                    orderId >= gridConf.startBidOrderId &&
-                        orderId <
-                        gridConf.startBidOrderId + gridConf.bidOrderCount,
-                    "GB"
-                );
-                order = bidOrders[orderId];
-                if (order.amount == 0 && order.revAmount == 0) {
-                    uint160 price = gridConf.startBidPrice - (orderId - gridConf.startBidOrderId) * gridConf.askGap;
-                    uint128 amt = calcQuoteAmount(gridConf.baseAmt, price, false);
-                    unchecked {
-                        quoteAmt += amt;
-                    }
-                } else {
-                    unchecked {
-                        baseAmt += order.revAmount;
-                        quoteAmt += order.amount;
-                    }
-                }
-            }
-            */
-
-            // if (isAsk) {
-            //     delete askOrders[orderId];
-            // } else {
-            //     delete bidOrders[orderId];
-            // }
         }
-
-        // conf.orderCount -= uint32(idList.length);
-        // if (conf.askOrderCount == 0 && conf.bidOrderCount == 0) {
-        //     unchecked {
-        //         quoteAmt += conf.profits;
-        //     }
-        //     delete gridConfigs[gridId];
-        // }
 
         Pair memory pair = getPairById[gridConf.pairId];
         if (baseAmt > 0) {

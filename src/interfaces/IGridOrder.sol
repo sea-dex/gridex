@@ -11,10 +11,10 @@ interface IGridOrder {
         IGridStrategy bidStrategy;
         bytes askData;
         bytes bidData;
-        // uint160 askPrice0;
-        // uint160 askGap;
-        // uint160 bidPrice0;
-        // uint160 bidGap;
+        // uint256 askPrice0;
+        // uint256 askGap;
+        // uint256 bidPrice0;
+        // uint256 bidGap;
         uint32 askOrderCount;
         uint32 bidOrderCount;
         uint32 fee; // bps
@@ -32,13 +32,13 @@ interface IGridOrder {
         uint128 baseAmt;
         uint128 startAskOrderId;
         uint128 startBidOrderId;
-        // uint160 startAskPrice;
-        // uint160 startBidPrice;
-        // uint160 askGap;
+        // uint256 startAskPrice;
+        // uint256 startBidPrice;
+        // uint256 askGap;
         uint64 pairId;
         uint32 askOrderCount;
         uint32 bidOrderCount;
-        // uint160 bidGap;
+        // uint256 bidGap;
         uint32 fee; // bps
         uint128 gridId;
         bool compound;
@@ -52,7 +52,7 @@ interface IGridOrder {
         uint128 amount;
         uint128 revAmount;
         // order price
-        // uint160 price;
+        // uint256 price;
         // grid id
         // uint96 gridId;
     }
@@ -71,8 +71,8 @@ interface IGridOrder {
         uint128 revAmount;
         uint128 baseAmt;
         // order prices
-        uint160 price;
-        uint160 revPrice;
+        uint256 price;
+        uint256 revPrice;
         // pairId
         uint64 pairId;
     }

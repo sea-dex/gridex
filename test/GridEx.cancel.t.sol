@@ -22,8 +22,8 @@ import {GridExBaseTest} from "./GridExBase.t.sol";
 
 contract GridExCancelTest is GridExBaseTest {
     function test_cancelAskGridWithoutFill1() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -67,8 +67,8 @@ contract GridExCancelTest is GridExBaseTest {
     }
 
     function test_cancelAskGridWithoutFill2() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -113,8 +113,8 @@ contract GridExCancelTest is GridExBaseTest {
 
     // compound grid
     function test_cancelAskGridFilled1() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -202,8 +202,8 @@ contract GridExCancelTest is GridExBaseTest {
 
     // not compound grid
     function test_cancelAskGridFilled2() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         //      uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
@@ -312,8 +312,8 @@ contract GridExCancelTest is GridExBaseTest {
     }
 
     function test_cancelBidGridWithoutFill1() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -366,8 +366,8 @@ contract GridExCancelTest is GridExBaseTest {
     }
 
     function test_cancelBidGridWithoutFill2() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -421,8 +421,8 @@ contract GridExCancelTest is GridExBaseTest {
 
     // compound grid
     function test_cancelBidGridFilled1() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -506,8 +506,8 @@ contract GridExCancelTest is GridExBaseTest {
 
     // not compound grid
     function test_cancelBidGridFilled2() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
@@ -601,8 +601,8 @@ contract GridExCancelTest is GridExBaseTest {
 
     // cannot be filled after cancel
     function test_cancelAfter() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 

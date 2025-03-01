@@ -24,8 +24,8 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     Currency eth = Currency.wrap(address(0));
 
     function test_fillETHQuoteAskOrder() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
@@ -152,8 +152,8 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
 
     // fill multiple ask orders
     function test_partialFillETHQuoteAskOrders() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
@@ -241,9 +241,9 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(amt - amts[1], order1.amount);
         uint128 amtFilled3 = amts[2];
         assertEq(amt - amtFilled3, order2.amount);
-        uint160 price0 = askPrice0;
-        uint160 price1 = askPrice0 + gap;
-        uint160 price2 = askPrice0 + gap * 2;
+        uint256 price0 = askPrice0;
+        uint256 price1 = askPrice0 + gap;
+        uint256 price2 = askPrice0 + gap * 2;
         (
             uint128 vol0,
             uint128 revVol0,
@@ -289,8 +289,8 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     }
 
     function test_fillETHQuoteBidOrder() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 200 ether; // ETH
 
@@ -427,8 +427,8 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     }
 
     function test_partialFillETHQuoteBidOrders() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 2 ether; // SEA
 
@@ -455,9 +455,9 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(0, eth.balanceOf(address(exchange)));
         assertEq(totalQuoteAmt, weth.balanceOf(address(exchange)));
         assertEq(0, sea.balanceOf(address(exchange)));
-        uint160 price0 = bidPrice0;
-        uint160 price1 = bidPrice0 - gap;
-        uint160 price2 = bidPrice0 - gap * 2;
+        uint256 price0 = bidPrice0;
+        uint256 price1 = bidPrice0 - gap;
+        uint256 price2 = bidPrice0 - gap * 2;
 
         uint128 quoteAmt0 = exchange.calcQuoteAmount(amt, price0, false);
         uint128 quoteAmt1 = exchange.calcQuoteAmount(amt, price1, false);

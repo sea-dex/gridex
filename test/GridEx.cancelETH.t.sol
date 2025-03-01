@@ -24,8 +24,8 @@ contract GridExCancelETHTest is GridExBaseTest {
     Currency eth = Currency.wrap(address(0));
 
     function test_cancelETHAskGridWithoutFill1() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // SEA
@@ -71,8 +71,8 @@ contract GridExCancelETHTest is GridExBaseTest {
     }
 
     function test_cancelETHAskGridWithoutFill2() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // SEA
@@ -118,8 +118,8 @@ contract GridExCancelETHTest is GridExBaseTest {
 
     // compound grid
     function test_cancelETHAskGridFilled1() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // SEA
@@ -211,8 +211,8 @@ contract GridExCancelETHTest is GridExBaseTest {
 
     // not compound grid
     function test_cancelETHAskGridFilled2() public {
-        uint160 askPrice0 = uint160(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
-        uint160 gap = askPrice0 / 20; // 0.0001
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // SEA
@@ -317,8 +317,8 @@ contract GridExCancelETHTest is GridExBaseTest {
     }
 
     function test_cancelETHBidGridWithoutFill1() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
@@ -372,8 +372,8 @@ contract GridExCancelETHTest is GridExBaseTest {
     }
 
     function test_cancelETHBidGridWithoutFill2() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
@@ -423,8 +423,8 @@ contract GridExCancelETHTest is GridExBaseTest {
 
     // compound grid
     function test_cancelETHBidGridFilled1() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
@@ -509,8 +509,8 @@ contract GridExCancelETHTest is GridExBaseTest {
 
     // not compound grid
     function test_cancelETHBidGridFilled2() public {
-        uint160 bidPrice0 = uint160(PRICE_MULTIPLIER / 500); // 0.002
-        uint160 gap = bidPrice0 / 20; // 0.0001
+        uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = bidPrice0 / 20; // 0.0001
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 

@@ -67,7 +67,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
                 // // the first order's reverse price
                 // if (
                 //     uint256(param.bidPrice0) + uint256(param.bidGap) >
-                //     uint256(type(uint160).max)
+                //     uint256(type(uint256).max)
                 // ) {
                 //     revert InvalidGridPrice();
                 // }
@@ -81,14 +81,14 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
                     param.askData,
                     param.askOrderCount
                 );
-                // sell price should less than uint160.max
+                // sell price should less than uint256.max
                 // require(param.askOrderCount > 1, "E2");
 
                 // if (
                 //     uint256(param.askPrice0) +
                 //         uint256(param.askOrderCount - 1) *
                 //         uint256(param.askGap) >
-                //     uint256(type(uint160).max)
+                //     uint256(type(uint256).max)
                 // ) {
                 //     revert InvalidGridPrice();
                 // }
@@ -133,10 +133,10 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
                 param.bidData
             );
 
-            // uint160 price0 = param.bidPrice0;
-            // uint160 gap = param.bidGap;
+            // uint256 price0 = param.bidPrice0;
+            // uint256 gap = param.bidGap;
             for (uint256 i = 0; i < param.bidOrderCount; ++i) {
-                uint160 price = IGridStrategy(param.bidStrategy).getPrice(
+                uint256 price = IGridStrategy(param.bidStrategy).getPrice(
                     false,
                     gridId,
                     uint128(i)
@@ -170,7 +170,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
     /// calculate how many base can be filled with quoteAmt
     function calcBaseAmount(
         uint128 quoteAmt,
-        uint160 price,
+        uint256 price,
         bool roundUp
     ) public pure returns (uint256) {
         uint256 amt = roundUp
@@ -197,8 +197,8 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
     /// Calculate sum quote amount for grid order
     function calcSumQuoteAmount(
         uint128 baseAmt,
-        uint160 price0,
-        uint160 gap,
+        uint256 price0,
+        uint256 gap,
         uint32 orderCount
     ) public pure returns (uint256 quoteAmt) {
         for (uint256 i = 0; i < orderCount; ++i) {
@@ -303,7 +303,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
         orderInfo.orderId = orderId;
 
         // order prices
-        uint160 price;
+        uint256 price;
         // order amounts
         orderInfo.baseAmt = gridConf.baseAmt;
         if (order.amount == 0 && order.revAmount == 0) {
@@ -411,12 +411,12 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             if (isAsk) {
                 return (gridConf.baseAmt, 0);
             } else {
-                uint160 price = gridConf.bidStrategy.getPrice(
+                uint256 price = gridConf.bidStrategy.getPrice(
                     false,
                     gridConf.gridId,
                     orderId - gridConf.startBidOrderId
                 );
-                // uint160 price = gridConf.startBidPrice -
+                // uint256 price = gridConf.startBidPrice -
                 //     gridConf.bidGap *
                 //     (orderId - gridConf.startBidOrderId);
                 uint128 quoteVol = calcQuoteAmount(
@@ -446,7 +446,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
     ) internal returns (IGridOrder.OrderFillResult memory result) {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
-        uint160 sellPrice;
+        uint256 sellPrice;
 
         if (orderInfo.isAsk) {
             orderBaseAmt = orderInfo.amount;
@@ -484,7 +484,7 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
             } else {
                 // reverse order only buy base amt
                 // uint128 base = orderInfo.baseAmt;
-                uint160 buyPrice = orderInfo.isAsk
+                uint256 buyPrice = orderInfo.isAsk
                     ? orderInfo.revPrice
                     : orderInfo.price;
                 uint128 quota = calcQuoteAmount(
@@ -545,8 +545,8 @@ abstract contract GridOrder is IOrderErrors, IOrderEvents, Lens {
     ) internal returns (IGridOrder.OrderFillResult memory result) {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
-        uint160 buyPrice;
-        // uint160 orderPrice;
+        uint256 buyPrice;
+        // uint256 orderPrice;
 
         if (orderInfo.isAsk) {
             if (orderInfo.oneshot) {

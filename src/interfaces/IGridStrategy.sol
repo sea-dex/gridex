@@ -31,7 +31,7 @@ interface IGridStrategy {
         bool isAsk,
         uint128 gridId,
         uint128 idx
-    ) external view returns (uint160);
+    ) external view returns (uint256);
 
     /// @notice Get grid order reverse price
     /// @param gridId Thee grid order Id
@@ -40,5 +40,5 @@ interface IGridStrategy {
         bool isAsk,
         uint128 gridId,
         uint128 idx
-    ) external view returns (uint160);
+    ) external view returns (uint256);
 }

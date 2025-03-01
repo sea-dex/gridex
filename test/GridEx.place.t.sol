@@ -27,7 +27,7 @@ contract GridExPlaceTest is Test {
     SEA public sea;
     USDC public usdc;
 
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
+    uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
 
     function setUp() public {
         weth = new WETH();
@@ -41,8 +41,8 @@ contract GridExPlaceTest is Test {
         uint16 asks = 13;
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 baseAmt = uint256(asks) * perBaseAmt;
-        uint160 askPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 askPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
         sea.transfer(maker, baseAmt);
@@ -53,8 +53,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: 0,
             // askGap: gap,
@@ -81,8 +81,8 @@ contract GridExPlaceTest is Test {
         uint16 asks = 13;
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 baseAmt = uint256(asks) * perBaseAmt;
-        uint160 askPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 askPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
         vm.deal(maker, baseAmt);
@@ -93,8 +93,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: 0,
             // askGap: gap,
@@ -121,8 +121,8 @@ contract GridExPlaceTest is Test {
         uint16 bids = 10;
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
-        uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
         usdc.transfer(maker, usdcAmt);
@@ -133,8 +133,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: 0,
             // bidPrice0: bidPrice0,
             // askGap: 0,
@@ -164,8 +164,8 @@ contract GridExPlaceTest is Test {
     function test_PlaceETHQuoteBidGridOrder() public {
         uint16 bids = 10;
         uint128 perBaseAmt = 100 * 10 ** 18;
-        uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
         (, uint128 ethAmt) = exchange.calcGridAmount(
@@ -183,8 +183,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: 0,
             // bidPrice0: bidPrice0,
             // askGap: 0,
@@ -221,9 +221,9 @@ contract GridExPlaceTest is Test {
         address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
-        uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 askPrice0 = uint256((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         usdc.transfer(maker, usdcAmt);
         sea.transfer(maker, uint256(asks) * perBaseAmt);
@@ -234,8 +234,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
             // askGap: gap,
@@ -273,9 +273,9 @@ contract GridExPlaceTest is Test {
         address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
-        uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 askPrice0 = uint256((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // eth/usdc
         usdc.transfer(maker, usdcAmt);
@@ -287,8 +287,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
             // askGap: gap,
@@ -327,9 +327,9 @@ contract GridExPlaceTest is Test {
         address maker = address(0x123);
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 usdcAmt = uint256(bids) * 5 * 100 * 10 ** 6;
-        uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 askPrice0 = uint256((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // eth/usdc
         usdc.transfer(maker, usdcAmt);
@@ -341,8 +341,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
             // askGap: gap,
@@ -386,9 +386,9 @@ contract GridExPlaceTest is Test {
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 baseAmt = perBaseAmt * asks;
         uint256 ethAmt = uint256(bids) * 5 * 100 * 10 ** 6;
-        uint160 askPrice0 = uint160((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 bidPrice0 = uint160((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
-        uint160 gap = uint160((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
+        uint256 askPrice0 = uint256((50 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
+        uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // sea/weth
         sea.transfer(maker, baseAmt);
@@ -400,8 +400,8 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-            askData: abi.encode(askPrice0, int160(gap)),
-            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askData: abi.encode(askPrice0, int256(gap)),
+            bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
             // askGap: gap,
