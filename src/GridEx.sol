@@ -549,7 +549,7 @@ contract GridEx is
         uint32 flag
     ) public override {
         IGridOrder.GridConfig memory conf = gridConfigs[gridId];
-        require(conf.owner == msg.sender);
+        require(conf.owner == msg.sender, "G7");
 
         if (amt == 0) {
             amt = conf.profits;

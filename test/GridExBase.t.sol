@@ -69,6 +69,57 @@ contract GridExBaseTest is Test {
         return uint256(uint256(gridId) << 128) | uint256(orderId);
     }
 
+    function _placeOrdersBy(
+        address who,
+        address base,
+        address quote,
+        uint128 perBaseAmt,
+        uint16 asks,
+        uint16 bids,
+        uint160 askPrice0,
+        uint160 bidPrice0,
+        uint160 gap,
+        bool compound,
+        uint32 fee
+    ) internal {
+        IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askOrderCount: asks,
+            bidOrderCount: bids,
+            baseAmount: perBaseAmt,
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
+            fee: fee,
+            compound: compound,
+            oneshot: false
+        });
+
+        vm.startPrank(who);
+        if (base == address(0) || quote == address(0)) {
+            uint256 val = (base == address(0))
+                ? perBaseAmt * asks
+                : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
+
+            exchange.placeETHGridOrders{value: val}(
+                Currency.wrap(base),
+                Currency.wrap(quote),
+                param
+            );
+        } else {
+            exchange.placeGridOrders(
+                Currency.wrap(base),
+                Currency.wrap(quote),
+                param
+            );
+        }
+        vm.stopPrank();
+    }
+
     function _placeOrders(
         address base,
         address quote,
@@ -96,6 +147,56 @@ contract GridExBaseTest is Test {
             fee: fee,
             compound: compound,
             oneshot: false
+        });
+
+        vm.startPrank(maker);
+        if (base == address(0) || quote == address(0)) {
+            uint256 val = (base == address(0))
+                ? perBaseAmt * asks
+                : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
+
+            exchange.placeETHGridOrders{value: val}(
+                Currency.wrap(base),
+                Currency.wrap(quote),
+                param
+            );
+        } else {
+            exchange.placeGridOrders(
+                Currency.wrap(base),
+                Currency.wrap(quote),
+                param
+            );
+        }
+        vm.stopPrank();
+    }
+
+    function _placeOneshotOrders(
+        address base,
+        address quote,
+        uint128 perBaseAmt,
+        uint16 asks,
+        uint16 bids,
+        uint160 askPrice0,
+        uint160 bidPrice0,
+        uint160 gap,
+        bool compound,
+        uint32 fee
+    ) internal {
+        IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
+            askStrategy: linear,
+            bidStrategy: linear,
+            askData: abi.encode(askPrice0, int160(gap)),
+            bidData: abi.encode(bidPrice0, -int160(gap)),
+            askOrderCount: asks,
+            bidOrderCount: bids,
+            baseAmount: perBaseAmt,
+            // askPrice0: askPrice0,
+            // bidPrice0: bidPrice0,
+            // askGap: gap,
+            // bidGap: gap,
+            fee: fee,
+            compound: compound,
+            oneshot: true
         });
 
         vm.startPrank(maker);

@@ -8,20 +8,37 @@ interface IGridStrategy {
     /// @param isAsk The data and count is ask grid or not
     /// @param data The grid strategy parameter data
     /// @param count The grid order count
-    function validateParams(bool isAsk, bytes calldata data, uint32 count) external pure;
+    function validateParams(
+        bool isAsk,
+        uint128 amt,
+        bytes calldata data,
+        uint32 count
+    ) external pure;
 
-    /// @notice Initialize grid strategy
+    /// @notice Create grid strategy
     /// @param gridId The grid order Id
     /// @param data The grid strategy parameter data
-    function initGridStrategy(uint128 gridId, bytes memory data) external;
+    function createGridStrategy(
+        bool isAsk,
+        uint128 gridId,
+        bytes memory data
+    ) external;
 
     /// @notice Get grid order price
     /// @param gridId Thee grid order Id
     /// @param idx The index of the order in the grid, from 0
-    function getPrice(uint128 gridId, uint128 idx) external view returns (uint160);
+    function getPrice(
+        bool isAsk,
+        uint128 gridId,
+        uint128 idx
+    ) external view returns (uint160);
 
     /// @notice Get grid order reverse price
     /// @param gridId Thee grid order Id
     /// @param idx The index of the order in the grid, from 0
-    function getReversePrice(uint128 gridId, uint128 idx) external view returns (uint160);
+    function getReversePrice(
+        bool isAsk,
+        uint128 gridId,
+        uint128 idx
+    ) external view returns (uint160);
 }

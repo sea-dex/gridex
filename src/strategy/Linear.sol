@@ -3,69 +3,101 @@ pragma solidity ^0.8.28;
 
 import {IGridOrder} from "../interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../interfaces/IGridStrategy.sol";
+import {FullMath} from "../libraries/FullMath.sol";
 
 // Linear strategy
 contract Linear is IGridStrategy {
+    uint256 public constant PRICE_MULTIPLIER = 10 ** 29;
+
     struct LinearStrategy {
         uint160 basePrice;
         int160 gap; // bid order should be negative
     }
 
-    mapping(uint128 => LinearStrategy) public strategies;
+    mapping(uint256 => LinearStrategy) public strategies;
 
-    function initGridStrategy(
+    function gridIdKey(
+        bool isAsk,
+        uint128 gridId
+    ) internal pure returns (uint256) {
+        if (isAsk) {
+            return (1 << 128) | uint256(gridId);
+        }
+        return uint256(gridId);
+    }
+
+    function createGridStrategy(
+        bool isAsk,
         uint128 gridId,
         bytes memory data
     ) external override {
         (uint160 price0, int160 gap) = abi.decode(data, (uint160, int160));
-        strategies[gridId] = LinearStrategy(price0, gap);
+        strategies[gridIdKey(isAsk, gridId)] = LinearStrategy(price0, gap);
     }
 
     function validateParams(
         bool isAsk,
+        uint128 amt,
         bytes calldata data,
         uint32 count
     ) external pure override {
         require(count > 1, "L0");
         (uint160 price0, int160 gap) = abi.decode(data, (uint160, int160));
+        require(price0 > 0 && gap != 0, "L1");
+
         if (isAsk) {
-            require(gap > 0, "L1");
-            require(uint160(gap) < price0, "L2");
+            require(gap > 0, "L2");
+            require(uint160(gap) < price0, "L3");
             require(
                 uint256(price0) + uint256(count - 1) * uint256(int256(gap)) <
                     uint256(type(uint160).max),
-                "L3"
+                "L4"
+            );
+            require(
+                FullMath.mulDivRoundingUp(
+                    uint256(amt),
+                    uint256(price0),
+                    PRICE_MULTIPLIER
+                ) > 0,
+                "Q0"
             );
         } else {
-            require(gap < 0, "L4");
+            require(gap < 0, "L5");
             require(
                 uint256(price0) + uint256(-int256(gap)) <
                     uint256(type(uint160).max),
-                "L5"
-            );
-            require(
-                int256(uint256(price0)) +
-                    int256(gap) *
-                    int256(int32(count) - 1) >
-                    0,
                 "L6"
+            );
+            int256 priceLast = int256(uint256(price0)) +
+                int256(gap) *
+                int256(int32(count) - 1);
+            require(priceLast > 0, "L7");
+            require(
+                FullMath.mulDivRoundingUp(
+                    uint256(amt),
+                    uint256(priceLast),
+                    PRICE_MULTIPLIER
+                ) > 0,
+                "Q1"
             );
         }
     }
 
     function getPrice(
+        bool isAsk,
         uint128 gridId,
         uint128 idx
     ) external view override returns (uint160) {
-        LinearStrategy memory s = strategies[gridId];
+        LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
         return uint160(int160(s.basePrice) + s.gap * int160(uint160(idx)));
     }
 
     function getReversePrice(
+        bool isAsk,
         uint128 gridId,
         uint128 idx
     ) external view override returns (uint160) {
-        LinearStrategy memory s = strategies[gridId];
+        LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
         return
             uint160(int160(s.basePrice) + s.gap * (int160(uint160(idx)) - 1));
     }
