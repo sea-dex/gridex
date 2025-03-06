@@ -13,18 +13,7 @@ contract GridExRevertTest is GridExBaseTest {
         uint128 bidOrderId = 0x0000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // ETH
 
-        _placeOrders(
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOrders(address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
@@ -58,24 +47,12 @@ contract GridExRevertTest is GridExBaseTest {
         // bid order
         uint256 gridOrderId3 = toGridOrderId(1, bidOrderId);
         vm.startPrank(taker);
-        exchange.fillBidOrder{value: amt / 2}(
-            gridOrderId3,
-            amt / 2,
-            0,
-            new bytes(0),
-            1
-        );
+        exchange.fillBidOrder{value: amt / 2}(gridOrderId3, amt / 2, 0, new bytes(0), 1);
         vm.stopPrank();
 
         vm.startPrank(taker);
         vm.expectRevert();
-        exchange.fillBidOrder{value: amt}(
-            gridOrderId3,
-            amt,
-            amt / 2 + 1,
-            new bytes(0),
-            1
-        );
+        exchange.fillBidOrder{value: amt}(gridOrderId3, amt, amt / 2 + 1, new bytes(0), 1);
         vm.stopPrank();
 
         vm.startPrank(maker);
@@ -84,24 +61,12 @@ contract GridExRevertTest is GridExBaseTest {
 
         vm.startPrank(taker);
         vm.expectRevert();
-        exchange.fillBidOrder{value: amt}(
-            gridOrderId3,
-            amt,
-            0,
-            new bytes(0),
-            1
-        );
+        exchange.fillBidOrder{value: amt}(gridOrderId3, amt, 0, new bytes(0), 1);
         vm.stopPrank();
 
         vm.startPrank(taker);
         vm.expectRevert();
-        exchange.fillBidOrder{value: amt}(
-            gridOrderId3 + 1,
-            amt,
-            0,
-            new bytes(0),
-            1
-        );
+        exchange.fillBidOrder{value: amt}(gridOrderId3 + 1, amt, 0, new bytes(0), 1);
         vm.stopPrank();
     }
 
@@ -114,18 +79,7 @@ contract GridExRevertTest is GridExBaseTest {
         uint128 bidOrderId = 0x0000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // ETH
 
-        _placeOneshotOrders(
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOneshotOrders(address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
@@ -140,24 +94,12 @@ contract GridExRevertTest is GridExBaseTest {
         // bid order
         uint256 gridOrderId3 = toGridOrderId(1, bidOrderId);
         vm.startPrank(taker);
-        exchange.fillBidOrder{value: amt}(
-            gridOrderId3,
-            amt,
-            0,
-            new bytes(0),
-            1
-        );
+        exchange.fillBidOrder{value: amt}(gridOrderId3, amt, 0, new bytes(0), 1);
         vm.stopPrank();
 
         vm.startPrank(taker);
         vm.expectRevert();
-        exchange.fillBidOrder{value: amt}(
-            gridOrderId3,
-            amt,
-            0,
-            new bytes(0),
-            1
-        );
+        exchange.fillBidOrder{value: amt}(gridOrderId3, amt, 0, new bytes(0), 1);
         vm.stopPrank();
     }
 
@@ -171,19 +113,7 @@ contract GridExRevertTest is GridExBaseTest {
         uint128 amt = 2 ether / 100; // ETH
 
         // grid 1
-        _placeOrdersBy(
-            maker,
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOrdersBy(maker, address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
         uint256 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
         exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 2);
@@ -215,63 +145,15 @@ contract GridExRevertTest is GridExBaseTest {
         uint128 amt = 2 ether / 100; // ETH
 
         // grid 1
-        _placeOrdersBy(
-            maker,
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOrdersBy(maker, address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
 
         // grid 2
-        _placeOrdersBy(
-            maker,
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOrdersBy(maker, address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
 
         // grid 3
-        _placeOrdersBy(
-            taker,
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOrdersBy(taker, address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
         // grid 3
-        _placeOrdersBy(
-            taker,
-            address(0),
-            address(usdc),
-            amt,
-            10,
-            10,
-            askPrice0,
-            bidPrice0,
-            gap,
-            false,
-            500
-        );
+        _placeOrdersBy(taker, address(0), address(usdc), amt, 10, 10, askPrice0, bidPrice0, gap, false, 500);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         // revert if cancel NOT own order

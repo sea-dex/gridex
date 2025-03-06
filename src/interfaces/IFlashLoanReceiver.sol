@@ -13,11 +13,7 @@ interface IFlashLoanReceiver {
      * @param params The byte-encoded params passed when initiating the flashloan
      * @return True if the execution of the operation succeeds, false otherwise
      */
-    function executeOperation(
-        address asset,
-        uint256 amount,
-        uint256 premium,
-        address initiator,
-        bytes calldata params
-    ) external returns (bool);
+    function executeOperation(address asset, uint256 amount, uint256 premium, address initiator, bytes calldata params)
+        external
+        returns (bool);
 }

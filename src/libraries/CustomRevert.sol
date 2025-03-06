@@ -8,12 +8,7 @@ pragma solidity ^0.8.0;
 /// @dev The functions may tamper with the free memory pointer but it is fine since the call context is exited immediately
 library CustomRevert {
     /// @dev ERC-7751 error for wrapping bubbled up reverts
-    error WrappedError(
-        address target,
-        bytes4 selector,
-        bytes reason,
-        bytes details
-    );
+    error WrappedError(address target, bytes4 selector, bytes reason, bytes details);
 
     /// @dev Reverts with the selector of a custom error in the scratch space
     function revertWith(bytes4 selector) internal pure {
@@ -51,11 +46,7 @@ library CustomRevert {
     }
 
     /// @dev Reverts with a custom error with two int24 arguments
-    function revertWith(
-        bytes4 selector,
-        int24 value1,
-        int24 value2
-    ) internal pure {
+    function revertWith(bytes4 selector, int24 value1, int24 value2) internal pure {
         assembly ("memory-safe") {
             let fmp := mload(0x40)
             mstore(fmp, selector)
@@ -66,43 +57,23 @@ library CustomRevert {
     }
 
     /// @dev Reverts with a custom error with two uint160 arguments
-    function revertWith(
-        bytes4 selector,
-        uint160 value1,
-        uint160 value2
-    ) internal pure {
+    function revertWith(bytes4 selector, uint160 value1, uint160 value2) internal pure {
         assembly ("memory-safe") {
             let fmp := mload(0x40)
             mstore(fmp, selector)
-            mstore(
-                add(fmp, 0x04),
-                and(value1, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
-            mstore(
-                add(fmp, 0x24),
-                and(value2, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
+            mstore(add(fmp, 0x04), and(value1, 0xffffffffffffffffffffffffffffffffffffffff))
+            mstore(add(fmp, 0x24), and(value2, 0xffffffffffffffffffffffffffffffffffffffff))
             revert(fmp, 0x44)
         }
     }
 
     /// @dev Reverts with a custom error with two address arguments
-    function revertWith(
-        bytes4 selector,
-        address value1,
-        address value2
-    ) internal pure {
+    function revertWith(bytes4 selector, address value1, address value2) internal pure {
         assembly ("memory-safe") {
             let fmp := mload(0x40)
             mstore(fmp, selector)
-            mstore(
-                add(fmp, 0x04),
-                and(value1, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
-            mstore(
-                add(fmp, 0x24),
-                and(value2, 0xffffffffffffffffffffffffffffffffffffffff)
-            )
+            mstore(add(fmp, 0x04), and(value1, 0xffffffffffffffffffffffffffffffffffffffff))
+            mstore(add(fmp, 0x24), and(value2, 0xffffffffffffffffffffffffffffffffffffffff))
             revert(fmp, 0x44)
         }
     }
@@ -123,19 +94,10 @@ library CustomRevert {
 
             // Encode wrapped error selector, address, function selector, offset, additional context, size, revert reason
             mstore(fmp, wrappedErrorSelector)
-            mstore(
-                add(fmp, 0x04),
-                and(
-                    revertingContract,
-                    0xffffffffffffffffffffffffffffffffffffffff
-                )
-            )
+            mstore(add(fmp, 0x04), and(revertingContract, 0xffffffffffffffffffffffffffffffffffffffff))
             mstore(
                 add(fmp, 0x24),
-                and(
-                    revertingFunctionSelector,
-                    0xffffffff00000000000000000000000000000000000000000000000000000000
-                )
+                and(revertingFunctionSelector, 0xffffffff00000000000000000000000000000000000000000000000000000000)
             )
             // offset revert reason
             mstore(add(fmp, 0x44), 0x80)
@@ -150,10 +112,7 @@ library CustomRevert {
             // additional context
             mstore(
                 add(fmp, add(0xc4, encodedDataSize)),
-                and(
-                    additionalContext,
-                    0xffffffff00000000000000000000000000000000000000000000000000000000
-                )
+                and(additionalContext, 0xffffffff00000000000000000000000000000000000000000000000000000000)
             )
             revert(fmp, add(0xe4, encodedDataSize))
         }

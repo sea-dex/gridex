@@ -7,10 +7,5 @@ interface IFlashLoan {
     /// @param asset The asset address
     /// @param amount The amount to loan
     /// @param params The calldata for receive address
-    function flashLoan(
-        address receiverAddress,
-        address asset,
-        uint256 amount,
-        bytes calldata params
-    ) external;
+    function flashLoan(address receiverAddress, address asset, uint256 amount, bytes calldata params) external;
 }

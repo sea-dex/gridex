@@ -18,9 +18,7 @@ abstract contract Pair is IPair {
     /// quotable tokens
     mapping(Currency => uint256) public quotableTokens;
 
-    function getPairTokens(
-        uint64 pairId
-    ) public view override returns (Currency base, Currency quote) {
+    function getPairTokens(uint64 pairId) public view override returns (Currency base, Currency quote) {
         Pair memory pair = getPairById[pairId];
         if (pair.pairId == 0) {
             revert InvalidPairId();
@@ -29,18 +27,12 @@ abstract contract Pair is IPair {
         return (pair.base, pair.quote);
     }
 
-    function getPairIdByTokens(
-        Currency base,
-        Currency quote
-    ) public view returns (uint64) {
+    function getPairIdByTokens(Currency base, Currency quote) public view returns (uint64) {
         Pair memory pair = getPair[base][quote];
         return pair.pairId;
     }
 
-    function getOrCreatePair(
-        Currency base,
-        Currency quote
-    ) public override returns (Pair memory) {
+    function getOrCreatePair(Currency base, Currency quote) public override returns (Pair memory) {
         Pair memory pair = getPair[base][quote];
         if (pair.pairId > 0) {
             return pair;
