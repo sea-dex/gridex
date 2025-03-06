@@ -32,15 +32,11 @@ interface IGridOrder {
         uint128 baseAmt;
         uint128 startAskOrderId;
         uint128 startBidOrderId;
-        // uint256 startAskPrice;
-        // uint256 startBidPrice;
-        // uint256 askGap;
+        uint128 gridId;
         uint64 pairId;
         uint32 askOrderCount;
         uint32 bidOrderCount;
-        // uint256 bidGap;
         uint32 fee; // bps
-        uint128 gridId;
         bool compound;
         bool oneshot;
         uint32 status; // 0: invalid; 1: normal; 2: canceled
@@ -51,10 +47,6 @@ interface IGridOrder {
         // buy order: quote amount; sell order: base amount;
         uint128 amount;
         uint128 revAmount;
-        // order price
-        // uint256 price;
-        // grid id
-        // uint96 gridId;
     }
 
     struct OrderInfo {
@@ -85,5 +77,6 @@ interface IGridOrder {
         uint128 profit; // lp profit
         uint128 orderAmt; // order amount after filled
         uint128 orderRevAmt; // order revAmount after filled
+        uint64 pairId; // the pairId
     }
 }

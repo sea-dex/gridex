@@ -2,7 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-optimizer_runs = 800
+optimizer_runs = 600
 solc = "0.8.28"
 evm_version = "cancun"
 via_ir = true

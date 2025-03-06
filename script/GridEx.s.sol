@@ -12,7 +12,7 @@ contract GridExScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerPrivateKey);
-        GridEx gridEx = new GridEx(weth_, usd_);
+        GridEx gridEx = new GridEx(weth_, usd_, address(0));
         gridEx;
         vm.stopBroadcast();
     }

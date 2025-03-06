@@ -12,9 +12,10 @@ import {Test, console} from "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {GridEx} from "../src/GridEx.sol";
-import {GridOrder} from "../src/GridOrder.sol";
+// import {GridOrder} from "../src/GridOrder.sol";
 import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
 import {Linear} from "../src/strategy/Linear.sol";
+import {Lens} from "../src/libraries/Lens.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -26,6 +27,7 @@ contract GridExBaseTest is Test {
     Linear public linear;
     SEA public sea;
     USDC public usdc;
+    address public vault = address(0x0888880);
 
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     address maker = address(0x100);
@@ -38,7 +40,7 @@ contract GridExBaseTest is Test {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
-        exchange = new GridEx(address(weth), address(usdc));
+        exchange = new GridEx(address(weth), address(usdc), vault);
         linear = new Linear();
 
         vm.deal(maker, initialETHAmt);
@@ -62,10 +64,7 @@ contract GridExBaseTest is Test {
         vm.stopPrank();
     }
 
-    function toGridOrderId(
-        uint128 gridId,
-        uint128 orderId
-    ) internal pure returns (uint256) {
+    function toGridOrderId(uint128 gridId, uint128 orderId) internal pure returns (uint256) {
         return uint256(uint256(gridId) << 128) | uint256(orderId);
     }
 
@@ -101,21 +100,11 @@ contract GridExBaseTest is Test {
 
         vm.startPrank(who);
         if (base == address(0) || quote == address(0)) {
-            uint256 val = (base == address(0))
-                ? perBaseAmt * asks
-                : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
+            uint256 val = (base == address(0)) ? perBaseAmt * asks : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
 
-            exchange.placeETHGridOrders{value: val}(
-                Currency.wrap(base),
-                Currency.wrap(quote),
-                param
-            );
+            exchange.placeETHGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
         } else {
-            exchange.placeGridOrders(
-                Currency.wrap(base),
-                Currency.wrap(quote),
-                param
-            );
+            exchange.placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
         }
         vm.stopPrank();
     }
@@ -151,21 +140,11 @@ contract GridExBaseTest is Test {
 
         vm.startPrank(maker);
         if (base == address(0) || quote == address(0)) {
-            uint256 val = (base == address(0))
-                ? perBaseAmt * asks
-                : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
+            uint256 val = (base == address(0)) ? perBaseAmt * asks : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
 
-            exchange.placeETHGridOrders{value: val}(
-                Currency.wrap(base),
-                Currency.wrap(quote),
-                param
-            );
+            exchange.placeETHGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
         } else {
-            exchange.placeGridOrders(
-                Currency.wrap(base),
-                Currency.wrap(quote),
-                param
-            );
+            exchange.placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
         }
         vm.stopPrank();
     }
@@ -201,21 +180,11 @@ contract GridExBaseTest is Test {
 
         vm.startPrank(maker);
         if (base == address(0) || quote == address(0)) {
-            uint256 val = (base == address(0))
-                ? perBaseAmt * asks
-                : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
+            uint256 val = (base == address(0)) ? perBaseAmt * asks : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
 
-            exchange.placeETHGridOrders{value: val}(
-                Currency.wrap(base),
-                Currency.wrap(quote),
-                param
-            );
+            exchange.placeETHGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
         } else {
-            exchange.placeGridOrders(
-                Currency.wrap(base),
-                Currency.wrap(quote),
-                param
-            );
+            exchange.placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
         }
         vm.stopPrank();
     }
@@ -229,45 +198,37 @@ contract GridExBaseTest is Test {
         uint128 baseAmt,
         uint128 currOrderQuoteAmt,
         uint32 feebps
-    ) internal view returns (uint128, uint128, uint128, uint128) {
-        (uint128 quoteVol, uint128 fee) = exchange.calcAskOrderQuoteAmount(
-            price,
-            fillAmt,
-            feebps
-        );
-        uint128 lpfee = fee - (fee >> 1);
-        uint128 quota = exchange.calcQuoteAmount(baseAmt, price - gap, false);
+    ) internal pure returns (uint128, uint128, uint128, uint128) {
+        (uint128 quoteVol, uint128 fee) = Lens.calcAskOrderQuoteAmount(price, fillAmt, feebps);
+        uint128 lpfee = calcMakerFee(fee);
+        uint128 quota = Lens.calcQuoteAmount(baseAmt, price - gap, false);
         if (currOrderQuoteAmt >= quota) {
             return (quoteVol, quota, quota + lpfee, fee);
         }
         if (currOrderQuoteAmt + quoteVol + lpfee > quota) {
-            return (
-                quoteVol,
-                quota,
-                currOrderQuoteAmt + quoteVol + lpfee - quota,
-                fee
-            );
+            return (quoteVol, quota, currOrderQuoteAmt + quoteVol + lpfee - quota, fee);
         }
         return (quoteVol, quoteVol + lpfee, 0, fee);
     }
 
     // just for ask order
     // return: fillVol, reverse order quote amount, fee
-    function calcQuoteVolReversedCompound(
-        uint256 price,
-        uint128 fillAmt,
-        uint32 feebps
-    ) internal view returns (uint128, uint128, uint128) {
-        (uint128 quoteVol, uint128 fee) = exchange.calcAskOrderQuoteAmount(
-            price,
-            fillAmt,
-            feebps
-        );
-        uint128 lpfee = fee - (fee >> 1);
+    function calcQuoteVolReversedCompound(uint256 price, uint128 fillAmt, uint32 feebps)
+        internal
+        pure
+        returns (uint128, uint128, uint128)
+    {
+        (uint128 quoteVol, uint128 fee) = Lens.calcAskOrderQuoteAmount(price, fillAmt, feebps);
+        uint128 lpfee = calcMakerFee(fee);
         return (quoteVol, quoteVol + lpfee, fee);
     }
 
-    function makerFee(uint128 fee) internal pure returns (uint128) {
-        return fee - (fee >> 1);
+    function calcProtocolFee(uint128 fee) internal pure returns (uint128) {
+        return (fee * 60) / 100;
+    }
+
+    function calcMakerFee(uint128 fee) internal pure returns (uint128) {
+        return fee - ((fee * 60) / 100);
+        // return fee - (fee >> 1);
     }
 }

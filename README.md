@@ -60,8 +60,14 @@ $ anvil
 
 ### Deploy
 
+create mock tokens: WETH USDC
+```
+forge create --broadcast test/utils/USDC.sol:USDC --rpc-url https://sepolia.base.org --private-key
+forge create --broadcast test/utils/WETH.sol:WETH --rpc-url https://sepolia.base.org --private-key
+```
+
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge create --broadcast src/GridEx.sol:GridEx --rpc-url https://sepolia.base.org --private-key <your_private_key> --constructor-args 
 ```
 
 ### Cast

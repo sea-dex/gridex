@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-import {Currency} from "./libraries/Currency.sol";
-import {IWETH} from "./interfaces/IWETH.sol";
+import {Currency} from "./Currency.sol";
+import {IWETH} from "../interfaces/IWETH.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
-contract AssetSettle {
-    address public immutable WETH;
-
+library AssetSettle {
     /// @notice Thrown when not enough
     error NotEnough();
 
@@ -37,6 +35,7 @@ contract AssetSettle {
         uint256 inAmt,
         uint256 outAmt,
         uint256 paid,
+        address weth,
         uint32 flag
     ) internal {
         if (flag == 0) {
@@ -45,8 +44,8 @@ contract AssetSettle {
         } else {
             // in token
             if (flag & 0x01 > 0) {
-                assert(Currency.unwrap(inToken) == WETH);
-                IWETH(WETH).deposit{value: inAmt}();
+                assert(Currency.unwrap(inToken) == weth);
+                IWETH(weth).deposit{value: inAmt}();
                 if (paid > inAmt) {
                     safeTransferETH(addr, paid - inAmt);
                 }
@@ -56,8 +55,8 @@ contract AssetSettle {
 
             // out token
             if (flag & 0x02 > 0) {
-                assert(Currency.unwrap(outToken) == WETH);
-                IWETH(WETH).withdraw(outAmt);
+                assert(Currency.unwrap(outToken) == weth);
+                IWETH(weth).withdraw(outAmt);
                 safeTransferETH(addr, outAmt);
             } else {
                 outToken.transfer(addr, outAmt);
@@ -65,12 +64,12 @@ contract AssetSettle {
         }
     }
 
-    function transferAssetTo(Currency token, address addr, uint256 amount, uint32 flag) internal {
+    function transferAssetTo(Currency token, address addr, uint256 amount, address weth, uint32 flag) internal {
         if (flag == 0) {
             token.transfer(addr, amount);
         } else {
-            assert(Currency.unwrap(token) == WETH);
-            IWETH(WETH).withdraw(amount);
+            assert(Currency.unwrap(token) == weth);
+            IWETH(weth).withdraw(amount);
             safeTransferETH(addr, amount);
         }
     }
@@ -79,8 +78,8 @@ contract AssetSettle {
         ERC20(Currency.unwrap(token)).transferFrom(addr, address(this), amount);
     }
 
-    function transferETHFrom(address from, uint128 amt, uint128 paid) internal {
-        IWETH(WETH).deposit{value: amt}();
+    function transferETHFrom(address from, address weth, uint128 amt, uint128 paid) internal {
+        IWETH(weth).deposit{value: amt}();
         if (paid > amt) {
             safeTransferETH(from, paid - amt);
         }

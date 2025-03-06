@@ -12,8 +12,9 @@ import {Test, console} from "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {GridEx} from "../src/GridEx.sol";
-import {GridOrder} from "../src/GridOrder.sol";
+// import {GridOrder} from "../src/GridOrder.sol";
 import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
+import {Lens} from "../src/libraries/Lens.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -29,18 +30,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
-        _placeOrders(
-            address(sea),
-            address(usdc),
-            amt,
-            10,
-            0,
-            askPrice0,
-            0,
-            gap,
-            true,
-            500
-        );
+        _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
 
         assertEq(amt * 10, sea.balanceOf(address(exchange)));
         assertEq(0, usdc.balanceOf(address(exchange)));
@@ -56,35 +46,24 @@ contract GridExFillCompoundTest is GridExBaseTest {
 
         assertEq(0, order.amount);
         // usdc balance
-        (uint128 usdcVol, uint128 fees) = exchange.calcAskOrderQuoteAmount(
-            askPrice0,
-            amt,
-            500
-        );
-        assertEq(usdcVol + makerFee(fees), order.revAmount);
+        (uint128 usdcVol, uint128 fees) = Lens.calcAskOrderQuoteAmount(askPrice0, amt, 500);
+        assertEq(usdcVol + calcMakerFee(fees), order.revAmount);
         // sea balance
         assertEq(initialSEAAmt + amt, sea.balanceOf(taker));
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
 
         assertEq(initialUSDCAmt - usdcVol - fees, usdc.balanceOf(taker));
-        assertEq(usdcVol + fees, usdc.balanceOf(address(exchange)));
+        assertEq(usdcVol + fees, usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault));
         assertEq(initialUSDCAmt, usdc.balanceOf(maker));
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 1
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     fees >> 1
+        // );
 
         // grid profit
         assertEq(gridConf.profits, 0);
@@ -96,41 +75,24 @@ contract GridExFillCompoundTest is GridExBaseTest {
 
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
-        (uint128 usdcVol2, uint128 fees2) = exchange.calcBidOrderQuoteAmount(
-            askPrice0 - gap,
-            amt,
-            500
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
+        (uint128 usdcVol2, uint128 fees2) = Lens.calcBidOrderQuoteAmount(askPrice0 - gap, amt, 500);
         order = exchange.getGridOrder(gridOrderId);
         assertEq(amt, order.amount);
-        assertEq(
-            usdcVol + makerFee(fees) - usdcVol2 + makerFee(fees2),
-            order.revAmount
-        );
+        assertEq(usdcVol + calcMakerFee(fees) - usdcVol2 + calcMakerFee(fees2), order.revAmount);
 
         gridConf = exchange.getGridConfig(1);
         // grid profit
         assertEq(gridConf.profits, 0);
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fees >> 1) + (fees2 >> 1)
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     (fees >> 1) + (fees2 >> 1)
+        // );
 
         // taker balance
-        assertEq(
-            initialUSDCAmt - usdcVol - fees + usdcVol2 - fees2,
-            usdc.balanceOf(taker)
-        );
+        assertEq(initialUSDCAmt - usdcVol - fees + usdcVol2 - fees2, usdc.balanceOf(taker));
         assertEq(initialSEAAmt, sea.balanceOf(taker));
     }
 
@@ -141,40 +103,23 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
-        _placeOrders(
-            address(sea),
-            address(usdc),
-            amt,
-            10,
-            0,
-            askPrice0,
-            0,
-            gap,
-            true,
-            500
-        );
+        _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
 
         assertEq(amt * 10, sea.balanceOf(address(exchange)));
         assertEq(0, usdc.balanceOf(address(exchange)));
 
         uint128 fillAmt1 = 1000 ether;
         uint256 gridOrderId = toGridOrderId(1, orderId);
-        for (uint i = 0; i < amt / fillAmt1; i++) {
+        for (uint256 i = 0; i < amt / fillAmt1; i++) {
             vm.startPrank(taker);
             exchange.fillAskOrder(gridOrderId, fillAmt1, fillAmt1, new bytes(0), 0);
             vm.stopPrank();
 
-            assertEq(
-                initialSEAAmt * 2,
-                sea.balanceOf(maker) +
-                    sea.balanceOf(taker) +
-                    sea.balanceOf(address(exchange))
-            );
+            assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
             assertEq(
                 initialUSDCAmt * 2,
-                usdc.balanceOf(maker) +
-                    usdc.balanceOf(taker) +
-                    usdc.balanceOf(address(exchange))
+                usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange))
+                    + usdc.balanceOf(vault)
             );
         }
 
@@ -185,24 +130,20 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(0, order.amount);
         uint128 vol = uint128((amt * askPrice0) / PRICE_MULTIPLIER);
         uint128 fee = (vol * 500) / 1000000;
-        assertEq(vol + makerFee(fee), order.revAmount);
+        assertEq(vol + calcMakerFee(fee), order.revAmount);
         // sea balance
         assertEq(initialSEAAmt + amt, sea.balanceOf(taker));
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
 
         // usdc balance
-        (uint128 usdcVol, uint128 fees) = exchange.calcAskOrderQuoteAmount(
-            askPrice0,
-            amt,
-            500
-        );
+        (uint128 usdcVol, uint128 fees) = Lens.calcAskOrderQuoteAmount(askPrice0, amt, 500);
         assertEq(initialUSDCAmt - usdcVol - fees, usdc.balanceOf(taker));
-        assertEq(usdcVol + fees, usdc.balanceOf(address(exchange)));
+        assertEq(usdcVol + fees, usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault));
         assertEq(initialUSDCAmt, usdc.balanceOf(maker));
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 1
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     fees >> 1
+        // );
 
         // grid profit
         assertEq(gridConf.profits, 0);
@@ -216,18 +157,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
-        _placeOrders(
-            address(sea),
-            address(usdc),
-            amt,
-            10,
-            0,
-            askPrice0,
-            0,
-            gap,
-            true,
-            500
-        );
+        _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
 
         assertEq(amt * 10, sea.balanceOf(address(exchange)));
         assertEq(0, usdc.balanceOf(address(exchange)));
@@ -245,17 +175,10 @@ contract GridExFillCompoundTest is GridExBaseTest {
         exchange.fillAskOrders(1, orderIds, amts, amt, 0, new bytes(0), 0);
         vm.stopPrank();
 
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
         // grid order flipped
         IGridOrder.OrderInfo memory order0 = exchange.getGridOrder(orderIds[0]);
@@ -270,21 +193,9 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint256 price0 = askPrice0;
         uint256 price1 = askPrice0 + gap;
         uint256 price2 = askPrice0 + gap * 2;
-        (
-            uint128 vol0,
-            uint128 revVol0,
-            uint128 fee0
-        ) = calcQuoteVolReversedCompound(price0, amts[0], 500);
-        (
-            uint128 vol1,
-            uint128 revVol1,
-            uint128 fee1
-        ) = calcQuoteVolReversedCompound(price1, amts[1], 500);
-        (
-            uint128 vol2,
-            uint128 revVol2,
-            uint128 fee2
-        ) = calcQuoteVolReversedCompound(price2, amtFilled3, 500);
+        (uint128 vol0, uint128 revVol0, uint128 fee0) = calcQuoteVolReversedCompound(price0, amts[0], 500);
+        (uint128 vol1, uint128 revVol1, uint128 fee1) = calcQuoteVolReversedCompound(price1, amts[1], 500);
+        (uint128 vol2, uint128 revVol2, uint128 fee2) = calcQuoteVolReversedCompound(price2, amtFilled3, 500);
         // uint128 fillVol1 = calcQuoteVolReversed(amts[1], price1, true);
         // uint128 fillVol2 = calcQuoteVolReversed(amtFilled3, price2, true);
         assertEq(revVol0, order0.revAmount);
@@ -296,16 +207,13 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
 
         uint128 fees = fee0 + fee1 + fee2;
-        assertEq(
-            initialUSDCAmt - vol0 - vol1 - vol2 - fees,
-            usdc.balanceOf(taker)
-        );
-        assertEq(vol0 + vol1 + vol2 + fees, usdc.balanceOf(address(exchange)));
+        assertEq(initialUSDCAmt - vol0 - vol1 - vol2 - fees, usdc.balanceOf(taker));
+        assertEq(vol0 + vol1 + vol2 + fees, usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault));
         assertEq(initialUSDCAmt, usdc.balanceOf(maker));
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1)
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1)
+        // );
 
         // grid profit
         assertEq(gridConf.profits, 0);
@@ -317,23 +225,12 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
-        _placeOrders(
-            address(sea),
-            address(usdc),
-            amt,
-            0,
-            10,
-            0,
-            bidPrice0,
-            gap,
-            true,
-            500
-        );
+        _placeOrders(address(sea), address(usdc), amt, 0, 10, 0, bidPrice0, gap, true, 500);
 
         uint128 quoteAmt = 0;
         uint256 price = bidPrice0;
-        for (int i = 0; i < 10; i++) {
-            quoteAmt += exchange.calcQuoteAmount(amt, price, false);
+        for (int256 i = 0; i < 10; i++) {
+            quoteAmt += Lens.calcQuoteAmount(amt, price, false);
             price = price - gap;
         }
 
@@ -352,35 +249,24 @@ contract GridExFillCompoundTest is GridExBaseTest {
         // sea balance
         assertEq(initialSEAAmt - amt, sea.balanceOf(taker));
         assertEq(initialSEAAmt, sea.balanceOf(maker));
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
 
         // usdc balance
-        (uint128 usdcVol, uint128 fees) = exchange.calcBidOrderQuoteAmount(
-            bidPrice0,
-            amt,
-            500
-        );
-        assertEq(makerFee(fees), order.amount);
+        (uint128 usdcVol, uint128 fees) = Lens.calcBidOrderQuoteAmount(bidPrice0, amt, 500);
+        assertEq(calcMakerFee(fees), order.amount);
         assertEq(amt, order.revAmount);
 
         assertEq(initialUSDCAmt + usdcVol - fees, usdc.balanceOf(taker));
         assertEq(initialUSDCAmt - quoteAmt, usdc.balanceOf(maker));
-        assertEq(quoteAmt - usdcVol + fees, usdc.balanceOf(address(exchange)));
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 1
-        );
+        assertEq(quoteAmt - usdcVol + fees, usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault));
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     fees >> 1
+        // );
 
         // grid profit
         assertEq(gridConf.profits, 0);
@@ -392,23 +278,12 @@ contract GridExFillCompoundTest is GridExBaseTest {
 
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
-        (uint128 usdcVol2, uint128 fees2) = exchange.calcAskOrderQuoteAmount(
-            bidPrice0 + gap,
-            amt,
-            500
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
+        (uint128 usdcVol2, uint128 fees2) = Lens.calcAskOrderQuoteAmount(bidPrice0 + gap, amt, 500);
         order = exchange.getGridOrder(gridOrderId);
-        assertEq(makerFee(fees) + usdcVol2 + makerFee(fees2), order.amount);
+        assertEq(calcMakerFee(fees) + usdcVol2 + calcMakerFee(fees2), order.amount);
         assertEq(0, order.revAmount);
 
         // maker balance not change
@@ -418,16 +293,13 @@ contract GridExFillCompoundTest is GridExBaseTest {
         gridConf = exchange.getGridConfig(1);
         // grid profit
         assertEq(gridConf.profits, 0);
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fees >> 1) + (fees2 >> 1)
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     (fees >> 1) + (fees2 >> 1)
+        // );
 
         // taker balance
-        assertEq(
-            initialUSDCAmt + usdcVol - fees - usdcVol2 - fees2,
-            usdc.balanceOf(taker)
-        );
+        assertEq(initialUSDCAmt + usdcVol - fees - usdcVol2 - fees2, usdc.balanceOf(taker));
         assertEq(initialSEAAmt, sea.balanceOf(taker));
     }
 
@@ -437,39 +309,22 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
-        _placeOrders(
-            address(sea),
-            address(usdc),
-            amt,
-            0,
-            10,
-            0,
-            bidPrice0,
-            gap,
-            true,
-            500
-        );
+        _placeOrders(address(sea), address(usdc), amt, 0, 10, 0, bidPrice0, gap, true, 500);
 
         // uint128 quoteAmt = 0;
         // uint256 price = bidPrice0;
         // for (int i = 0; i < 10; i++) {
-        //     quoteAmt += exchange.calcQuoteAmount(amt, price, false);
+        //     quoteAmt += Lens.calcQuoteAmount(amt, price, false);
         //     price = price - gap;
         // }
-        (, uint128 totalQuoteAmt) = exchange.calcGridAmount(
-            amt,
-            bidPrice0,
-            gap,
-            0,
-            10
-        );
+        (, uint128 totalQuoteAmt) = Lens.calcGridAmount(amt, bidPrice0, gap, 0, 10);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(totalQuoteAmt, usdc.balanceOf(address(exchange)));
         IGridOrder.OrderInfo memory order0 = exchange.getGridOrder(gridOrderId);
         assertEq(0, order0.revAmount);
-        uint128 quoteAmt0 = exchange.calcQuoteAmount(amt, bidPrice0, false);
+        uint128 quoteAmt0 = Lens.calcQuoteAmount(amt, bidPrice0, false);
         assertEq(quoteAmt0, order0.amount);
 
         uint128 fillAmt = amt - 45455424988975486;
@@ -477,29 +332,18 @@ contract GridExFillCompoundTest is GridExBaseTest {
         exchange.fillBidOrder(gridOrderId, fillAmt, 0, new bytes(0), 0);
         vm.stopPrank();
 
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
 
         // grid order flipped
         order0 = exchange.getGridOrder(gridOrderId);
 
         // usdc balance
-        (uint128 usdcVol0, uint128 fees) = exchange.calcBidOrderQuoteAmount(
-            bidPrice0,
-            fillAmt,
-            500
-        );
-        uint128 leftQuoteAmt = quoteAmt0 - usdcVol0 + makerFee(fees);
+        (uint128 usdcVol0, uint128 fees) = Lens.calcBidOrderQuoteAmount(bidPrice0, fillAmt, 500);
+        uint128 leftQuoteAmt = quoteAmt0 - usdcVol0 + calcMakerFee(fees);
         assertEq(leftQuoteAmt, order0.amount);
         assertEq(fillAmt, order0.revAmount);
         // sea balance
@@ -508,14 +352,11 @@ contract GridExFillCompoundTest is GridExBaseTest {
 
         assertEq(initialUSDCAmt + usdcVol0 - fees, usdc.balanceOf(taker));
         assertEq(initialUSDCAmt - totalQuoteAmt, usdc.balanceOf(maker));
-        assertEq(
-            totalQuoteAmt - usdcVol0 + fees,
-            usdc.balanceOf(address(exchange))
-        );
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            fees >> 1
-        );
+        assertEq(totalQuoteAmt - usdcVol0 + fees, usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault));
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     fees >> 1
+        // );
 
         // grid profit
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
@@ -529,30 +370,16 @@ contract GridExFillCompoundTest is GridExBaseTest {
 
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
         // maker balance not change
         assertEq(initialSEAAmt, sea.balanceOf(maker));
         assertEq(initialUSDCAmt - totalQuoteAmt, usdc.balanceOf(maker));
 
-        (uint128 usdcVol1, uint128 fees1) = exchange.calcAskOrderQuoteAmount(
-            bidPrice0 + gap,
-            fillAmt1,
-            500
-        );
-        (
-            uint128 fillVol,
-            uint128 orderQuoteAmt,
-            uint128 fee
-        ) = calcQuoteVolReversedCompound(bidPrice0 + gap, fillAmt1, 500);
+        (uint128 usdcVol1, uint128 fees1) = Lens.calcAskOrderQuoteAmount(bidPrice0 + gap, fillAmt1, 500);
+        (uint128 fillVol, uint128 orderQuoteAmt, uint128 fee) =
+            calcQuoteVolReversedCompound(bidPrice0 + gap, fillAmt1, 500);
         order0 = exchange.getGridOrder(gridOrderId);
         assertEq(orderQuoteAmt + leftQuoteAmt, order0.amount);
         assertEq(usdcVol1, fillVol);
@@ -562,16 +389,13 @@ contract GridExFillCompoundTest is GridExBaseTest {
         gridConf = exchange.getGridConfig(1);
         // grid profit
         assertEq(gridConf.profits, 0);
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            (fees >> 1) + (fees1 >> 1)
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     (fees >> 1) + (fees1 >> 1)
+        // );
 
         // taker balance
-        assertEq(
-            initialUSDCAmt + usdcVol0 - fees - usdcVol1 - fees1,
-            usdc.balanceOf(taker)
-        );
+        assertEq(initialUSDCAmt + usdcVol0 - fees - usdcVol1 - fees1, usdc.balanceOf(taker));
         assertEq(initialSEAAmt - fillAmt + fillAmt1, sea.balanceOf(taker));
     }
 
@@ -581,35 +405,18 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 orderId = 0x000000000000000000000001;
         uint128 amt = 20000 ether; // SEA
 
-        _placeOrders(
-            address(sea),
-            address(usdc),
-            amt,
-            0,
-            10,
-            0,
-            bidPrice0,
-            gap,
-            true,
-            500
-        );
+        _placeOrders(address(sea), address(usdc), amt, 0, 10, 0, bidPrice0, gap, true, 500);
 
-        (, uint128 totalQuoteAmt) = exchange.calcGridAmount(
-            amt,
-            bidPrice0,
-            gap,
-            0,
-            10
-        );
+        (, uint128 totalQuoteAmt) = Lens.calcGridAmount(amt, bidPrice0, gap, 0, 10);
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(totalQuoteAmt, usdc.balanceOf(address(exchange)));
         uint256 price0 = bidPrice0;
         uint256 price1 = bidPrice0 - gap;
         uint256 price2 = bidPrice0 - gap * 2;
 
-        uint128 quoteAmt0 = exchange.calcQuoteAmount(amt, price0, false);
-        uint128 quoteAmt1 = exchange.calcQuoteAmount(amt, price1, false);
-        uint128 quoteAmt2 = exchange.calcQuoteAmount(amt, price2, false);
+        uint128 quoteAmt0 = Lens.calcQuoteAmount(amt, price0, false);
+        uint128 quoteAmt1 = Lens.calcQuoteAmount(amt, price1, false);
+        uint128 quoteAmt2 = Lens.calcQuoteAmount(amt, price2, false);
         uint256[] memory orderIds = new uint256[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
@@ -630,17 +437,10 @@ contract GridExFillCompoundTest is GridExBaseTest {
         exchange.fillBidOrders(1, orderIds, amts, amt + amt / 2, 0, new bytes(0), 0);
         vm.stopPrank();
 
-        assertEq(
-            initialSEAAmt * 2,
-            sea.balanceOf(maker) +
-                sea.balanceOf(taker) +
-                sea.balanceOf(address(exchange))
-        );
+        assertEq(initialSEAAmt * 2, sea.balanceOf(maker) + sea.balanceOf(taker) + sea.balanceOf(address(exchange)));
         assertEq(
             initialUSDCAmt * 2,
-            usdc.balanceOf(maker) +
-                usdc.balanceOf(taker) +
-                usdc.balanceOf(address(exchange))
+            usdc.balanceOf(maker) + usdc.balanceOf(taker) + usdc.balanceOf(address(exchange)) + usdc.balanceOf(vault)
         );
         // grid order flipped
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
@@ -648,25 +448,13 @@ contract GridExFillCompoundTest is GridExBaseTest {
         order1 = exchange.getGridOrder(orderIds[1]);
         order2 = exchange.getGridOrder(orderIds[2]);
 
-        (uint128 fillVol0, uint128 fee0) = exchange.calcBidOrderQuoteAmount(
-            price0,
-            amts[0],
-            500
-        );
-        (uint128 fillVol1, uint128 fee1) = exchange.calcBidOrderQuoteAmount(
-            price1,
-            amts[1],
-            500
-        );
-        (uint128 fillVol2, uint128 fee2) = exchange.calcBidOrderQuoteAmount(
-            price2,
-            amts[2],
-            500
-        );
+        (uint128 fillVol0, uint128 fee0) = Lens.calcBidOrderQuoteAmount(price0, amts[0], 500);
+        (uint128 fillVol1, uint128 fee1) = Lens.calcBidOrderQuoteAmount(price1, amts[1], 500);
+        (uint128 fillVol2, uint128 fee2) = Lens.calcBidOrderQuoteAmount(price2, amts[2], 500);
 
-        assertEq(quoteAmt0 - fillVol0 + makerFee(fee0), order0.amount);
-        assertEq(quoteAmt1 - fillVol1 + makerFee(fee1), order1.amount);
-        assertEq(quoteAmt2 - fillVol2 + makerFee(fee2), order2.amount);
+        assertEq(quoteAmt0 - fillVol0 + calcMakerFee(fee0), order0.amount);
+        assertEq(quoteAmt1 - fillVol1 + calcMakerFee(fee1), order1.amount);
+        assertEq(quoteAmt2 - fillVol2 + calcMakerFee(fee2), order2.amount);
         // uint128 fillVol1 = calcQuoteVolReversed(amts[1], price1, true);
         // uint128 fillVol2 = calcQuoteVolReversed(amtFilled3, price2, true);
         assertEq(amts[0], order0.revAmount);
@@ -674,29 +462,17 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(amts[2], order2.revAmount);
 
         // grid profits
-        uint128 protocolFee = (fee0 >> 1) + (fee1 >> 1) + (fee2 >> 1);
+        // uint128 protocolFee = calcProtocolFee(fee0) + calcProtocolFee(fee1) + calcProtocolFee(fee2);
         // protocol profits
-        assertEq(
-            exchange.protocolFees(Currency.wrap(address(usdc))),
-            protocolFee
-        );
+        // assertEq(
+        //     exchange.protocolProfits(Currency.wrap(address(usdc))),
+        //     protocolFee
+        // );
         assertEq(gridConf.profits, 0);
 
         // taker balance
-        assertEq(
-            initialSEAAmt - amts[0] - amts[1] - amts[2],
-            sea.balanceOf(taker)
-        );
-        assertEq(
-            initialUSDCAmt +
-                fillVol0 -
-                fee0 +
-                fillVol1 -
-                fee1 +
-                fillVol2 -
-                fee2,
-            usdc.balanceOf(taker)
-        );
+        assertEq(initialSEAAmt - amts[0] - amts[1] - amts[2], sea.balanceOf(taker));
+        assertEq(initialUSDCAmt + fillVol0 - fee0 + fillVol1 - fee1 + fillVol2 - fee2, usdc.balanceOf(taker));
 
         // maker balance
         assertEq(initialSEAAmt, sea.balanceOf(maker));

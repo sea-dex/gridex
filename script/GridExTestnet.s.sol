@@ -17,7 +17,7 @@ contract GridExScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         WETH weth = new WETH();
         USDC usdc = new USDC();
-        GridEx gridEx = new GridEx(address(weth), address(usdc));
+        GridEx gridEx = new GridEx(address(weth), address(usdc), address(0));
         gridEx;
         vm.stopBroadcast();
     }

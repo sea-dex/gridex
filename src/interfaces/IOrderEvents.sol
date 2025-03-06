@@ -23,12 +23,13 @@ interface IOrderEvents {
         // uint256 bidGap,
         uint256 amount,
         uint128 gridId,
-        uint128 askOrderId,
-        uint128 bidOrderId,
+        uint256 askOrderId,
+        uint256 bidOrderId,
         uint32 asks,
         uint32 bids,
         uint32 fee,
-        bool compound
+        bool compound,
+        bool oneshot
     );
 
     /// @notice Emitted when a whoole grid was canceled
@@ -40,41 +41,35 @@ interface IOrderEvents {
     /// @param owner The owner of the canceled order
     /// @param orderId The orderId of the order to be canceled
     /// @param gridId The gridId of the order to be canceled
-    event CancelGridOrder(
-        address indexed owner,
-        uint128 indexed orderId,
-        uint128 indexed gridId
-    );
+    event CancelGridOrder(address indexed owner, uint128 indexed orderId, uint128 indexed gridId);
 
     /// @notice Emitted when a grid order was filled or partial filled
-    /// @param gridId The gridId of the order to be filled
-    /// @param orderId The orderId of the order to be filled
-    /// @param price The grid order fill price
+    /// @param taker The taker address
+    /// @param gridOrderId The grid orderId of the order to be filled
     /// @param baseAmt The base token amount filled
     /// @param quoteVol The quote token amount filled
-    /// @param orderBaseAmt The base token amount in the order after filled
-    /// @param orderQuoteAmt The quote token amount in the order after filled
+    /// @param orderAmt The amount in the order after filled
+    /// @param orderRevAmt The reverse amount in the order after filled
     /// @param isAsk The filled maker order is Ask: true; or else false;
-    /// @param taker The taker address
     event FilledOrder(
-        uint128 indexed gridId,
-        uint128 indexed orderId,
-        uint256 price,
+        address taker,
+        uint256 indexed gridOrderId,
         uint256 baseAmt,
         uint256 quoteVol,
-        uint256 orderBaseAmt,
-        uint256 orderQuoteAmt,
-        bool isAsk,
-        address taker
+        uint256 orderAmt,
+        uint256 orderRevAmt,
+        bool isAsk
     );
 
     /// @notice Emitted when the collected protocol fees are withdrawn by the factory owner
     /// @param sender The address that collects the protocol fees
     /// @param recipient The address that receives the collected protocol fees
     /// @param amount The amount of quote protocol fees that is withdrawn
-    event CollectProtocol(
-        address indexed sender,
-        address indexed recipient,
-        uint256 amount
-    );
+    event CollectProtocol(address indexed sender, address indexed recipient, uint256 amount);
+
+    /// @notice Emitted when the grid fee changed
+    /// @param sender The address that collects the protocol fees
+    /// @param gridId The grid Id
+    /// @param fee The new grid fee fees
+    event GridFeeChanged(address indexed sender, uint256 gridId, uint32 fee);
 }

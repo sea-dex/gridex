@@ -12,9 +12,10 @@ import {Test, console} from "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {GridEx} from "../src/GridEx.sol";
-import {GridOrder} from "../src/GridOrder.sol";
+// import {GridOrder} from "../src/GridOrder.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
+import {Lens} from "../src/libraries/Lens.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -33,7 +34,7 @@ contract GridExPlaceTest is Test {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
-        exchange = new GridEx(address(weth), address(usdc));
+        exchange = new GridEx(address(weth), address(usdc), address(0));
         linear = new Linear();
     }
 
@@ -66,11 +67,7 @@ contract GridExPlaceTest is Test {
 
         vm.startPrank(maker);
         sea.approve(address(exchange), type(uint128).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         assertEq(sea.balanceOf(maker), 0);
@@ -105,11 +102,7 @@ contract GridExPlaceTest is Test {
         });
 
         vm.startPrank(maker);
-        exchange.placeETHGridOrders{value: baseAmt}(
-            Currency.wrap(address(0)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        exchange.placeETHGridOrders{value: baseAmt}(Currency.wrap(address(0)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         assertEq(uint256(asks) * perBaseAmt, weth.balanceOf(address(exchange)));
@@ -146,19 +139,12 @@ contract GridExPlaceTest is Test {
 
         vm.startPrank(maker);
         usdc.approve(address(exchange), type(uint128).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         assertEq(usdc.balanceOf(maker) > 0, true);
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(
-            usdcAmt,
-            usdc.balanceOf(maker) + usdc.balanceOf(address(exchange))
-        );
+        assertEq(usdcAmt, usdc.balanceOf(maker) + usdc.balanceOf(address(exchange)));
     }
 
     function test_PlaceETHQuoteBidGridOrder() public {
@@ -168,13 +154,7 @@ contract GridExPlaceTest is Test {
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
-        (, uint128 ethAmt) = exchange.calcGridAmount(
-            perBaseAmt,
-            bidPrice0,
-            gap,
-            0,
-            bids
-        );
+        (, uint128 ethAmt) = Lens.calcGridAmount(perBaseAmt, bidPrice0, gap, 0, bids);
         vm.deal(maker, ethAmt);
 
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
@@ -195,11 +175,7 @@ contract GridExPlaceTest is Test {
         });
 
         vm.startPrank(maker);
-        exchange.placeETHGridOrders{value: ethAmt}(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(0)),
-            param
-        );
+        exchange.placeETHGridOrders{value: ethAmt}(Currency.wrap(address(sea)), Currency.wrap(address(0)), param);
         vm.stopPrank();
 
         assertEq(Currency.wrap(address(0)).balanceOf(maker), 0);
@@ -207,10 +183,7 @@ contract GridExPlaceTest is Test {
         assertEq(weth.balanceOf(maker), 0);
         assertEq(weth.balanceOf(address(exchange)), ethAmt);
         // assertEq(ethAmt > Currency.wrap(address(0)).balanceOf(address(exchange)), true);
-        assertEq(
-            ethAmt,
-            weth.balanceOf(address(exchange)) + weth.balanceOf(maker)
-        );
+        assertEq(ethAmt, weth.balanceOf(address(exchange)) + weth.balanceOf(maker));
     }
 
     function test_PlaceGridOrder() public {
@@ -248,21 +221,14 @@ contract GridExPlaceTest is Test {
         vm.startPrank(maker);
         sea.approve(address(exchange), type(uint128).max);
         usdc.approve(address(exchange), type(uint128).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         assertEq(0, sea.balanceOf(maker));
         assertEq(usdc.balanceOf(maker) > 0, true);
         assertEq(uint256(asks) * perBaseAmt, sea.balanceOf(address(exchange)));
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(
-            usdcAmt,
-            usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker)
-        );
+        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker));
     }
 
     function test_PlaceETHGridOrder() public {
@@ -301,9 +267,7 @@ contract GridExPlaceTest is Test {
         vm.startPrank(maker);
         usdc.approve(address(exchange), type(uint128).max);
         exchange.placeETHGridOrders{value: uint256(asks) * perBaseAmt}(
-            Currency.wrap(address(0)),
-            Currency.wrap(address(usdc)),
-            param
+            Currency.wrap(address(0)), Currency.wrap(address(usdc)), param
         );
         vm.stopPrank();
 
@@ -312,10 +276,7 @@ contract GridExPlaceTest is Test {
         assertEq(0, Currency.wrap(address(0)).balanceOf(address(exchange)));
         assertEq(uint256(asks) * perBaseAmt, weth.balanceOf(address(exchange)));
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(
-            usdcAmt,
-            usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker)
-        );
+        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker));
     }
 
     // weth/usdc
@@ -356,24 +317,14 @@ contract GridExPlaceTest is Test {
         weth.deposit{value: uint256(asks) * perBaseAmt}();
         usdc.approve(address(exchange), type(uint128).max);
         weth.approve(address(exchange), type(uint128).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            param
-        );
+        exchange.placeGridOrders(Currency.wrap(address(weth)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         assertEq(0, Currency.wrap(address(weth)).balanceOf(maker));
         assertEq(usdc.balanceOf(maker) > 0, true);
-        assertEq(
-            uint256(asks) * perBaseAmt,
-            Currency.wrap(address(weth)).balanceOf(address(exchange))
-        );
+        assertEq(uint256(asks) * perBaseAmt, Currency.wrap(address(weth)).balanceOf(address(exchange)));
         assertEq(usdcAmt > usdc.balanceOf(address(exchange)), true);
-        assertEq(
-            usdcAmt,
-            usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker)
-        );
+        assertEq(usdcAmt, usdc.balanceOf(address(exchange)) + usdc.balanceOf(maker));
     }
 
     // sea/weth
@@ -415,23 +366,13 @@ contract GridExPlaceTest is Test {
         weth.deposit{value: ethAmt}();
         sea.approve(address(exchange), type(uint128).max);
         weth.approve(address(exchange), type(uint128).max);
-        exchange.placeGridOrders(
-            Currency.wrap(address(sea)),
-            Currency.wrap(address(weth)),
-            param
-        );
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(weth)), param);
         vm.stopPrank();
 
         assertEq(0, Currency.wrap(address(sea)).balanceOf(maker));
         assertEq(weth.balanceOf(maker) > 0, true);
-        assertEq(
-            baseAmt,
-            Currency.wrap(address(sea)).balanceOf(address(exchange))
-        );
+        assertEq(baseAmt, Currency.wrap(address(sea)).balanceOf(address(exchange)));
         assertEq(ethAmt > weth.balanceOf(address(exchange)), true);
-        assertEq(
-            ethAmt,
-            weth.balanceOf(maker) + weth.balanceOf(address(exchange))
-        );
+        assertEq(ethAmt, weth.balanceOf(maker) + weth.balanceOf(address(exchange)));
     }
 }
