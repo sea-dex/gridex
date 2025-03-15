@@ -67,7 +67,14 @@ forge create --broadcast test/utils/WETH.sol:WETH --rpc-url https://sepolia.base
 ```
 
 ```shell
-$ forge create --broadcast src/GridEx.sol:GridEx --rpc-url https://sepolia.base.org --private-key <your_private_key> --constructor-args 
+$ forge create --broadcast src/strategy/Linear.sol:Linear --rpc-url https://sepolia.base.org --private-key <your_private_key>
+$ forge create --broadcast src/Vault.sol:Vault --rpc-url https://sepolia.base.org --private-key <your_private_key>
+$ forge create --broadcast src/GridEx.sol:GridEx --rpc-url https://sepolia.base.org --private-key <your_private_key> --constructor-args xx xx xx
+```
+
+```
+$ forge script script/GridEx.s.sol --broadcast --rpc-url https://sepolia.base.org --private-key <your_private_key> --verify
+
 ```
 
 ### Cast
