@@ -385,6 +385,15 @@ contract GridEx is
             revert IOrderErrors.NotEnoughToFill();
         }
 
+        emit IOrderEvents.FilledOrder(
+            msg.sender,
+            gridOrderId,
+            result.filledAmt,
+            result.filledVol,
+            result.orderAmt,
+            result.orderRevAmt,
+            false
+        );
         // IGridOrder.Order storage order = orderInfo.isAsk
         //     ? askOrders[orderInfo.orderId]
         //     : bidOrders[orderInfo.orderId];
@@ -478,6 +487,15 @@ contract GridEx is
 
             require(result.pairId == pairId, "G5");
 
+            emit IOrderEvents.FilledOrder(
+                msg.sender,
+                gridOrderId,
+                result.filledAmt,
+                result.filledVol,
+                result.orderAmt,
+                result.orderRevAmt,
+                false
+            );
             // IGridOrder.Order storage order = orderInfo.isAsk
             //     ? askOrders[orderInfo.orderId]
             //     : bidOrders[orderInfo.orderId];

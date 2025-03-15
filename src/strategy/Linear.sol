@@ -13,7 +13,7 @@ contract Linear is IGridStrategy {
         bool isAsk,
         uint128 gridId,
         uint256 price0,
-        uint256 gap
+        int256 gap
     );
 
     struct LinearStrategy {
@@ -40,6 +40,8 @@ contract Linear is IGridStrategy {
     ) external override {
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
         strategies[gridIdKey(isAsk, gridId)] = LinearStrategy(price0, gap);
+
+        emit LinearStrategyCreated(isAsk, gridId, price0, gap);
     }
 
     function validateParams(

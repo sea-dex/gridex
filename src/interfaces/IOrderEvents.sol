@@ -53,7 +53,7 @@ interface IOrderEvents {
     /// @param isAsk The filled maker order is Ask: true; or else false;
     event FilledOrder(
         address taker,
-        uint256 indexed gridOrderId,
+        uint256 gridOrderId,
         uint256 baseAmt,
         uint256 quoteVol,
         uint256 orderAmt,
