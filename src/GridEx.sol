@@ -38,6 +38,10 @@ contract GridEx is
     // mapping(Currency => uint256) public protocolProfits;
 
     constructor(address weth_, address usd_, address _vault) Owned(msg.sender) {
+        require(weth_ != address(0));
+        require(usd_ != address(0));
+        require(_vault != address(0));
+
         // usd is the most priority quote token
         quotableTokens[Currency.wrap(usd_)] = 1 << 20;
         // quotableTokens[Currency.wrap(address(0))] = 1 << 19;
@@ -108,6 +112,7 @@ contract GridEx is
         );
 
         if (baseIsETH) {
+            require(msg.value >= baseAmt, "GridEx: Insufficient ETH sent");
             AssetSettle.transferETHFrom(
                 msg.sender,
                 baseAmt,
@@ -115,6 +120,7 @@ contract GridEx is
             );
             AssetSettle.transferTokenFrom(quote, msg.sender, quoteAmt);
         } else {
+            require(msg.value >= quoteAmt, "GridEx: Insufficient ETH sent");
             AssetSettle.transferETHFrom(
                 msg.sender,
                 quoteAmt,
@@ -236,9 +242,11 @@ contract GridEx is
 
         uint128 inAmt = result.filledVol + result.lpFee + result.protocolFee;
         if (data.length > 0) {
+            incProtocolProfits(pair.quote, result.protocolFee);
+            uint256 balanceBefore = pair.quote.balanceOfSelf();
+
             // always transfer ERC20 to msg.sender
             pair.base.transfer(msg.sender, result.filledAmt);
-            uint256 balanceBefore = pair.quote.balanceOfSelf();
             IGridCallback(msg.sender).gridFillCallback(
                 Currency.unwrap(pair.quote),
                 Currency.unwrap(pair.base),
@@ -248,6 +256,7 @@ contract GridEx is
             );
             require(balanceBefore + inAmt <= pair.quote.balanceOfSelf(), "G1");
         } else {
+            incProtocolProfits(pair.quote, result.protocolFee);
             AssetSettle.settleAssetWith(
                 pair.quote,
                 pair.base,
@@ -258,7 +267,6 @@ contract GridEx is
                 flag
             );
         }
-        incProtocolProfits(pair.quote, result.protocolFee);
     }
 
     struct AccFilled {
@@ -336,9 +344,10 @@ contract GridEx is
         // ensure receive enough quote token
         // _settle(quote, taker, filled.vol, msg.value);
         if (data.length > 0) {
+            incProtocolProfits(quote, filled.protocolFee);
+            uint256 balanceBefore = pair.quote.balanceOfSelf();
             // always transfer ERC20 to msg.sender
             pair.base.transfer(msg.sender, filled.amt);
-            uint256 balanceBefore = pair.quote.balanceOfSelf();
             IGridCallback(msg.sender).gridFillCallback(
                 Currency.unwrap(pair.quote),
                 Currency.unwrap(pair.base),
@@ -351,6 +360,7 @@ contract GridEx is
                 "G3"
             );
         } else {
+            incProtocolProfits(quote, filled.protocolFee);
             AssetSettle.settleAssetWith(
                 quote,
                 pair.base,
@@ -361,7 +371,6 @@ contract GridEx is
                 flag
             );
         }
-        incProtocolProfits(quote, filled.protocolFee);
     }
 
     /// @inheritdoc IGridEx
@@ -417,6 +426,7 @@ contract GridEx is
         // _settle(pair.base, taker, filledAmt, msg.value);
         uint128 outAmt = result.filledVol - result.lpFee - result.protocolFee;
         if (data.length > 0) {
+            incProtocolProfits(pair.quote, result.protocolFee);
             // always transfer ERC20 to msg.sender
             pair.quote.transfer(msg.sender, outAmt);
             uint256 balanceBefore = pair.base.balanceOfSelf();
@@ -432,6 +442,7 @@ contract GridEx is
                 "G4"
             );
         } else {
+            incProtocolProfits(pair.quote, result.protocolFee);
             AssetSettle.settleAssetWith(
                 pair.base,
                 pair.quote,
@@ -442,7 +453,6 @@ contract GridEx is
                 flag
             );
         }
-        incProtocolProfits(pair.quote, result.protocolFee);
     }
 
     /// @inheritdoc IGridEx
@@ -496,17 +506,6 @@ contract GridEx is
                 result.orderRevAmt,
                 false
             );
-            // IGridOrder.Order storage order = orderInfo.isAsk
-            //     ? askOrders[orderInfo.orderId]
-            //     : bidOrders[orderInfo.orderId];
-            // order.amount = result.orderAmt;
-            // order.revAmount = result.orderRevAmt;
-
-            // if (result.profit > 0) {
-            //     // uint128 gridId = orderInfo.gridId;
-            //     // IGridOrder.GridConfig storage gridConfig = gridConfigs[gridId];
-            //     gridConfigs[orderInfo.gridId].profits += uint128(result.profit);
-            // }
 
             filledAmt += result.filledAmt; // filledBaseAmt;
             filledVol += result.filledVol - result.lpFee - result.protocolFee; // filledQuoteAmtSubFee;
@@ -522,15 +521,8 @@ contract GridEx is
         }
 
         Pair memory pair = getPairById[pairId];
-        // transfer quote token to taker
-        // pair.quote.transfer(taker, filledVol);
-        // SafeTransferLib.safeTransfer(ERC20(pair.quote), taker, filledVol);
-        // protocol fee
-        // protocolFees[pair.quote] += protocolFee;
-
-        // ensure receive enough base token
-        // _settle(pair.base, taker, filledAmt, msg.value);
         if (data.length > 0) {
+            incProtocolProfits(pair.quote, protocolFee);
             // always transfer ERC20 to msg.sender
             pair.quote.transfer(msg.sender, filledVol);
             uint256 balanceBefore = pair.base.balanceOfSelf();
@@ -546,6 +538,7 @@ contract GridEx is
                 "G6"
             );
         } else {
+            incProtocolProfits(pair.quote, protocolFee);
             AssetSettle.settleAssetWith(
                 pair.base,
                 pair.quote,
@@ -556,7 +549,6 @@ contract GridEx is
                 flag
             );
         }
-        incProtocolProfits(pair.quote, protocolFee);
     }
 
     /// @inheritdoc IGridEx
