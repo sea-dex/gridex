@@ -64,7 +64,7 @@ contract SEA is ERC20, Owned {
         bytes32 _s
     ) private view {
         bytes32 hash = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 "\x19Ethereum Signed Message:\n32",
                 keccak256(abi.encodePacked(block.chainid, to, amount, ts))
             )

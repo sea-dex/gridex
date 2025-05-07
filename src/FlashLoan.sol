@@ -15,26 +15,62 @@ abstract contract FlashLoan is IFlashLoan {
     mapping(address => uint256) public loanFees;
 
     event FlashLoanEvent(
-        address indexed target, address initiator, address indexed asset, uint256 amount, uint256 premium
+        address indexed target,
+        address initiator,
+        address indexed asset,
+        uint256 amount,
+        uint256 premium
     );
 
     /// @inheritdoc IFlashLoan
-    function flashLoan(address receiverAddress, address asset, uint256 amount, bytes calldata params) public override {
+    function flashLoan(
+        address receiverAddress,
+        address asset,
+        uint256 amount,
+        bytes calldata params
+    ) public override {
         require(flashLoanEnable, "F1");
         require(loanLocked == 1, "F2");
-        loanLocked = 2;
+        require(amount > 0, "F3");
+        require(receiverAddress != address(0), "F4");
+        require(asset != address(0), "F5");
 
         uint256 premium = (amount * flashLoanRate) / 1000000;
 
-        TransferHelper.safeTransfer(IERC20Minimal(asset), receiverAddress, amount);
-
-        require(IFlashLoanReceiver(receiverAddress).executeOperation(asset, amount, premium, msg.sender, params), "F2");
-
-        TransferHelper.safeTransferFrom(IERC20Minimal(asset), receiverAddress, address(this), amount + premium);
-
+        loanLocked = 2;
         loanFees[asset] += premium;
+        TransferHelper.safeTransfer(
+            IERC20Minimal(asset),
+            receiverAddress,
+            amount
+        );
+
+        require(
+            IFlashLoanReceiver(receiverAddress).executeOperation(
+                asset,
+                amount,
+                premium,
+                msg.sender,
+                params
+            ),
+            "F6"
+        );
+
+        TransferHelper.safeTransferFrom(
+            IERC20Minimal(asset),
+            receiverAddress,
+            address(this),
+            amount + premium
+        );
+
         loanLocked = 1;
 
-        emit FlashLoanEvent(receiverAddress, msg.sender, asset, amount, premium);
+        emit FlashLoanEvent(
+            receiverAddress,
+            msg.sender,
+            asset,
+            amount,
+            premium
+        );
     }
 }
