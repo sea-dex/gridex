@@ -2,10 +2,11 @@
 pragma solidity ^0.8.24;
 
 /// @title Library for reverting with custom errors efficiently
+/// @author Uniswap Labs
 /// @notice Contains functions for reverting with custom errors with different argument types efficiently
 /// @dev To use this library, declare `using CustomRevert for bytes4;` and replace `revert CustomError()` with
-/// `CustomError.selector.revertWith()`
-/// @dev The functions may tamper with the free memory pointer but it is fine since the call context is exited immediately
+///      `CustomError.selector.revertWith()`
+/// @dev The functions may tamper with the free memory pointer but it is fine since the call context is exited
 library CustomRevert {
     /// @dev ERC-7751 error for wrapping bubbled up reverts
     error WrappedError(address target, bytes4 selector, bytes reason, bytes details);
@@ -78,8 +79,11 @@ library CustomRevert {
         }
     }
 
-    /// @notice bubble up the revert message returned by a call and revert with a wrapped ERC-7751 error
-    /// @dev this method can be vulnerable to revert data bombs
+    /// @notice Bubble up the revert message returned by a call and revert with a wrapped ERC-7751 error
+    /// @dev This method can be vulnerable to revert data bombs
+    /// @param revertingContract The address of the contract that reverted
+    /// @param revertingFunctionSelector The selector of the function that reverted
+    /// @param additionalContext Additional context bytes4 to include in the wrapped error
     function bubbleUpAndRevertWith(
         address revertingContract,
         bytes4 revertingFunctionSelector,
@@ -92,7 +96,7 @@ library CustomRevert {
 
             let fmp := mload(0x40)
 
-            // Encode wrapped error selector, address, function selector, offset, additional context, size, revert reason
+            // Encode wrapped error selector, address, function selector, offset, additional context, size
             mstore(fmp, wrappedErrorSelector)
             mstore(add(fmp, 0x04), and(revertingContract, 0xffffffffffffffffffffffffffffffffffffffff))
             mstore(

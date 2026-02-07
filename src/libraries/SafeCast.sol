@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {CustomRevert} from "./CustomRevert.sol";
 
 /// @title Safe casting methods
+/// @author Uniswap Labs
 /// @notice Contains methods for safely casting between types
 library SafeCast {
     using CustomRevert for bytes4;

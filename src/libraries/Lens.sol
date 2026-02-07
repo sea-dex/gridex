@@ -4,16 +4,21 @@ pragma solidity ^0.8.28;
 import {IOrderErrors} from "../interfaces/IOrderErrors.sol";
 import {FullMath} from "./FullMath.sol";
 
-/// @title Library for calculate base/quote for given price and amount
-/// @notice Contains functions for calculate base/quote amount for given price and amount
+/// @title Lens
+/// @author GridEx Protocol
+/// @notice Library for calculating base/quote amounts for given prices
+/// @dev Contains functions for price calculations and fee computations in grid orders
 library Lens {
+    /// @notice Price multiplier for fixed-point arithmetic (10^36)
+    /// @dev All prices are scaled by this factor for precision
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
 
-    /// @dev calculate quote amount with baseAmt and price
-    /// @param baseAmt base token amount
-    /// @param price price
-    /// @param roundUp whether quote amount round up or not
-    /// @return amt amount
+    /// @notice Calculate quote amount from base amount and price
+    /// @dev Uses FullMath for 512-bit precision to prevent overflow
+    /// @param baseAmt The base token amount
+    /// @param price The price (scaled by PRICE_MULTIPLIER)
+    /// @param roundUp Whether to round up the result
+    /// @return The calculated quote amount
     function calcQuoteAmount(uint128 baseAmt, uint256 price, bool roundUp) public pure returns (uint128) {
         uint256 amt = roundUp
             ? FullMath.mulDivRoundingUp(uint256(baseAmt), uint256(price), PRICE_MULTIPLIER)
@@ -30,7 +35,15 @@ library Lens {
         return uint128(amt);
     }
 
-    /// @dev calculate base token and quote token needed to place grid order
+    /// @notice Calculate base and quote token amounts needed to place a grid order
+    /// @dev Iterates through bid orders to calculate total quote amount needed
+    /// @param baseAmt The base token amount per order
+    /// @param bidPrice The starting bid price
+    /// @param bidGap The price gap between bid orders
+    /// @param askCount The number of ask orders
+    /// @param bidCount The number of bid orders
+    /// @return The total base amount needed
+    /// @return The total quote amount needed
     function calcGridAmount(uint128 baseAmt, uint256 bidPrice, uint256 bidGap, uint32 askCount, uint32 bidCount)
         public
         pure
@@ -47,7 +60,12 @@ library Lens {
         return (baseAmt * askCount, quoteAmt);
     }
 
-    /// calculate how many base can be filled with quoteAmt
+    /// @notice Calculate base amount from quote amount and price
+    /// @dev Uses FullMath for 512-bit precision to prevent overflow
+    /// @param quoteAmt The quote token amount
+    /// @param price The price (scaled by PRICE_MULTIPLIER)
+    /// @param roundUp Whether to round up the result
+    /// @return The calculated base amount
     function calcBaseAmount(uint128 quoteAmt, uint256 price, bool roundUp) public pure returns (uint256) {
         uint256 amt = roundUp
             ? FullMath.mulDivRoundingUp(uint256(quoteAmt), Lens.PRICE_MULTIPLIER, uint256(price))
@@ -62,12 +80,13 @@ library Lens {
         return amt;
     }
 
-    /// @dev how many quote token needed for fill ask order
-    /// @param price filled price
-    /// @param baseAmt filled base token amount
-    /// @param feebps fee bps
-    /// @return quoteVol filled quote volume, round up. taker should pay quoteVol + fee
-    /// @return fee filled fee (LP fee + protocol fee)
+    /// @notice Calculate quote token amount needed to fill an ask order
+    /// @dev Taker pays quoteVol + fee to receive baseAmt
+    /// @param price The fill price (scaled by PRICE_MULTIPLIER)
+    /// @param baseAmt The base token amount to fill
+    /// @param feebps The fee in basis points (1 bps = 0.01%)
+    /// @return quoteVol The quote volume (rounded up)
+    /// @return fee The total fee (LP fee + protocol fee)
     function calcAskOrderQuoteAmount(uint256 price, uint128 baseAmt, uint32 feebps)
         public
         pure
@@ -79,12 +98,13 @@ library Lens {
         return (quoteVol, fee);
     }
 
-    /// @dev how many quote token got by fill bid order
-    /// @param price filled price
-    /// @param baseAmt filled base token amount
-    /// @param feebps fee bps
-    /// @return filledVol filled quote volume, round down. taker will get filledVol - fee
-    /// @return fee filled fee (LP fee + protocol fee)
+    /// @notice Calculate quote token amount received by filling a bid order
+    /// @dev Taker receives filledVol - fee for selling baseAmt
+    /// @param price The fill price (scaled by PRICE_MULTIPLIER)
+    /// @param baseAmt The base token amount to fill
+    /// @param feebps The fee in basis points (1 bps = 0.01%)
+    /// @return filledVol The quote volume (rounded down)
+    /// @return fee The total fee (LP fee + protocol fee)
     function calcBidOrderQuoteAmount(uint256 price, uint128 baseAmt, uint32 feebps)
         public
         pure
@@ -95,6 +115,12 @@ library Lens {
         return (filledVol, fee);
     }
 
+    /// @notice Calculate LP fee and protocol fee from total volume
+    /// @dev Protocol fee is 60% of total fee, LP fee is 40%
+    /// @param vol The quote volume
+    /// @param bps The fee in basis points
+    /// @return lpFee The LP fee portion
+    /// @return protocolFee The protocol fee portion
     function calculateFees(uint128 vol, uint32 bps) public pure returns (uint128 lpFee, uint128 protocolFee) {
         unchecked {
             uint128 fee = uint128((uint256(vol) * uint256(bps)) / 1000000);

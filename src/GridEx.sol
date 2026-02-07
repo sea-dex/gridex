@@ -21,6 +21,10 @@ import {GridOrder} from "./libraries/GridOrder.sol";
 import {Owned} from "solmate/auth/Owned.sol";
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
 
+/// @title GridEx
+/// @author GridEx Protocol
+/// @notice Main contract for the GridEx decentralized grid trading protocol
+/// @dev Implements grid order placement, filling, and cancellation with support for ETH and ERC20 tokens
 contract GridEx is
     IGridEx,
     AssetSettle,
@@ -32,11 +36,18 @@ contract GridEx is
     using CurrencyLibrary for Currency;
     using GridOrder for GridOrder.GridState;
 
+    /// @notice The vault address that receives protocol fees
     address public vault;
+
+    /// @dev Internal state for managing grid orders
     GridOrder.GridState internal _gridState;
 
     // mapping(Currency => uint256) public protocolProfits;
 
+    /// @notice Creates a new GridEx contract
+    /// @param weth_ The WETH contract address
+    /// @param usd_ The USD stablecoin address (highest priority quote token)
+    /// @param _vault The vault address for protocol fees
     constructor(address weth_, address usd_, address _vault) Owned(msg.sender) {
         require(weth_ != address(0));
         require(usd_ != address(0));
@@ -52,6 +63,7 @@ contract GridEx is
         _gridState.initialize();
     }
 
+    /// @notice Allows the contract to receive ETH
     receive() external payable {}
 
     /// @inheritdoc IGridEx
@@ -89,6 +101,11 @@ contract GridEx is
         return _gridState.gridConfigs[gridId];
     }
 
+    /// @notice Place grid orders with ETH as either base or quote token
+    /// @dev Either base or quote must be address(0) representing ETH
+    /// @param base The base token (address(0) for ETH)
+    /// @param quote The quote token (address(0) for ETH)
+    /// @param param The grid order parameters
     // forge-lint: disable-next-line(mixed-case-function)
     function placeETHGridOrders(
         Currency base,
@@ -159,6 +176,14 @@ contract GridEx is
         }
     }
 
+    /// @notice Internal function to place grid orders
+    /// @param maker The order maker address
+    /// @param base The base token
+    /// @param quote The quote token
+    /// @param param The grid order parameters
+    /// @return pair The trading pair info
+    /// @return baseAmt The total base token amount required
+    /// @return quoteAmt The total quote token amount required
     function _placeGridOrders(
         address maker,
         Currency base,
@@ -193,6 +218,9 @@ contract GridEx is
         );
     }
 
+    /// @notice Increment protocol profits and transfer to vault
+    /// @param quote The quote token
+    /// @param profit The profit amount to transfer
     function incProtocolProfits(Currency quote, uint128 profit) private {
         // Pair memory pair = getPairById[pairId];
         // transfer base token to taker
@@ -271,6 +299,7 @@ contract GridEx is
         }
     }
 
+    /// @dev Struct to accumulate filled amounts across multiple orders
     struct AccFilled {
         uint128 amt; // base amount
         uint128 vol; // quote amount
@@ -605,6 +634,11 @@ contract GridEx is
         emit IOrderEvents.CancelWholeGrid(msg.sender, gridId);
     }
 
+    /// @notice Cancel a range of consecutive grid orders
+    /// @param recipient The address to receive the refunded tokens
+    /// @param startGridOrderId The first grid order ID to cancel
+    /// @param howmany The number of consecutive orders to cancel
+    /// @param flag Bit flags for ETH conversion: 0x1 = base to ETH, 0x2 = quote to ETH
     function cancelGridOrders(
         address recipient,
         uint256 startGridOrderId,
@@ -691,6 +725,7 @@ contract GridEx is
     // }
 
     /// @notice Rescue stuck ETH (e.g., from failed refunds)
+    /// @dev Only callable by the owner
     /// @param to The address to receive the ETH
     /// @param amount The amount of ETH to withdraw
     // forge-lint: disable-next-line(mixed-case-function)

@@ -3,44 +3,50 @@ pragma solidity ^0.8.24;
 
 import {Currency} from "../libraries/Currency.sol";
 
+/// @title IPair
+/// @author GridEx Protocol
+/// @notice Interface for managing trading pairs in the GridEx protocol
+/// @dev Defines the pair structure and functions for pair management
 interface IPair {
-    /// @notice Thrown when quote token invalid
+    /// @notice Thrown when quote token is invalid or has lower priority than base
     error InvalidQuote();
 
-    /// @notice Thrown when pair id invalid or pair not exist
+    /// @notice Thrown when pair ID is invalid or pair does not exist
     error InvalidPairId();
 
-    /// @notice Emitted when a pair is created
+    /// @notice Emitted when a new trading pair is created
     /// @param base The base token of the pair
     /// @param quote The quote token of the pair
-    /// @param pairId The pair id
+    /// @param pairId The unique identifier for the pair
     event PairCreated(Currency indexed base, Currency indexed quote, uint64 pairId);
 
-    /// @notice Pair
+    /// @notice Trading pair structure
+    /// @dev Contains the base token, quote token, and unique pair identifier
     struct Pair {
-        /// base token
+        /// @notice The base token address
         Currency base;
-        /// quote token
+        /// @notice The quote token address
         Currency quote;
-        /// pair id
+        /// @notice The unique pair identifier
         uint64 pairId;
     }
 
-    /// @notice Get pair base/quote by pairId
-    /// @param pairId pairId
-    /// @return base base token address
-    /// @return quote quote token address
+    /// @notice Get the base and quote tokens for a given pair ID
+    /// @param pairId The pair ID to query
+    /// @return base The base token address
+    /// @return quote The quote token address
     function getPairTokens(uint64 pairId) external view returns (Currency base, Currency quote);
 
-    /// @notice Get pair pairId by base and quote token
+    /// @notice Get the pair ID for a given base and quote token combination
     /// @param base The base token address
     /// @param quote The quote token address
-    /// @return pairId The pair id. 0 if pair not exist
+    /// @return The pair ID, or 0 if the pair does not exist
     function getPairIdByTokens(Currency base, Currency quote) external view returns (uint64);
 
-    /// @notice Get pair by base/quote token, if not exist, create it
-    /// @param base base token address
-    /// @param quote quote token address
-    /// @return Pair pair
+    /// @notice Get an existing pair or create a new one if it doesn't exist
+    /// @dev Validates that quote token is quotable and has higher priority than base
+    /// @param base The base token address
+    /// @param quote The quote token address
+    /// @return The pair structure containing base, quote, and pairId
     function getOrCreatePair(Currency base, Currency quote) external returns (Pair memory);
 }

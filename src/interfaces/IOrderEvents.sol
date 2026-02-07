@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-/// @title Events emitted by grid exchange
-/// @notice Contains all events emitted by grid exchange
+/// @title IOrderEvents
+/// @author GridEx Protocol
+/// @notice Interface containing all events emitted by the GridEx protocol
+/// @dev These events are used for off-chain tracking and indexing of protocol activity
 interface IOrderEvents {
-    /// @notice Emitted by a pair when grid order created
-    /// @param pairId pair Id
-    /// @param asks How many ask orders
-    /// @param bids How many ask orders
-    /// @param gridId Grid Id
-    /// @param askOrderId The highest price orderId of the ask grid orders
-    /// @param bidOrderId The lowest price orderId of the bid grid orders
+    /// @notice Emitted when a new grid order is created
+    /// @param owner The address that created the grid order
+    /// @param pairId The trading pair ID
     /// @param amount The base amount of every grid order
-    /// @param compound If the grid order is compound
-    /// @param fee Grid order fee bips
+    /// @param gridId The unique grid identifier
+    /// @param askOrderId The starting order ID for ask orders
+    /// @param bidOrderId The starting order ID for bid orders
+    /// @param asks The number of ask orders in the grid
+    /// @param bids The number of bid orders in the grid
+    /// @param fee The grid order fee in basis points
+    /// @param compound Whether the grid order compounds profits
+    /// @param oneshot Whether the grid order is one-shot (non-reversible)
     event GridOrderCreated(
         address indexed owner,
         uint64 pairId,
@@ -32,25 +36,25 @@ interface IOrderEvents {
         bool oneshot
     );
 
-    /// @notice Emitted when a whoole grid was canceled
+    /// @notice Emitted when an entire grid is canceled
     /// @param owner The owner of the canceled grid
-    /// @param gridId The gridId to be canceled
+    /// @param gridId The ID of the canceled grid
     event CancelWholeGrid(address indexed owner, uint128 indexed gridId);
 
-    /// @notice Emitted when a grid order was canceled
+    /// @notice Emitted when a single grid order is canceled
     /// @param owner The owner of the canceled order
-    /// @param orderId The orderId of the order to be canceled
-    /// @param gridId The gridId of the order to be canceled
+    /// @param orderId The ID of the canceled order
+    /// @param gridId The grid ID containing the canceled order
     event CancelGridOrder(address indexed owner, uint128 indexed orderId, uint128 indexed gridId);
 
-    /// @notice Emitted when a grid order was filled or partial filled
-    /// @param taker The taker address
-    /// @param gridOrderId The grid orderId of the order to be filled
+    /// @notice Emitted when a grid order is filled or partially filled
+    /// @param taker The address that filled the order
+    /// @param gridOrderId The combined grid and order ID
     /// @param baseAmt The base token amount filled
-    /// @param quoteVol The quote token amount filled
-    /// @param orderAmt The amount in the order after filled
-    /// @param orderRevAmt The reverse amount in the order after filled
-    /// @param isAsk The filled maker order is Ask: true; or else false;
+    /// @param quoteVol The quote token volume filled
+    /// @param orderAmt The remaining amount in the order after fill
+    /// @param orderRevAmt The reverse amount in the order after fill
+    /// @param isAsk True if the filled order was an ask order, false for bid
     event FilledOrder(
         address taker,
         uint256 gridOrderId,
@@ -61,15 +65,15 @@ interface IOrderEvents {
         bool isAsk
     );
 
-    /// @notice Emitted when the collected protocol fees are withdrawn by the factory owner
-    /// @param sender The address that collects the protocol fees
-    /// @param recipient The address that receives the collected protocol fees
-    /// @param amount The amount of quote protocol fees that is withdrawn
+    /// @notice Emitted when protocol fees are collected and withdrawn
+    /// @param sender The address that initiated the collection
+    /// @param recipient The address that receives the collected fees
+    /// @param amount The amount of fees collected
     event CollectProtocol(address indexed sender, address indexed recipient, uint256 amount);
 
-    /// @notice Emitted when the grid fee changed
-    /// @param sender The address that collects the protocol fees
-    /// @param gridId The grid Id
-    /// @param fee The new grid fee fees
+    /// @notice Emitted when a grid's fee is changed
+    /// @param sender The address that changed the fee
+    /// @param gridId The grid ID whose fee was changed
+    /// @param fee The new fee in basis points
     event GridFeeChanged(address indexed sender, uint256 gridId, uint32 fee);
 }

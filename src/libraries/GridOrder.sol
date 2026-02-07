@@ -8,26 +8,49 @@ import {IOrderEvents} from "../interfaces/IOrderEvents.sol";
 
 import {Lens} from "./Lens.sol";
 
+/// @title GridOrder
+/// @author GridEx Protocol
+/// @notice Library for managing grid order state and operations
+/// @dev Contains all logic for placing, filling, and canceling grid orders
 library GridOrder {
-    uint32 public constant MIN_FEE = 100; // 0.01%
-    uint32 public constant MAX_FEE = 100000; // 10%
+    /// @notice Minimum fee in basis points (0.01%)
+    uint32 public constant MIN_FEE = 100;
+    
+    /// @notice Maximum fee in basis points (10%)
+    uint32 public constant MAX_FEE = 100000;
 
+    /// @dev Mask for extracting order ID from grid order ID
     uint256 private constant ODER_ID_MASK = 0xffffffffffffffffffffffffffffffff;
+    
+    /// @dev Mask for identifying ask orders (high bit set)
     uint128 private constant ASK_ODER_MASK = 0x80000000000000000000000000000000;
 
+    /// @dev Grid status: normal/active
     uint32 private constant GRID_STATUS_NORMAL = 0;
+    
+    /// @dev Grid status: canceled
     uint32 private constant GRID_STATUS_CANCELED = 1;
 
+    /// @notice State structure for managing all grid orders
+    /// @dev Stored in contract storage
     struct GridState {
-        uint128 nextGridId; // start from 1;
-        uint128 nextBidOrderId; // start from 1
-        uint128 nextAskOrderId; // start 0x80000000000000000000000000000001;
+        /// @notice Next grid ID to assign (starts from 1)
+        uint128 nextGridId;
+        /// @notice Next bid order ID to assign (starts from 1)
+        uint128 nextBidOrderId;
+        /// @notice Next ask order ID to assign (starts from 0x80000000000000000000000000000001)
+        uint128 nextAskOrderId;
+        /// @notice Mapping from grid order ID to order status
         mapping(uint256 gridOrderId => uint256) orderStatus;
+        /// @notice Mapping from grid order ID to order data
         mapping(uint256 gridOrderId => IGridOrder.Order) orderInfos;
+        /// @notice Mapping from grid ID to grid configuration
         mapping(uint256 gridId => IGridOrder.GridConfig) gridConfigs;
     }
 
-    /// Validate grid order param
+    /// @notice Validate grid order parameters
+    /// @dev Checks fee range and validates strategy parameters
+    /// @param param The grid order parameters to validate
     function validateGridOrderParam(IGridOrder.GridOrderParam calldata param) private pure {
         if (param.fee > MAX_FEE || param.fee < MIN_FEE) {
             revert IOrderErrors.InvalidGridFee();
@@ -52,21 +75,38 @@ library GridOrder {
         }
     }
 
+    /// @notice Combine grid ID and order ID into a single grid order ID
+    /// @param gridId The grid ID
+    /// @param orderId The order ID within the grid
+    /// @return id The combined grid order ID
     function toGridOrderId(uint128 gridId, uint128 orderId) public pure returns (uint256 id) {
         id = (uint256(gridId) << 128) | uint256(orderId);
     }
 
+    /// @notice Check if an order ID represents an ask order
+    /// @param orderId The order ID to check
+    /// @return True if the order is an ask order
     function isAskGridOrder(uint256 orderId) public pure returns (bool) {
         return (orderId & ASK_ODER_MASK) > 0;
     }
 
+    /// @notice Extract grid ID and order ID from a combined grid order ID
+    /// @param gridOrderId The combined grid order ID
+    /// @return The grid ID
+    /// @return The order ID
     function extractGridIdOrderId(uint256 gridOrderId) internal pure returns (uint128, uint128) {
         // casting to 'uint128' is safe here
         // forge-lint: disable-next-line(unsafe-typecast)
         return (uint128(gridOrderId >> 128), uint128(gridOrderId & ODER_ID_MASK));
     }
 
-    // should check order status by caller
+    /// @notice Get order amounts for cancellation
+    /// @dev Returns base and quote amounts to refund when canceling an order
+    /// @param self The grid state storage
+    /// @param gridConf The grid configuration
+    /// @param orderId The order ID to cancel
+    /// @return baseAmt The base token amount to refund
+    /// @return quoteAmt The quote token amount to refund
     function getOrderAmountsForCancel(GridState storage self, IGridOrder.GridConfig memory gridConf, uint128 orderId)
         internal
         view
@@ -109,12 +149,21 @@ library GridOrder {
         }
     }
 
+    /// @notice Initialize the grid state
+    /// @dev Sets initial values for grid ID and order ID counters
+    /// @param self The grid state storage to initialize
     function initialize(GridState storage self) internal {
         self.nextGridId = 1;
         self.nextBidOrderId = 1;
         self.nextAskOrderId = 0x80000000000000000000000000000001;
     }
 
+    /// @notice Create a new grid configuration
+    /// @param self The grid state storage
+    /// @param pairId The trading pair ID
+    /// @param maker The grid owner address
+    /// @param param The grid order parameters
+    /// @return The new grid ID
     function createGridConfig(
         GridState storage self,
         uint64 pairId,
@@ -144,6 +193,17 @@ library GridOrder {
         return gridId;
     }
 
+    /// @notice Place a new grid order
+    /// @dev Creates grid config and calculates required token amounts
+    /// @param self The grid state storage
+    /// @param pairId The trading pair ID
+    /// @param maker The grid owner address
+    /// @param param The grid order parameters
+    /// @return The grid ID
+    /// @return The starting ask order ID (combined with grid ID)
+    /// @return The starting bid order ID (combined with grid ID)
+    /// @return The total base token amount required
+    /// @return The total quote token amount required
     function placeGridOrder(
         GridState storage self,
         uint64 pairId,
@@ -190,6 +250,12 @@ library GridOrder {
         );
     }
 
+    /// @notice Get order information
+    /// @dev Retrieves full order info including prices and amounts
+    /// @param self The grid state storage
+    /// @param gridOrderId The combined grid order ID
+    /// @param forFill Whether this is for filling (reverts if canceled)
+    /// @return orderInfo The order information struct
     function getOrderInfo(GridState storage self, uint256 gridOrderId, bool forFill)
         internal
         view
@@ -255,7 +321,9 @@ library GridOrder {
             // }
             price = gridConf.askStrategy.getPrice(true, gridId, orderId - gridConf.startAskOrderId);
             orderInfo.price = price;
-            orderInfo.revPrice = gridConf.askStrategy.getReversePrice(true, gridId, orderId - gridConf.startAskOrderId); //price - gridConf.askGap;
+            // price - gridConf.askGap
+            orderInfo.revPrice =
+                gridConf.askStrategy.getReversePrice(true, gridId, orderId - gridConf.startAskOrderId);
         } else {
             if (price == 0) {
                 // unchecked {
@@ -267,7 +335,8 @@ library GridOrder {
                 price = gridConf.bidStrategy.getPrice(false, gridId, orderId - gridConf.startBidOrderId);
             }
             orderInfo.price = price;
-            orderInfo.revPrice = gridConf.bidStrategy.getReversePrice(false, gridId, orderId - gridConf.startBidOrderId);
+            orderInfo.revPrice =
+                gridConf.bidStrategy.getReversePrice(false, gridId, orderId - gridConf.startBidOrderId);
         }
 
         orderInfo.isAsk = isAsk;
@@ -279,10 +348,19 @@ library GridOrder {
         return orderInfo;
     }
 
+    /// @notice Mark a one-shot order as completed
+    /// @param self The grid state storage
+    /// @param gridOrderId The grid order ID to complete
     function completeOneShotOrder(GridState storage self, uint256 gridOrderId) internal {
         self.orderStatus[gridOrderId] = GRID_STATUS_CANCELED;
     }
 
+    /// @notice Fill an ask order (taker buys base token)
+    /// @dev Calculates fill amounts, fees, and updates order state
+    /// @param self The grid state storage
+    /// @param gridOrderId The grid order ID to fill
+    /// @param amt The base token amount to fill
+    /// @return result The fill result containing amounts and fees
     function fillAskOrder(
         GridState storage self,
         uint256 gridOrderId,
@@ -374,6 +452,12 @@ library GridOrder {
         return result;
     }
 
+    /// @notice Fill a bid order (taker sells base token)
+    /// @dev Calculates fill amounts, fees, and updates order state
+    /// @param self The grid state storage
+    /// @param gridOrderId The grid order ID to fill
+    /// @param amt The base token amount to fill
+    /// @return result The fill result containing amounts and fees
     function fillBidOrder(
         GridState storage self,
         uint256 gridOrderId,
@@ -451,6 +535,14 @@ library GridOrder {
         return result;
     }
 
+    /// @notice Cancel an entire grid
+    /// @dev Cancels all orders in the grid and returns token amounts to refund
+    /// @param self The grid state storage
+    /// @param sender The address requesting cancellation (must be owner)
+    /// @param gridId The grid ID to cancel
+    /// @return The pair ID
+    /// @return The total base token amount to refund
+    /// @return The total quote token amount to refund
     function cancelGrid(GridState storage self, address sender, uint128 gridId)
         internal
         returns (uint64, uint256, uint256)
@@ -515,6 +607,15 @@ library GridOrder {
         return (gridConf.pairId, baseAmt, quoteAmt);
     }
 
+    /// @notice Cancel specific orders within a grid
+    /// @dev Cancels only the specified orders and returns token amounts to refund
+    /// @param self The grid state storage
+    /// @param sender The address requesting cancellation (must be owner)
+    /// @param gridId The grid ID containing the orders
+    /// @param idList Array of grid order IDs to cancel
+    /// @return The pair ID
+    /// @return The total base token amount to refund
+    /// @return The total quote token amount to refund
     function cancelGridOrders(GridState storage self, address sender, uint128 gridId, uint256[] memory idList)
         internal
         returns (uint64, uint256, uint256)
@@ -551,6 +652,12 @@ library GridOrder {
         return (gridConf.pairId, baseAmt, quoteAmt);
     }
 
+    /// @notice Modify the fee for a grid
+    /// @dev Only the grid owner can modify the fee
+    /// @param self The grid state storage
+    /// @param sender The address requesting the modification (must be owner)
+    /// @param gridId The grid ID to modify
+    /// @param fee The new fee in basis points
     function modifyGridFee(GridState storage self, address sender, uint256 gridId, uint32 fee) internal {
         IGridOrder.GridConfig storage gridConf = self.gridConfigs[gridId];
         if (sender != gridConf.owner) {

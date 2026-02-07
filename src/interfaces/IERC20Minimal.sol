@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title Minimal ERC20 interface for Uniswap
+/// @author Uniswap Labs
 /// @notice Contains a subset of the full ERC20 interface that is used in Uniswap V3
 interface IERC20Minimal {
     /// @notice Returns the balance of a token
@@ -34,7 +35,8 @@ interface IERC20Minimal {
     /// @return Returns true for a successful transfer, false for unsuccessful
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 
-    /// @notice Event emitted when tokens are transferred from one address to another, either via `#transfer` or `#transferFrom`.
+    /// @notice Event emitted when tokens are transferred from one address to another
+    /// @dev Emitted via `#transfer` or `#transferFrom`.
     /// @param from The account from which the tokens were sent, i.e. the balance decreased
     /// @param to The account to which the tokens were sent, i.e. the balance increased
     /// @param value The amount of tokens that were transferred
