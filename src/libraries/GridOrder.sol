@@ -480,8 +480,8 @@ library GridOrder {
 
                 (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
                 unchecked {
-                    baseAmt += ba;
-                    quoteAmt += qa;
+                    baseAmt += ba; // safe
+                    quoteAmt += qa; // safe
                 }
             }
         }
@@ -498,8 +498,8 @@ library GridOrder {
 
                 (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
                 unchecked {
-                    baseAmt += ba;
-                    quoteAmt += qa;
+                    baseAmt += ba; // safe
+                    quoteAmt += qa; // safe
                 }
             }
         }
