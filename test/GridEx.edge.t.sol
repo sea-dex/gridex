@@ -4,7 +4,9 @@ pragma solidity ^0.8.33;
 import {GridExBaseTest} from "./GridExBase.t.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../src/interfaces/IGridStrategy.sol";
+import {IOrderErrors} from "../src/interfaces/IOrderErrors.sol";
 import {Currency} from "../src/libraries/Currency.sol";
+import {Lens} from "../src/libraries/Lens.sol";
 import {IERC20Minimal} from "../src/interfaces/IERC20Minimal.sol";
 import {ERC20} from "./utils/ERC20.sol";
 
@@ -644,6 +646,387 @@ contract GridExEdgeTest is GridExBaseTest {
         // Oneshot orders still have revAmount after fill (they flip like normal orders)
         // The difference is they can't be filled again from the reverse side
         assertTrue(order.revAmount > 0);
+    }
+
+    /// @notice Test oneshot ask order partial fill - verify protocol fee
+    /// @dev For oneshot orders, all fee goes to protocol (lpFee = 0)
+    function test_oneshotOrders_partialFill_askOrder_protocolFee() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12); // 0.002
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 orderId = 0x80000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        
+        // Get initial protocol fee balance (protocol fees go to vault)
+        uint256 vaultBalanceBefore = usdc.balanceOf(vault);
+        
+        // Partial fill - fill half of the order
+        uint128 fillAmt = amt / 2;
+        
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, fillAmt, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Calculate expected fee
+        // For oneshot: all fee goes to protocol, no LP fee
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        uint128 quoteVol = Lens.calcQuoteAmount(fillAmt, askPrice0, true);
+        uint128 expectedProtocolFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Verify protocol fee was collected in vault
+        uint256 vaultBalanceAfter = usdc.balanceOf(vault);
+        assertEq(vaultBalanceAfter - vaultBalanceBefore, expectedProtocolFee, "Protocol fee mismatch for partial fill");
+        
+        // Verify order is partially filled
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertEq(order.amount, amt - fillAmt, "Order amount should be reduced by fill amount");
+        assertTrue(order.oneshot, "Order should still be oneshot");
+    }
+
+    /// @notice Test oneshot ask order complete fill - verify protocol fee
+    function test_oneshotOrders_completeFill_askOrder_protocolFee() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 orderId = 0x80000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        
+        // Get initial protocol fee balance (protocol fees go to vault)
+        uint256 vaultBalanceBefore = usdc.balanceOf(vault);
+        
+        // Complete fill
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Calculate expected fee
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        uint128 quoteVol = Lens.calcQuoteAmount(amt, askPrice0, true);
+        uint128 expectedProtocolFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Verify protocol fee was collected in vault
+        uint256 vaultBalanceAfter = usdc.balanceOf(vault);
+        assertEq(vaultBalanceAfter - vaultBalanceBefore, expectedProtocolFee, "Protocol fee mismatch for complete fill");
+        
+        // Verify order is completely filled
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertEq(order.amount, 0, "Order amount should be 0 after complete fill");
+        assertTrue(order.oneshot, "Order should still be oneshot");
+        assertTrue(order.revAmount > 0, "Reverse amount should be set");
+    }
+
+    /// @notice Test oneshot bid order partial fill - verify protocol fee
+    function test_oneshotOrders_partialFill_bidOrder_protocolFee() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 bidOrderId = 0x0000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        
+        // Get initial protocol fee balance (for bid orders, fee is in quote token, goes to vault)
+        uint256 vaultBalanceBefore = usdc.balanceOf(vault);
+        
+        // Partial fill - fill half of the order
+        uint128 fillAmt = amt / 2;
+        
+        vm.startPrank(taker);
+        exchange.fillBidOrder(gridOrderId, fillAmt, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Calculate expected fee
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        uint128 filledVol = Lens.calcQuoteAmount(fillAmt, bidPrice0, false);
+        uint128 expectedProtocolFee = uint128((uint256(filledVol) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Verify protocol fee was collected in vault
+        uint256 vaultBalanceAfter = usdc.balanceOf(vault);
+        assertEq(vaultBalanceAfter - vaultBalanceBefore, expectedProtocolFee, "Protocol fee mismatch for bid partial fill");
+        
+        // Verify order is partially filled
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertTrue(order.oneshot, "Order should still be oneshot");
+    }
+
+    /// @notice Test oneshot bid order complete fill - verify protocol fee
+    function test_oneshotOrders_completeFill_bidOrder_protocolFee() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 bidOrderId = 0x0000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        
+        // Get initial protocol fee balance (protocol fees go to vault)
+        uint256 vaultBalanceBefore = usdc.balanceOf(vault);
+        
+        // Complete fill
+        vm.startPrank(taker);
+        exchange.fillBidOrder(gridOrderId, amt, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Calculate expected fee
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        uint128 filledVol = Lens.calcQuoteAmount(amt, bidPrice0, false);
+        uint128 expectedProtocolFee = uint128((uint256(filledVol) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Verify protocol fee was collected in vault
+        uint256 vaultBalanceAfter = usdc.balanceOf(vault);
+        assertEq(vaultBalanceAfter - vaultBalanceBefore, expectedProtocolFee, "Protocol fee mismatch for bid complete fill");
+        
+        // Verify order is completely filled
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertEq(order.amount, 0, "Order amount should be 0 after complete fill");
+        assertTrue(order.oneshot, "Order should still be oneshot");
+    }
+
+    /// @notice Test oneshot orders use oneshotProtocolFeeBps instead of user-specified fee
+    function test_oneshotOrders_usesOneshotProtocolFeeBps() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+
+        // User specifies a different fee (1000 bps = 0.1%)
+        uint32 userFee = 1000;
+        
+        // Place oneshot orders with user-specified fee
+        IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
+            askStrategy: linear,
+            bidStrategy: linear,
+            // forge-lint: disable-next-line
+            askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
+            bidData: abi.encode(bidPrice0, -int256(gap)),
+            askOrderCount: 5,
+            bidOrderCount: 5,
+            baseAmount: amt,
+            fee: userFee, // User specifies 1000 bps
+            compound: false,
+            oneshot: true
+        });
+
+        vm.startPrank(maker);
+        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
+        vm.stopPrank();
+
+        // Verify grid uses oneshotProtocolFeeBps, not user-specified fee
+        IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        assertEq(config.fee, oneshotFeeBps, "Oneshot grid should use oneshotProtocolFeeBps");
+        assertTrue(config.fee != userFee || oneshotFeeBps == userFee, "Fee should be overridden unless they happen to match");
+    }
+
+    /// @notice Test that filled oneshot order cannot be filled from reverse side
+    /// @dev When a oneshot order is completely filled, it's marked as canceled via completeOneShotOrder()
+    function test_oneshotOrders_cannotFillReversed() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 orderId = 0x80000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        
+        // Fill the ask order completely
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Verify order has flipped (has revAmount)
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertTrue(order.revAmount > 0, "Order should have reverse amount");
+        
+        // Try to fill from reverse side (bid) - should revert with OrderCanceled
+        // because completeOneShotOrder() marks the order as GRID_STATUS_CANCELED
+        vm.startPrank(taker);
+        vm.expectRevert(IOrderErrors.OrderCanceled.selector);
+        exchange.fillBidOrder(gridOrderId, amt, 0, new bytes(0), 0);
+        vm.stopPrank();
+    }
+
+    /// @notice Test that partially filled oneshot order reverts with FillReversedOneShotOrder
+    /// @dev When a oneshot order is only partially filled, it's not canceled yet, so FillReversedOneShotOrder is thrown
+    function test_oneshotOrders_partialFill_cannotFillReversed() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 orderId = 0x80000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        
+        // Partially fill the ask order (only half)
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, amt / 2, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Verify order is partially filled (still has amount remaining)
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertEq(order.amount, amt / 2, "Order should be partially filled");
+        assertTrue(order.revAmount > 0, "Order should have reverse amount");
+        
+        // Try to fill from reverse side (bid) - should revert with FillReversedOneShotOrder
+        // because the order is not fully filled yet, so it's not canceled
+        vm.startPrank(taker);
+        vm.expectRevert(IOrderErrors.FillReversedOneShotOrder.selector);
+        exchange.fillBidOrder(gridOrderId, amt, 0, new bytes(0), 0);
+        vm.stopPrank();
+    }
+
+    /// @notice Test oneshot order LP fee is always 0
+    function test_oneshotOrders_lpFeeIsZero() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 orderId = 0x80000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        
+        // Get vault balance before (protocol fees go to vault)
+        uint256 vaultBalanceBefore = usdc.balanceOf(vault);
+        
+        // Fill the ask order
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        // Calculate what the total fee is
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        uint128 quoteVol = Lens.calcQuoteAmount(amt, askPrice0, true);
+        uint128 totalFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        // For normal orders: lpFee = totalFee - protocolFee = totalFee - (totalFee >> 2) = 75% of totalFee
+        // For oneshot: lpFee = 0, protocolFee = 100% of totalFee
+        
+        // Verify protocol got all the fee (sent to vault)
+        uint256 vaultBalanceAfter = usdc.balanceOf(vault);
+        assertEq(vaultBalanceAfter - vaultBalanceBefore, totalFee, "Protocol should receive all fee for oneshot orders");
+    }
+
+    /// @notice Test setOneshotProtocolFeeBps and getOneshotProtocolFeeBps
+    function test_oneshotProtocolFeeBps_setAndGet() public {
+        // Get initial value
+        uint32 initialFeeBps = exchange.getOneshotProtocolFeeBps();
+        assertEq(initialFeeBps, 500, "Initial oneshot fee should be 500 bps");
+        
+        // Set new value (only owner can do this)
+        uint32 newFeeBps = 1000; // 0.1%
+        exchange.setOneshotProtocolFeeBps(newFeeBps);
+        
+        // Verify new value
+        uint32 updatedFeeBps = exchange.getOneshotProtocolFeeBps();
+        assertEq(updatedFeeBps, newFeeBps, "Oneshot fee should be updated");
+    }
+
+    /// @notice Test setOneshotProtocolFeeBps reverts for invalid fee
+    function test_oneshotProtocolFeeBps_revertInvalidFee() public {
+        // Try to set fee below MIN_FEE
+        vm.expectRevert(IOrderErrors.InvalidGridFee.selector);
+        exchange.setOneshotProtocolFeeBps(99); // MIN_FEE is 100
+        
+        // Try to set fee above MAX_FEE
+        vm.expectRevert(IOrderErrors.InvalidGridFee.selector);
+        exchange.setOneshotProtocolFeeBps(100001); // MAX_FEE is 100000
+    }
+
+    /// @notice Test that oneshot grid fee cannot be modified
+    function test_oneshotOrders_cannotModifyFee() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        // Try to modify fee - should revert
+        vm.startPrank(maker);
+        vm.expectRevert(IOrderErrors.CannotModifyOneshotFee.selector);
+        exchange.modifyGridFee(1, 1000);
+        vm.stopPrank();
+    }
+
+    /// @notice Test multiple partial fills on oneshot order accumulate correct protocol fees
+    function test_oneshotOrders_multiplePartialFills_protocolFee() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 orderId = 0x80000000000000000000000000000001;
+
+        // Place oneshot orders
+        _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+        
+        // Get initial protocol fee balance (protocol fees go to vault)
+        uint256 vaultBalanceBefore = usdc.balanceOf(vault);
+        
+        uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
+        uint128 totalExpectedFee = 0;
+        
+        // First partial fill - 25%
+        uint128 fillAmt1 = amt / 4;
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, fillAmt1, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        uint128 quoteVol1 = Lens.calcQuoteAmount(fillAmt1, askPrice0, true);
+        totalExpectedFee += uint128((uint256(quoteVol1) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Second partial fill - 25%
+        uint128 fillAmt2 = amt / 4;
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, fillAmt2, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        uint128 quoteVol2 = Lens.calcQuoteAmount(fillAmt2, askPrice0, true);
+        totalExpectedFee += uint128((uint256(quoteVol2) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Third partial fill - remaining 50%
+        uint128 fillAmt3 = amt / 2;
+        vm.startPrank(taker);
+        exchange.fillAskOrder(gridOrderId, fillAmt3, 0, new bytes(0), 0);
+        vm.stopPrank();
+        
+        uint128 quoteVol3 = Lens.calcQuoteAmount(fillAmt3, askPrice0, true);
+        totalExpectedFee += uint128((uint256(quoteVol3) * uint256(oneshotFeeBps)) / 1000000);
+        
+        // Verify total protocol fee (sent to vault)
+        uint256 vaultBalanceAfter = usdc.balanceOf(vault);
+        assertEq(vaultBalanceAfter - vaultBalanceBefore, totalExpectedFee, "Total protocol fee mismatch for multiple partial fills");
+        
+        // Verify order is completely filled
+        IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
+        assertEq(order.amount, 0, "Order should be completely filled");
     }
 
     // ============ Compound Order Tests ============

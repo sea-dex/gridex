@@ -40,6 +40,8 @@ library GridOrder {
         uint128 nextBidOrderId;
         /// @notice Next ask order ID to assign (starts from 0x80000000000000000000000000000001)
         uint128 nextAskOrderId;
+        /// @notice Protocol fee in basis points for oneshot orders (all fee goes to protocol, no LP fee)
+        uint32 oneshotProtocolFeeBps;
         /// @notice Mapping from grid order ID to order status
         mapping(uint256 gridOrderId => uint256) orderStatus;
         /// @notice Mapping from grid order ID to order data
@@ -49,11 +51,21 @@ library GridOrder {
     }
 
     /// @notice Validate grid order parameters
-    /// @dev Checks fee range and validates strategy parameters
+    /// @dev Checks fee range and validates strategy parameters. For oneshot orders, fee validation is skipped
+    ///      as the fee will be overridden with oneshotProtocolFeeBps
     /// @param param The grid order parameters to validate
-    function validateGridOrderParam(IGridOrder.GridOrderParam calldata param) private pure {
-        if (param.fee > MAX_FEE || param.fee < MIN_FEE) {
-            revert IOrderErrors.InvalidGridFee();
+    /// @param oneshotFeeBps The oneshot protocol fee in basis points (used to validate oneshot orders)
+    function validateGridOrderParam(IGridOrder.GridOrderParam calldata param, uint32 oneshotFeeBps) private pure {
+        // For oneshot orders, skip user fee validation since it will be overridden
+        if (!param.oneshot) {
+            if (param.fee > MAX_FEE || param.fee < MIN_FEE) {
+                revert IOrderErrors.InvalidGridFee();
+            }
+        } else {
+            // For oneshot, validate that oneshotFeeBps is set
+            if (oneshotFeeBps > MAX_FEE || oneshotFeeBps < MIN_FEE) {
+                revert IOrderErrors.InvalidGridFee();
+            }
         }
 
         unchecked {
@@ -154,6 +166,7 @@ library GridOrder {
         self.nextGridId = 1;
         self.nextBidOrderId = 1;
         self.nextAskOrderId = 0x80000000000000000000000000000001;
+        self.oneshotProtocolFeeBps = 500; // default oneshot fee bps 0.05%
     }
 
     /// @notice Create a new grid configuration
@@ -170,6 +183,9 @@ library GridOrder {
     ) internal returns (uint128) {
         uint128 gridId = self.nextGridId++;
 
+        // For oneshot orders, override user fee with oneshotProtocolFeeBps
+        uint32 effectiveFee = param.oneshot ? self.oneshotProtocolFeeBps : param.fee;
+
         self.gridConfigs[gridId] = IGridOrder.GridConfig({
             owner: maker,
             profits: 0,
@@ -182,7 +198,7 @@ library GridOrder {
             bidStrategy: param.bidStrategy,
             askOrderCount: param.askOrderCount,
             bidOrderCount: param.bidOrderCount,
-            fee: param.fee,
+            fee: effectiveFee,
             compound: param.compound,
             oneshot: param.oneshot,
             status: GRID_STATUS_NORMAL
@@ -208,7 +224,7 @@ library GridOrder {
         address maker,
         IGridOrder.GridOrderParam calldata param
     ) internal returns (uint128, uint256, uint256, uint128, uint128) {
-        validateGridOrderParam(param);
+        validateGridOrderParam(param, self.oneshotProtocolFeeBps);
 
         uint128 gridId = createGridConfig(self, pairId, maker, param);
 
@@ -370,7 +386,13 @@ library GridOrder {
         // quote volume taker will pay: quoteVol = filled * price
         uint128 quoteVol = Lens.calcQuoteAmount(amt, sellPrice, true);
 
-        (result.lpFee, result.protocolFee) = Lens.calculateFees(quoteVol, orderInfo.fee);
+        // For oneshot orders, all fee goes to protocol (lpFee = 0)
+        if (orderInfo.oneshot) {
+            result.lpFee = 0;
+            result.protocolFee = Lens.calculateOneshotFee(quoteVol, orderInfo.fee);
+        } else {
+            (result.lpFee, result.protocolFee) = Lens.calculateFees(quoteVol, orderInfo.fee);
+        }
         unchecked {
             // Safe: amt less than orderBaseAmt
             orderBaseAmt -= amt;
@@ -473,14 +495,20 @@ library GridOrder {
             revert IOrderErrors.ZeroBaseAmt();
         }
 
-        (result.lpFee, result.protocolFee) = Lens.calculateFees(filledVol, orderInfo.fee);
+        // For oneshot orders, all fee goes to protocol (lpFee = 0)
+        if (orderInfo.oneshot) {
+            result.lpFee = 0;
+            result.protocolFee = Lens.calculateOneshotFee(filledVol, orderInfo.fee);
+        } else {
+            (result.lpFee, result.protocolFee) = Lens.calculateFees(filledVol, orderInfo.fee);
+        }
 
         orderBaseAmt += amt;
 
         if (orderInfo.compound) {
             orderQuoteAmt -= filledVol - result.lpFee; // all quote reverse
         } else {
-            // lpFee into profit
+            // lpFee into profit (for oneshot, lpFee is 0 so no profit from fee)
             result.profit = uint128(result.lpFee);
             orderQuoteAmt -= filledVol;
         }
@@ -634,7 +662,7 @@ library GridOrder {
     }
 
     /// @notice Modify the fee for a grid
-    /// @dev Only the grid owner can modify the fee
+    /// @dev Only the grid owner can modify the fee. Oneshot grids cannot have their fee modified.
     /// @param self The grid state storage
     /// @param sender The address requesting the modification (must be owner)
     /// @param gridId The grid ID to modify
@@ -645,6 +673,11 @@ library GridOrder {
             revert IOrderErrors.NotGridOwer();
         }
 
+        // Oneshot grids cannot have their fee modified - fee is fixed by protocol
+        if (gridConf.oneshot) {
+            revert IOrderErrors.CannotModifyOneshotFee();
+        }
+
         if (fee > MAX_FEE || fee < MIN_FEE) {
             revert IOrderErrors.InvalidGridFee();
         }
@@ -652,5 +685,23 @@ library GridOrder {
         gridConf.fee = fee;
 
         emit IOrderEvents.GridFeeChanged(sender, gridId, fee);
+    }
+
+    /// @notice Set the oneshot protocol fee in basis points
+    /// @dev Only callable through GridEx contract
+    /// @param self The grid state storage
+    /// @param feeBps The new oneshot protocol fee in basis points
+    function setOneshotProtocolFeeBps(GridState storage self, uint32 feeBps) internal {
+        if (feeBps > MAX_FEE || feeBps < MIN_FEE) {
+            revert IOrderErrors.InvalidGridFee();
+        }
+        self.oneshotProtocolFeeBps = feeBps;
+    }
+
+    /// @notice Get the current oneshot protocol fee in basis points
+    /// @param self The grid state storage
+    /// @return The oneshot protocol fee in basis points
+    function getOneshotProtocolFeeBps(GridState storage self) internal view returns (uint32) {
+        return self.oneshotProtocolFeeBps;
     }
 }

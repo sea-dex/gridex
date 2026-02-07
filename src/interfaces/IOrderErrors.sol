@@ -79,4 +79,7 @@ interface IOrderErrors {
 
     /// @notice Thrown when attempting to fill a reversed one-shot order
     error FillReversedOneShotOrder();
+
+    /// @notice Thrown when attempting to modify fee for a oneshot grid
+    error CannotModifyOneshotFee();
 }

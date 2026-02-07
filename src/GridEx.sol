@@ -665,4 +665,19 @@ contract GridEx is
         (bool success,) = to.call{value: amount}("");
         require(success, "ETH transfer failed");
     }
+
+    /// @notice Set the protocol fee for oneshot orders
+    /// @dev Only callable by the owner. For oneshot orders, all fee goes to protocol (no LP fee).
+    /// @param feeBps The new fee in basis points (must be between MIN_FEE and MAX_FEE)
+    function setOneshotProtocolFeeBps(uint32 feeBps) external onlyOwner {
+        uint32 oldFeeBps = _gridState.oneshotProtocolFeeBps;
+        _gridState.setOneshotProtocolFeeBps(feeBps);
+        emit IOrderEvents.OneshotProtocolFeeChanged(msg.sender, oldFeeBps, feeBps);
+    }
+
+    /// @notice Get the current protocol fee for oneshot orders
+    /// @return The oneshot protocol fee in basis points
+    function getOneshotProtocolFeeBps() external view returns (uint32) {
+        return _gridState.getOneshotProtocolFeeBps();
+    }
 }

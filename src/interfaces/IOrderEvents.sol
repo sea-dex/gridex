@@ -76,4 +76,10 @@ interface IOrderEvents {
     /// @param gridId The grid ID whose fee was changed
     /// @param fee The new fee in basis points
     event GridFeeChanged(address indexed sender, uint256 gridId, uint32 fee);
+
+    /// @notice Emitted when the oneshot protocol fee is changed
+    /// @param sender The address that changed the fee
+    /// @param oldFeeBps The old fee in basis points
+    /// @param newFeeBps The new fee in basis points
+    event OneshotProtocolFeeChanged(address indexed sender, uint32 oldFeeBps, uint32 newFeeBps);
 }

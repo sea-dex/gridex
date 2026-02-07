@@ -128,4 +128,15 @@ library Lens {
             lpFee = fee - protocolFee;
         }
     }
+
+    /// @notice Calculate protocol fee for oneshot orders (all fee goes to protocol, no LP fee)
+    /// @dev For oneshot orders, the entire fee is protocol fee
+    /// @param vol The quote volume
+    /// @param bps The fee in basis points
+    /// @return protocolFee The protocol fee (entire fee amount)
+    function calculateOneshotFee(uint128 vol, uint32 bps) public pure returns (uint128 protocolFee) {
+        unchecked {
+            protocolFee = uint128((uint256(vol) * uint256(bps)) / 1000000);
+        }
+    }
 }
