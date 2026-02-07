@@ -547,6 +547,8 @@ contract GridEx is
         // forge-lint: disable-next-line(unsafe-typecast)
         _gridState.gridConfigs[gridId].profits = conf.profits - uint128(amt);
 
+        // casting to 'uint128' is safe because amt < 1<<128
+        // forge-lint: disable-next-line(unsafe-typecast)
         AssetSettle.transferAssetTo(pair.quote, to, uint128(amt), flag);
 
         emit WithdrawProfit(gridId, pair.quote, to, amt);
