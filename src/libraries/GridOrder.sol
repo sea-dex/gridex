@@ -560,7 +560,7 @@ library GridOrder {
         uint256 quoteAmt = 0;
 
         if (gridConf.askOrderCount > 0) {
-            for (uint32 i = 0; i < gridConf.askOrderCount; i++) {
+            for (uint32 i = 0; i < gridConf.askOrderCount; ++i) {
                 uint128 orderId = gridConf.startAskOrderId + i;
                 uint256 gridOrderId = toGridOrderId(gridId, orderId);
                 if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
@@ -579,7 +579,7 @@ library GridOrder {
         }
 
         if (gridConf.bidOrderCount > 0) {
-            for (uint32 i = 0; i < gridConf.bidOrderCount; i++) {
+            for (uint32 i = 0; i < gridConf.bidOrderCount; ++i) {
                 uint128 orderId = gridConf.startBidOrderId + i;
                 uint256 gridOrderId = toGridOrderId(gridId, orderId);
                 if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {

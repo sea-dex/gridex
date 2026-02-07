@@ -49,9 +49,9 @@ contract GridEx is
     /// @param usd_ The USD stablecoin address (highest priority quote token)
     /// @param _vault The vault address for protocol fees
     constructor(address weth_, address usd_, address _vault) Owned(msg.sender) {
-        require(weth_ != address(0));
-        require(usd_ != address(0));
-        require(_vault != address(0));
+        require(weth_ != address(0), "invaid weth");
+        require(usd_ != address(0), "invalid usd");
+        require(_vault != address(0), "invalid vault");
 
         // usd is the most priority quote token
         quotableTokens[Currency.wrap(usd_)] = 1 << 20;
@@ -81,7 +81,7 @@ contract GridEx is
             idList.length
         );
 
-        for (uint256 i = 0; i < idList.length; i++) {
+        for (uint256 i = 0; i < idList.length; ++i) {
             orderList[i] = _gridState.getOrderInfo(idList[i], false);
         }
         return orderList;
@@ -728,8 +728,7 @@ contract GridEx is
     /// @dev Only callable by the owner
     /// @param to The address to receive the ETH
     /// @param amount The amount of ETH to withdraw
-    // forge-lint: disable-next-line(mixed-case-function)
-    function rescueETH(address to, uint256 amount) external onlyOwner {
+    function rescueEth(address to, uint256 amount) external onlyOwner {
         (bool success,) = to.call{value: amount}("");
         require(success, "ETH transfer failed");
     }
