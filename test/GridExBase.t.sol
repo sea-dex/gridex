@@ -1,18 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-// import {IWETH} from "../src/interfaces/IWETH.sol";
-// import {IPair} from "../src/interfaces/IPair.sol";
-import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-// import {IGridEx} from "../src/interfaces/IGridEx.sol";
-// import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
-// import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
-
 import {Test} from "forge-std/Test.sol";
-// import {ERC20} from "solmate/tokens/ERC20.sol";
 
+import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {GridEx} from "../src/GridEx.sol";
-// import {GridOrder} from "../src/GridOrder.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Lens} from "../src/libraries/Lens.sol";
@@ -140,10 +132,6 @@ contract GridExBaseTest is Test {
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            // askPrice0: askPrice0,
-            // bidPrice0: bidPrice0,
-            // askGap: gap,
-            // bidGap: gap,
             fee: fee,
             compound: compound,
             oneshot: false
@@ -182,10 +170,6 @@ contract GridExBaseTest is Test {
             askOrderCount: asks,
             bidOrderCount: bids,
             baseAmount: perBaseAmt,
-            // askPrice0: askPrice0,
-            // bidPrice0: bidPrice0,
-            // askGap: gap,
-            // bidGap: gap,
             fee: fee,
             compound: compound,
             oneshot: true
@@ -237,11 +221,11 @@ contract GridExBaseTest is Test {
     }
 
     function calcProtocolFee(uint128 fee) internal pure returns (uint128) {
-        return (fee * 60) / 100;
+        return fee >> 2;
     }
 
     function calcMakerFee(uint128 fee) internal pure returns (uint128) {
-        return fee - ((fee * 60) / 100);
+        return fee - (fee >> 2);
         // return fee - (fee >> 1);
     }
 }

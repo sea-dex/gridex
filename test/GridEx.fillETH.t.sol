@@ -1,24 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-// import {IWETH} from "../src/interfaces/IWETH.sol";
-// import {IPair} from "../src/interfaces/IPair.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-// import {IGridEx} from "../src/interfaces/IGridEx.sol";
-// import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
-
-// import {Test, console} from "forge-std/Test.sol";
-// import {ERC20} from "solmate/tokens/ERC20.sol";
-
-// import {GridEx} from "../src/GridEx.sol";
-// import {GridOrder} from "../src/GridOrder.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
-
-// import {SEA} from "./utils/SEA.sol";
-// import {USDC} from "./utils/USDC.sol";
-// import {WETH} from "./utils/WETH.sol";
-
 import {GridExBaseTest} from "./GridExBase.t.sol";
 
 contract GridExFillETHTest is GridExBaseTest {
@@ -27,7 +12,6 @@ contract GridExFillETHTest is GridExBaseTest {
     function test_fillETHAskOrder() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 2 ether / 100; // SEA
 

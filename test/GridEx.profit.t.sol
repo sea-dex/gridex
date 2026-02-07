@@ -1,24 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-// import {IPair} from "../src/interfaces/IPair.sol";
-// import {IGridEx} from "../src/interfaces/IGridEx.sol";
-// import {IWETH} from "../src/interfaces/IWETH.sol";
-// import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
-// import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
-
-// import {Test, console} from "forge-std/Test.sol";
-// import {ERC20} from "solmate/tokens/ERC20.sol";
-
-// import {GridEx} from "../src/GridEx.sol";
-// import {GridOrder} from "../src/GridOrder.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
-
-// import {SEA} from "./utils/SEA.sol";
-// import {USDC} from "./utils/USDC.sol";
-// import {WETH} from "./utils/WETH.sol";
-
 import {GridExBaseTest} from "./GridExBase.t.sol";
 
 contract GridExProfitTest is GridExBaseTest {
@@ -27,7 +11,6 @@ contract GridExProfitTest is GridExBaseTest {
     function test_profitAskOrder() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        // uint96 orderId = 0x800000000000000000000001;
         uint128 orderId = 0x80000000000000000000000000000001;
         uint128 amt = 20 ether; // SEA
 
@@ -52,27 +35,6 @@ contract GridExProfitTest is GridExBaseTest {
         vm.expectRevert();
         exchange.withdrawGridProfits(1, fees / 4, third, 0);
         vm.stopPrank();
-
-        // vm.startPrank(third);
-        // vm.expectRevert();
-        // exchange.collectProtocolFee(
-        //     Currency.wrap(address(weth)),
-        //     third,
-        //     fees / 4,
-        //     0
-        // );
-        // vm.stopPrank();
-
-        // exchange.collectProtocolFee(
-        //     Currency.wrap(address(weth)),
-        //     third,
-        //     fees / 4,
-        //     0
-        // );
-        // assertEq(fees / 4, weth.balanceOf(third));
-
-        // exchange.collectProtocolFee(Currency.wrap(address(weth)), third, 0, 1);
-        // assertEq(fees / 2 - fees / 4 - 1, eth.balanceOf(third));
 
         vm.startPrank(maker);
         exchange.withdrawGridProfits(1, fees / 4, maker, 0);
