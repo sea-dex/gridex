@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Script} from "forge-std/Script.sol";
 
 import {GridEx} from "../src/GridEx.sol";
+import {Vault} from "../src/Vault.sol";
 
 import {WETH} from "../test/utils/WETH.sol";
 import {USDC} from "../test/utils/USDC.sol";
@@ -17,7 +18,8 @@ contract GridExScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         WETH weth = new WETH();
         USDC usdc = new USDC();
-        GridEx gridEx = new GridEx(address(weth), address(usdc), address(0));
+        Vault vault = new Vault();
+        GridEx gridEx = new GridEx(address(weth), address(usdc), address(vault));
         gridEx;
         vm.stopBroadcast();
     }
