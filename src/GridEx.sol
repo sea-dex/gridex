@@ -18,12 +18,13 @@ import {ProtocolConstants} from "./libraries/ProtocolConstants.sol";
 
 import {Owned} from "solmate/auth/Owned.sol";
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
+import {Pausable} from "./utils/Pausable.sol";
 
 /// @title GridEx
 /// @author GridEx Protocol
 /// @notice Main contract for the GridEx decentralized grid trading protocol
 /// @dev Implements grid order placement, filling, and cancellation with support for ETH and ERC20 tokens
-contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
+contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable {
     using SafeCast for *;
     using CurrencyLibrary for Currency;
     using GridOrder for GridOrder.GridState;
@@ -90,6 +91,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
     function placeETHGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param)
         public
         payable
+        whenNotPaused
     {
         // forge-lint: disable-next-line(mixed-case-variable)
         bool baseIsETH = false;
@@ -116,7 +118,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
     }
 
     /// @inheritdoc IGridEx
-    function placeGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param) public override {
+    function placeGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param) public override whenNotPaused {
         if (base.isAddressZero() || quote.isAddressZero()) {
             revert IOrderErrors.InvalidParam();
         }
@@ -190,6 +192,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
         payable
         override
         nonReentrant
+        whenNotPaused
     {
         IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(gridOrderId, amt);
 
@@ -238,7 +241,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
         uint128 minAmt, // base amount
         bytes calldata data,
         uint32 flag
-    ) public payable override nonReentrant {
+    ) public payable override nonReentrant whenNotPaused {
         if (idList.length != amtList.length) {
             revert IOrderErrors.InvalidParam();
         }
@@ -304,6 +307,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
         payable
         override
         nonReentrant
+        whenNotPaused
     {
         IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(gridOrderId, amt);
 
@@ -345,7 +349,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
         uint128 minAmt, // base amount
         bytes calldata data,
         uint32 flag
-    ) public payable override nonReentrant {
+    ) public payable override nonReentrant whenNotPaused {
         if (idList.length != amtList.length) {
             revert IOrderErrors.InvalidParam();
         }
@@ -528,5 +532,18 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
     /// @return The oneshot protocol fee in basis points
     function getOneshotProtocolFeeBps() external view returns (uint32) {
         return _gridState.getOneshotProtocolFeeBps();
+    }
+
+    /// @notice Pauses all trading operations
+    /// @dev Only callable by the owner. Affects order placement and filling.
+    ///      Cancellation and withdrawal operations remain available when paused.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses all trading operations
+    /// @dev Only callable by the owner
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
