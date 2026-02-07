@@ -12,11 +12,11 @@ contract VaultTest is Test {
     Vault public vault;
     SEA public sea;
     USDC public usdc;
-    
+
     address public owner;
     address public recipient = address(0x1234);
     address public nonOwner = address(0x5678);
-    
+
     uint256 public constant INITIAL_ETH = 10 ether;
     uint256 public constant INITIAL_SEA = 1000 ether;
     uint256 public constant INITIAL_USDC = 10000_000_000; // 10000 USDC (6 decimals)
@@ -26,7 +26,7 @@ contract VaultTest is Test {
         vault = new Vault();
         sea = new SEA();
         usdc = new USDC();
-        
+
         // Fund the vault with tokens and ETH
         // forge-lint: disable-next-line
         sea.transfer(address(vault), INITIAL_SEA);
@@ -42,9 +42,9 @@ contract VaultTest is Test {
         uint256 withdrawAmount = 100 ether;
         uint256 recipientBalanceBefore = sea.balanceOf(recipient);
         uint256 vaultBalanceBefore = sea.balanceOf(address(vault));
-        
+
         vault.withdrawERC20(address(sea), recipient, withdrawAmount);
-        
+
         assertEq(sea.balanceOf(recipient), recipientBalanceBefore + withdrawAmount);
         assertEq(sea.balanceOf(address(vault)), vaultBalanceBefore - withdrawAmount);
     }
@@ -52,9 +52,9 @@ contract VaultTest is Test {
     /// @notice Test withdrawing full ERC20 balance
     function test_withdrawERC20_fullBalance() public {
         uint256 vaultBalance = sea.balanceOf(address(vault));
-        
+
         vault.withdrawERC20(address(sea), recipient, vaultBalance);
-        
+
         assertEq(sea.balanceOf(recipient), vaultBalance);
         assertEq(sea.balanceOf(address(vault)), 0);
     }
@@ -62,9 +62,9 @@ contract VaultTest is Test {
     /// @notice Test withdrawing zero amount (should succeed)
     function test_withdrawERC20_zeroAmount() public {
         uint256 recipientBalanceBefore = sea.balanceOf(recipient);
-        
+
         vault.withdrawERC20(address(sea), recipient, 0);
-        
+
         assertEq(sea.balanceOf(recipient), recipientBalanceBefore);
     }
 
@@ -72,9 +72,9 @@ contract VaultTest is Test {
     function test_withdrawERC20_differentDecimals() public {
         uint256 withdrawAmount = 1000_000_000; // 1000 USDC
         uint256 recipientBalanceBefore = usdc.balanceOf(recipient);
-        
+
         vault.withdrawERC20(address(usdc), recipient, withdrawAmount);
-        
+
         assertEq(usdc.balanceOf(recipient), recipientBalanceBefore + withdrawAmount);
     }
 
@@ -88,7 +88,7 @@ contract VaultTest is Test {
     /// @notice Test withdrawing more than balance reverts
     function test_withdrawERC20_revertInsufficientBalance() public {
         uint256 vaultBalance = sea.balanceOf(address(vault));
-        
+
         vm.expectRevert();
         vault.withdrawERC20(address(sea), recipient, vaultBalance + 1);
     }
@@ -105,11 +105,11 @@ contract VaultTest is Test {
     function testFuzz_withdrawERC20(uint256 amount) public {
         uint256 vaultBalance = sea.balanceOf(address(vault));
         amount = bound(amount, 0, vaultBalance);
-        
+
         uint256 recipientBalanceBefore = sea.balanceOf(recipient);
-        
+
         vault.withdrawERC20(address(sea), recipient, amount);
-        
+
         assertEq(sea.balanceOf(recipient), recipientBalanceBefore + amount);
     }
 
@@ -120,9 +120,9 @@ contract VaultTest is Test {
         uint256 withdrawAmount = 1 ether;
         uint256 recipientBalanceBefore = recipient.balance;
         uint256 vaultBalanceBefore = address(vault).balance;
-        
+
         vault.withdrawETH(recipient, withdrawAmount);
-        
+
         assertEq(recipient.balance, recipientBalanceBefore + withdrawAmount);
         assertEq(address(vault).balance, vaultBalanceBefore - withdrawAmount);
     }
@@ -130,9 +130,9 @@ contract VaultTest is Test {
     /// @notice Test withdrawing full ETH balance
     function test_withdrawETH_fullBalance() public {
         uint256 vaultBalance = address(vault).balance;
-        
+
         vault.withdrawETH(recipient, vaultBalance);
-        
+
         assertEq(recipient.balance, vaultBalance);
         assertEq(address(vault).balance, 0);
     }
@@ -140,9 +140,9 @@ contract VaultTest is Test {
     /// @notice Test withdrawing zero ETH (should succeed)
     function test_withdrawETH_zeroAmount() public {
         uint256 recipientBalanceBefore = recipient.balance;
-        
+
         vault.withdrawETH(recipient, 0);
-        
+
         assertEq(recipient.balance, recipientBalanceBefore);
     }
 
@@ -156,7 +156,7 @@ contract VaultTest is Test {
     /// @notice Test withdrawing more ETH than balance reverts
     function test_withdrawETH_revertInsufficientBalance() public {
         uint256 vaultBalance = address(vault).balance;
-        
+
         vm.expectRevert("ETH transfer failed");
         vault.withdrawETH(recipient, vaultBalance + 1);
     }
@@ -165,7 +165,7 @@ contract VaultTest is Test {
     function test_withdrawETH_revertReceiverRejects() public {
         // Deploy a contract that rejects ETH
         RejectingReceiver rejecter = new RejectingReceiver();
-        
+
         vm.expectRevert("ETH transfer failed");
         vault.withdrawETH(address(rejecter), 1 ether);
     }
@@ -174,7 +174,7 @@ contract VaultTest is Test {
     function test_withdrawETH_expensiveReceiver() public {
         // Deploy a contract with expensive receive function
         ExpensiveReceiver expensive = new ExpensiveReceiver();
-        
+
         // Should still succeed as we forward all gas
         vault.withdrawETH(address(expensive), 1 ether);
         assertEq(address(expensive).balance, 1 ether);
@@ -184,11 +184,11 @@ contract VaultTest is Test {
     function testFuzz_withdrawETH(uint256 amount) public {
         uint256 vaultBalance = address(vault).balance;
         amount = bound(amount, 0, vaultBalance);
-        
+
         uint256 recipientBalanceBefore = recipient.balance;
-        
+
         vault.withdrawETH(recipient, amount);
-        
+
         assertEq(recipient.balance, recipientBalanceBefore + amount);
     }
 
@@ -198,9 +198,9 @@ contract VaultTest is Test {
     function test_receiveETH() public {
         uint256 vaultBalanceBefore = address(vault).balance;
         uint256 sendAmount = 5 ether;
-        
+
         (bool success,) = address(vault).call{value: sendAmount}("");
-        
+
         assertTrue(success);
         assertEq(address(vault).balance, vaultBalanceBefore + sendAmount);
     }
@@ -211,15 +211,15 @@ contract VaultTest is Test {
         address sender2 = address(0xBBB);
         vm.deal(sender1, 10 ether);
         vm.deal(sender2, 10 ether);
-        
+
         uint256 vaultBalanceBefore = address(vault).balance;
-        
+
         vm.prank(sender1);
         (bool success1,) = address(vault).call{value: 3 ether}("");
-        
+
         vm.prank(sender2);
         (bool success2,) = address(vault).call{value: 2 ether}("");
-        
+
         assertTrue(success1);
         assertTrue(success2);
         assertEq(address(vault).balance, vaultBalanceBefore + 5 ether);
@@ -230,14 +230,14 @@ contract VaultTest is Test {
     /// @notice Test ownership transfer and withdrawal
     function test_ownershipTransfer() public {
         address newOwner = address(0x9999);
-        
+
         // Transfer ownership
         vault.transferOwnership(newOwner);
-        
+
         // Old owner can no longer withdraw
         vm.expectRevert("UNAUTHORIZED");
         vault.withdrawERC20(address(sea), recipient, 100 ether);
-        
+
         // New owner can withdraw
         vm.prank(newOwner);
         vault.withdrawERC20(address(sea), recipient, 100 ether);
@@ -255,7 +255,7 @@ contract RejectingReceiver {
 /// @notice Contract with expensive receive function
 contract ExpensiveReceiver {
     uint256 public counter;
-    
+
     receive() external payable {
         // Do some expensive operations
         for (uint256 i = 0; i < 100; i++) {

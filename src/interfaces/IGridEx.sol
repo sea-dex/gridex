@@ -53,7 +53,9 @@ interface IGridEx {
         uint128 minAmt, // base amount
         bytes calldata data,
         uint32 flag
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Fill multiple ask orders in a single transaction
     /// @dev More gas efficient than multiple single fills
@@ -87,7 +89,9 @@ interface IGridEx {
         uint128 minAmt, // base amount
         bytes calldata data,
         uint32 flag
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Fill multiple bid orders in a single transaction
     /// @dev More gas efficient than multiple single fills

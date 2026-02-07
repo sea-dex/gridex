@@ -10,8 +10,8 @@ import {Currency} from "../src/libraries/Currency.sol";
 /// @notice Tests for fee boundary conditions (MIN_FEE, MAX_FEE)
 contract GridExFeeTest is GridExBaseTest {
     // Fee constants from GridOrder.sol
-    uint32 public constant MIN_FEE = 100;      // 0.01%
-    uint32 public constant MAX_FEE = 100000;   // 10%
+    uint32 public constant MIN_FEE = 100; // 0.01%
+    uint32 public constant MAX_FEE = 100000; // 10%
 
     // ============ Fee Boundary Tests ============
 
@@ -24,7 +24,7 @@ contract GridExFeeTest is GridExBaseTest {
 
         // Should succeed with MIN_FEE
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MIN_FEE);
-        
+
         // Verify grid was created
         IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
         assertEq(config.fee, MIN_FEE);
@@ -39,7 +39,7 @@ contract GridExFeeTest is GridExBaseTest {
 
         // Should succeed with MAX_FEE
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MAX_FEE);
-        
+
         IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
         assertEq(config.fee, MAX_FEE);
     }
@@ -197,17 +197,17 @@ contract GridExFeeTest is GridExBaseTest {
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MIN_FEE);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
-        
+
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
         uint256 takerSeaBefore = sea.balanceOf(taker);
-        
+
         vm.startPrank(taker);
         exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
-        
+
         uint256 takerUsdcAfter = usdc.balanceOf(taker);
         uint256 takerSeaAfter = sea.balanceOf(taker);
-        
+
         // Taker should receive base tokens
         assertEq(takerSeaAfter - takerSeaBefore, amt);
         // Taker should pay quote tokens (including fee)
@@ -225,17 +225,17 @@ contract GridExFeeTest is GridExBaseTest {
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MAX_FEE);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
-        
+
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
         uint256 takerSeaBefore = sea.balanceOf(taker);
-        
+
         vm.startPrank(taker);
         exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
-        
+
         uint256 takerUsdcAfter = usdc.balanceOf(taker);
         uint256 takerSeaAfter = sea.balanceOf(taker);
-        
+
         // Taker should receive base tokens
         assertEq(takerSeaAfter - takerSeaBefore, amt);
         // Taker should pay quote tokens (including higher fee)
@@ -245,7 +245,7 @@ contract GridExFeeTest is GridExBaseTest {
     /// @notice Fuzz test for valid fee range
     function testFuzz_placeOrders_validFeeRange(uint32 fee) public {
         fee = uint32(bound(fee, MIN_FEE, MAX_FEE));
-        
+
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
@@ -269,7 +269,7 @@ contract GridExFeeTest is GridExBaseTest {
         vm.startPrank(maker);
         exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
-        
+
         IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
         assertEq(config.fee, fee);
     }
@@ -277,7 +277,7 @@ contract GridExFeeTest is GridExBaseTest {
     /// @notice Fuzz test for invalid fee range (below min)
     function testFuzz_placeOrders_invalidFeeBelowMin(uint32 fee) public {
         vm.assume(fee < MIN_FEE);
-        
+
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
@@ -307,7 +307,7 @@ contract GridExFeeTest is GridExBaseTest {
     /// @notice Fuzz test for invalid fee range (above max)
     function testFuzz_placeOrders_invalidFeeAboveMax(uint32 fee) public {
         vm.assume(fee > MAX_FEE);
-        
+
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
@@ -344,7 +344,7 @@ contract GridExFeeTest is GridExBaseTest {
         uint128 amt = 0.01 ether;
 
         _placeOrders(address(0), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MIN_FEE);
-        
+
         IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
         assertEq(config.fee, MIN_FEE);
     }
@@ -357,7 +357,7 @@ contract GridExFeeTest is GridExBaseTest {
         uint128 amt = 0.01 ether;
 
         _placeOrders(address(0), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MAX_FEE);
-        
+
         IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
         assertEq(config.fee, MAX_FEE);
     }
@@ -378,7 +378,7 @@ contract GridExFeeTest is GridExBaseTest {
         sea.transfer(maker, 100000 ether);
         // forge-lint: disable-next-line
         usdc.transfer(maker, 10000_000_000); // 10000 USDC
-        
+
         vm.startPrank(maker);
         sea.approve(address(exchange), type(uint256).max);
         usdc.approve(address(exchange), type(uint256).max);
@@ -387,15 +387,15 @@ contract GridExFeeTest is GridExBaseTest {
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 10000); // 1% fee
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
-        
+
         uint256 vaultUsdcBefore = usdc.balanceOf(vault);
-        
+
         vm.startPrank(taker);
         exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
-        
+
         uint256 vaultUsdcAfter = usdc.balanceOf(vault);
-        
+
         // Vault should receive protocol fee
         assertTrue(vaultUsdcAfter > vaultUsdcBefore, "Vault should receive protocol fee");
     }
@@ -411,17 +411,17 @@ contract GridExFeeTest is GridExBaseTest {
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
         uint256 gridOrderId = toGridOrderId(1, orderId);
-        
+
         // Fill ask order
         vm.startPrank(taker);
         exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
-        
+
         // Fill the reverse bid order (ERC20 pair, flag=0 for no ETH)
         vm.startPrank(taker);
         exchange.fillBidOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
-        
+
         // Check grid profits
         uint256 profits = exchange.getGridProfits(1);
         assertTrue(profits > 0, "Grid should have accumulated profits");

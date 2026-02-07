@@ -79,8 +79,8 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
             gridConf.profits,
             // fee -
             calcMakerFee(fee) + (amt * gap) / PRICE_MULTIPLIER
-            // fees2 -
-            + calcMakerFee(fees2)
+                // fees2 -
+                + calcMakerFee(fees2)
         );
         // assertEq(
         //     exchange.protocolProfits(Currency.wrap(address(weth))),
@@ -247,8 +247,8 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
             gridConf.profits,
             // fees -
             calcMakerFee(fees) + (amt * gap) / PRICE_MULTIPLIER
-            // fees2 -
-            + calcMakerFee(fees2)
+                // fees2 -
+                + calcMakerFee(fees2)
         );
         // assertEq(
         //     exchange.protocolProfits(Currency.wrap(address(weth))),

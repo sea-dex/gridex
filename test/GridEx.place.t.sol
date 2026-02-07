@@ -47,9 +47,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
-           // forge-lint: disable-next-line(unsafe-typecast)
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
-           // forge-lint: disable-next-line(unsafe-typecast)
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: 0,
