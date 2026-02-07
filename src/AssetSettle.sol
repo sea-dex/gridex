@@ -17,6 +17,10 @@ contract AssetSettle {
     /// @notice The WETH contract address
     address public immutable WETH;
 
+    /// @notice Emitted when an ETH refund attempt fails (refund remains in the contract)
+    /// @dev Allows off-chain reconciliation / manual refunding when recipients cannot accept ETH.
+    event RefundFailed(address indexed to, uint256 amount);
+
     /// @notice Thrown when the paid amount is not enough
     error NotEnough();
 
@@ -50,12 +54,15 @@ contract AssetSettle {
 
     /// @notice Try to pay back ETH to an address, ignoring failures
     /// @dev Does not revert if the transfer fails (e.g., recipient is a contract that rejects ETH)
+    ///      but emits an event so refunds can be reconciled off-chain.
     /// @param to The recipient address
     /// @param value The amount of ETH to transfer
     // forge-lint: disable-next-line(mixed-case-function)
     function tryPaybackETH(address to, uint256 value) internal {
         (bool success,) = to.call{value: value}(new bytes(0));
-        success;
+        if (!success) {
+            emit RefundFailed(to, value);
+        }
     }
 
     /// @notice Settle assets with support for ETH wrapping/unwrapping
