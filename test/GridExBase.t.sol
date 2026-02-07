@@ -38,6 +38,9 @@ contract GridExBaseTest is Test {
         exchange = new GridEx(address(weth), address(usdc), vault);
         linear = new Linear(address(exchange));
 
+        // Whitelist the linear strategy
+        exchange.setStrategyWhitelist(address(linear), true);
+
         // Set oneshot protocol fee (500 bps = 0.05%)
         exchange.setOneshotProtocolFeeBps(500);
 

@@ -179,4 +179,15 @@ interface IGridEx {
     /// @notice Get the current protocol fee for oneshot orders
     /// @return The oneshot protocol fee in basis points
     function getOneshotProtocolFeeBps() external view returns (uint32);
+
+    /// @notice Set the whitelist status for a strategy contract
+    /// @dev Only callable by the owner. Only whitelisted strategies can be used for grid orders.
+    /// @param strategy The strategy contract address
+    /// @param whitelisted True to whitelist, false to remove from whitelist
+    function setStrategyWhitelist(address strategy, bool whitelisted) external;
+
+    /// @notice Check if a strategy is whitelisted
+    /// @param strategy The strategy contract address to check
+    /// @return True if the strategy is whitelisted
+    function isStrategyWhitelisted(address strategy) external view returns (bool);
 }

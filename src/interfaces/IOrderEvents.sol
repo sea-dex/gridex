@@ -82,4 +82,10 @@ interface IOrderEvents {
     /// @param oldFeeBps The old fee in basis points
     /// @param newFeeBps The new fee in basis points
     event OneshotProtocolFeeChanged(address indexed sender, uint32 oldFeeBps, uint32 newFeeBps);
+
+    /// @notice Emitted when a strategy's whitelist status is changed
+    /// @param sender The address that changed the whitelist status
+    /// @param strategy The strategy contract address
+    /// @param whitelisted True if the strategy is now whitelisted, false if removed
+    event StrategyWhitelistUpdated(address indexed sender, address indexed strategy, bool whitelisted);
 }

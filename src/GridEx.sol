@@ -35,6 +35,10 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @dev Internal state for managing grid orders
     GridOrder.GridState internal _gridState;
 
+    /// @notice Mapping of whitelisted strategy contracts
+    /// @dev Only whitelisted strategies can be used for grid orders
+    mapping(address => bool) public whitelistedStrategies;
+
     /// @notice Creates a new GridEx contract
     /// @param weth_ The WETH contract address
     /// @param usd_ The USD stablecoin address (highest priority quote token)
@@ -148,6 +152,18 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
         private
         returns (Pair memory pair, uint128 baseAmt, uint128 quoteAmt)
     {
+        // Validate that strategies are whitelisted
+        if (param.askOrderCount > 0) {
+            if (!whitelistedStrategies[address(param.askStrategy)]) {
+                revert IOrderErrors.StrategyNotWhitelisted();
+            }
+        }
+        if (param.bidOrderCount > 0) {
+            if (!whitelistedStrategies[address(param.bidStrategy)]) {
+                revert IOrderErrors.StrategyNotWhitelisted();
+            }
+        }
+
         pair = getOrCreatePair(base, quote);
 
         uint256 startAskOrderId;
@@ -545,5 +561,17 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @dev Only callable by the owner
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /// @inheritdoc IGridEx
+    function setStrategyWhitelist(address strategy, bool whitelisted) external override onlyOwner {
+        require(strategy != address(0), "Invalid strategy address");
+        whitelistedStrategies[strategy] = whitelisted;
+        emit IOrderEvents.StrategyWhitelistUpdated(msg.sender, strategy, whitelisted);
+    }
+
+    /// @inheritdoc IGridEx
+    function isStrategyWhitelisted(address strategy) external view override returns (bool) {
+        return whitelistedStrategies[strategy];
     }
 }

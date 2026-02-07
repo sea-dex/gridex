@@ -28,6 +28,9 @@ contract GridExPlaceTest is Test {
         usdc = new USDC();
         exchange = new GridEx(address(weth), address(usdc), address(0x0888880));
         linear = new Linear(address(exchange));
+
+        // Whitelist the linear strategy
+        exchange.setStrategyWhitelist(address(linear), true);
     }
 
     function test_PlaceAskGridOrder() public {

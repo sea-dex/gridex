@@ -48,6 +48,9 @@ interface IOrderErrors {
     error NotLimitOrder();
 
     /// @notice Thrown when msg.sender is not the order owner
+
+    /// @notice Thrown when the strategy is not whitelisted
+    error StrategyNotWhitelisted();
     error NotOrderOwner();
 
     /// @notice Thrown when maximum ask order ID is reached
