@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-import {IWETH} from "../src/interfaces/IWETH.sol";
-import {IPair} from "../src/interfaces/IPair.sol";
-import {IGridEx} from "../src/interfaces/IGridEx.sol";
+// import {IPair} from "../src/interfaces/IPair.sol";
+// import {IGridEx} from "../src/interfaces/IGridEx.sol";
+// import {IWETH} from "../src/interfaces/IWETH.sol";
 // import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
-import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
+// import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
 
-import {Test, console} from "forge-std/Test.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+// import {Test, console} from "forge-std/Test.sol";
+// import {ERC20} from "solmate/tokens/ERC20.sol";
 
-import {GridEx} from "../src/GridEx.sol";
+// import {GridEx} from "../src/GridEx.sol";
 // import {GridOrder} from "../src/GridOrder.sol";
-import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
+import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
 
-import {SEA} from "./utils/SEA.sol";
-import {USDC} from "./utils/USDC.sol";
-import {WETH} from "./utils/WETH.sol";
+// import {SEA} from "./utils/SEA.sol";
+// import {USDC} from "./utils/USDC.sol";
+// import {WETH} from "./utils/WETH.sol";
 
 import {GridExBaseTest} from "./GridExBase.t.sol";
 
@@ -83,6 +83,7 @@ contract GridExProfitTest is GridExBaseTest {
         exchange.withdrawGridProfits(1, 0, maker, 1);
         vm.stopPrank();
 
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint128 gapProfit = uint128((amt * gap) / PRICE_MULTIPLIER);
         assertEq(initialETHAmt + gapProfit + calcMakerFee(fees) - fees / 4, eth.balanceOf(maker));
     }

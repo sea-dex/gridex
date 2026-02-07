@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.5.0;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./IGridOrder.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "../libraries/Currency.sol";
 
 interface IGridEx {
@@ -20,6 +22,7 @@ interface IGridEx {
     /// @notice Place WETH grid orders, ether base or quote should be ETH
     /// @param base The base token
     /// @param quote The quote token
+    // forge-lint: disable-next-line(mixed-case-function)
     function placeETHGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param)
         external
         payable;

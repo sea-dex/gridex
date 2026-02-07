@@ -5,8 +5,11 @@ import {Currency} from "./libraries/Currency.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 contract AssetSettle {
+    using SafeTransferLib for ERC20;
+
     address public immutable WETH;
 
     /// @notice Thrown when not enough
@@ -21,10 +24,11 @@ contract AssetSettle {
                 revert NotEnough();
             }
         } else {
-            ERC20(Currency.unwrap(token)).transferFrom(addr, address(this), amount);
+            ERC20(Currency.unwrap(token)).safeTransferFrom(addr, address(this), amount);
         }
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function safeTransferETH(address to, uint256 value) internal {
         (bool success,) = to.call{value: value}(new bytes(0));
         require(success, "TransferHelper::safeTransferETH: ETH transfer failed");
@@ -40,7 +44,7 @@ contract AssetSettle {
         uint32 flag
     ) internal {
         if (flag == 0) {
-            ERC20(Currency.unwrap(inToken)).transferFrom(addr, address(this), inAmt);
+            ERC20(Currency.unwrap(inToken)).safeTransferFrom(addr, address(this), inAmt);
             outToken.transfer(addr, outAmt);
         } else {
             // in token
@@ -51,7 +55,7 @@ contract AssetSettle {
                     safeTransferETH(addr, paid - inAmt);
                 }
             } else {
-                ERC20(Currency.unwrap(inToken)).transferFrom(addr, address(this), inAmt);
+                ERC20(Currency.unwrap(inToken)).safeTransferFrom(addr, address(this), inAmt);
             }
 
             // out token
@@ -76,9 +80,10 @@ contract AssetSettle {
     }
 
     function transferTokenFrom(Currency token, address addr, uint256 amount) internal {
-        ERC20(Currency.unwrap(token)).transferFrom(addr, address(this), amount);
+        ERC20(Currency.unwrap(token)).safeTransferFrom(addr, address(this), amount);
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function transferETHFrom(address from, uint128 amt, uint128 paid) internal {
         IWETH(WETH).deposit{value: amt}();
         if (paid > amt) {

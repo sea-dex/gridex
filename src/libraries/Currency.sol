@@ -114,6 +114,8 @@ library CurrencyLibrary {
     // If the upper 12 bytes are non-zero, they will be zero-ed out
     // Therefore, fromId() and toId() are not inverses of each other
     function fromId(uint256 id) internal pure returns (Currency) {
+        // casting to 'uint160' is safe because id is address
+        // forge-lint: disable-next-line(unsafe-typecast)
         return Currency.wrap(address(uint160(id)));
     }
 }

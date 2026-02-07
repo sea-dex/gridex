@@ -14,6 +14,7 @@ library SafeCast {
     /// @param x The uint256 to be downcasted
     /// @return y The downcasted integer, now type uint160
     function toUint160(uint256 x) internal pure returns (uint160 y) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         y = uint160(x);
         if (y != x) SafeCastOverflow.selector.revertWith();
     }
@@ -22,6 +23,7 @@ library SafeCast {
     /// @param x The uint256 to be downcasted
     /// @return y The downcasted integer, now type uint128
     function toUint128(uint256 x) internal pure returns (uint128 y) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         y = uint128(x);
         if (x != y) SafeCastOverflow.selector.revertWith();
     }
@@ -31,6 +33,8 @@ library SafeCast {
     /// @return y The casted integer, now type uint128
     function toUint128(int128 x) internal pure returns (uint128 y) {
         if (x < 0) SafeCastOverflow.selector.revertWith();
+        // casting to 'uint128' is safe because x >= 0
+        // forge-lint: disable-next-line(unsafe-typecast)
         y = uint128(x);
     }
 
@@ -38,6 +42,7 @@ library SafeCast {
     /// @param x The int256 to be downcasted
     /// @return y The downcasted integer, now type int128
     function toInt128(int256 x) internal pure returns (int128 y) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         y = int128(x);
         if (y != x) SafeCastOverflow.selector.revertWith();
     }
@@ -46,6 +51,7 @@ library SafeCast {
     /// @param x The uint256 to be casted
     /// @return y The casted integer, now type int256
     function toInt256(uint256 x) internal pure returns (int256 y) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         y = int256(x);
         if (y < 0) SafeCastOverflow.selector.revertWith();
     }
@@ -55,6 +61,8 @@ library SafeCast {
     /// @return The downcasted integer, now type int128
     function toInt128(uint256 x) internal pure returns (int128) {
         if (x >= 1 << 127) SafeCastOverflow.selector.revertWith();
+        // casting to 'int128' is safe here
+        // forge-lint: disable-next-line(unsafe-typecast)
         return int128(int256(x));
     }
 }

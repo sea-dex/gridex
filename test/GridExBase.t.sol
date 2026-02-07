@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-import {IWETH} from "../src/interfaces/IWETH.sol";
-import {IPair} from "../src/interfaces/IPair.sol";
+// import {IWETH} from "../src/interfaces/IWETH.sol";
+// import {IPair} from "../src/interfaces/IPair.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-import {IGridEx} from "../src/interfaces/IGridEx.sol";
+// import {IGridEx} from "../src/interfaces/IGridEx.sol";
 // import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
-import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
+// import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
 
-import {Test, console} from "forge-std/Test.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {Test} from "forge-std/Test.sol";
+// import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {GridEx} from "../src/GridEx.sol";
 // import {GridOrder} from "../src/GridOrder.sol";
-import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
+import {Currency} from "../src/libraries/Currency.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Lens} from "../src/libraries/Lens.sol";
 
@@ -32,9 +32,12 @@ contract GridExBaseTest is Test {
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     address maker = address(0x100);
     address taker = address(0x200);
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 initialETHAmt = 10 ether;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 initialSEAAmt = 1000000 ether;
-    uint256 initialUSDCAmt = 10000_000_000;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    uint256 initialUSDCAmt = 10000_000_000; 
 
     function setUp() public {
         weth = new WETH();
@@ -44,11 +47,15 @@ contract GridExBaseTest is Test {
         linear = new Linear();
 
         vm.deal(maker, initialETHAmt);
+        // forge-lint: disable-next-line
         sea.transfer(maker, initialSEAAmt);
+        // forge-lint: disable-next-line
         usdc.transfer(maker, initialUSDCAmt);
 
         vm.deal(taker, initialETHAmt);
+        // forge-lint: disable-next-line
         sea.transfer(taker, initialSEAAmt);
+        // forge-lint: disable-next-line
         usdc.transfer(taker, initialUSDCAmt);
 
         vm.startPrank(maker);
@@ -84,7 +91,9 @@ contract GridExBaseTest is Test {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,
@@ -124,7 +133,9 @@ contract GridExBaseTest is Test {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,
@@ -164,7 +175,9 @@ contract GridExBaseTest is Test {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: asks,
             bidOrderCount: bids,

@@ -2,20 +2,21 @@
 pragma solidity ^0.8.28;
 
 // import "./interfaces/IWETH.sol";
-import {IPair} from "./interfaces/IPair.sol";
+// import {IPair} from "./interfaces/IPair.sol";
 import {IGridOrder} from "./interfaces/IGridOrder.sol";
 import {IGridEx} from "./interfaces/IGridEx.sol";
-import {IERC20Minimal} from "./interfaces/IERC20Minimal.sol";
+// import {IERC20Minimal} from "./interfaces/IERC20Minimal.sol";
 import {IGridCallback} from "./interfaces/IGridCallback.sol";
 import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "./interfaces/IOrderEvents.sol";
 
 import {Pair} from "./Pair.sol";
-// import {GridOrder} from "./GridOrder.sol";
+import {AssetSettle} from "./AssetSettle.sol";
+
 import {SafeCast} from "./libraries/SafeCast.sol";
 import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
 import {GridOrder} from "./libraries/GridOrder.sol";
-import {AssetSettle} from "./AssetSettle.sol";
+// import {Lens} from "./libraries/Lens.sol";
 
 import {Owned} from "solmate/auth/Owned.sol";
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
@@ -23,7 +24,6 @@ import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
 contract GridEx is
     IGridEx,
     AssetSettle,
-    // GridOrder,
     Pair,
     Owned,
     ReentrancyGuard
@@ -89,11 +89,13 @@ contract GridEx is
         return _gridState.gridConfigs[gridId];
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function placeETHGridOrders(
         Currency base,
         Currency quote,
         IGridOrder.GridOrderParam calldata param
     ) public payable {
+        // forge-lint: disable-next-line(mixed-case-variable)
         bool baseIsETH = false;
         if (base.isAddressZero()) {
             baseIsETH = true;
@@ -256,7 +258,6 @@ contract GridEx is
             );
             require(balanceBefore + inAmt <= pair.quote.balanceOfSelf(), "G1");
         } else {
-            incProtocolProfits(pair.quote, result.protocolFee);
             AssetSettle.settleAssetWith(
                 pair.quote,
                 pair.base,
@@ -266,6 +267,7 @@ contract GridEx is
                 msg.value,
                 flag
             );
+            incProtocolProfits(pair.quote, result.protocolFee);
         }
     }
 
@@ -360,7 +362,6 @@ contract GridEx is
                 "G3"
             );
         } else {
-            incProtocolProfits(quote, filled.protocolFee);
             AssetSettle.settleAssetWith(
                 quote,
                 pair.base,
@@ -370,6 +371,7 @@ contract GridEx is
                 msg.value,
                 flag
             );
+            incProtocolProfits(quote, filled.protocolFee);
         }
     }
 
@@ -442,7 +444,6 @@ contract GridEx is
                 "G4"
             );
         } else {
-            incProtocolProfits(pair.quote, result.protocolFee);
             AssetSettle.settleAssetWith(
                 pair.base,
                 pair.quote,
@@ -452,6 +453,7 @@ contract GridEx is
                 msg.value,
                 flag
             );
+            incProtocolProfits(pair.quote, result.protocolFee);
         }
     }
 
@@ -538,7 +540,6 @@ contract GridEx is
                 "G6"
             );
         } else {
-            incProtocolProfits(pair.quote, protocolFee);
             AssetSettle.settleAssetWith(
                 pair.base,
                 pair.quote,
@@ -548,6 +549,7 @@ contract GridEx is
                 msg.value,
                 flag
             );
+            incProtocolProfits(pair.quote, protocolFee);
         }
     }
 
@@ -571,9 +573,18 @@ contract GridEx is
             revert IOrderErrors.NoProfits();
         }
 
+        if (amt >= 1<<128) {
+            revert IOrderErrors.ExceedMaxAmount();
+        }
+
         Pair memory pair = getPairById[conf.pairId];
+
+        // casting to 'uint128' is safe because amt < 1<<128
+        // forge-lint: disable-next-line(unsafe-typecast)
         _gridState.gridConfigs[gridId].profits = conf.profits - uint128(amt);
         // pair.quote.transfer(to, amt);
+        // casting to 'uint128' is safe because amt < 1<<128
+        // forge-lint: disable-next-line(unsafe-typecast)
         AssetSettle.transferAssetTo(pair.quote, to, uint128(amt), flag);
 
         emit WithdrawProfit(gridId, pair.quote, to, amt);

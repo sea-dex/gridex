@@ -22,6 +22,7 @@ abstract contract ERC20 {
 
     string public symbol;
 
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     uint8 public immutable decimals;
 
     /*//////////////////////////////////////////////////////////////
@@ -148,6 +149,7 @@ abstract contract ERC20 {
         emit Approval(owner, spender, value);
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
         return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : computeDomainSeparator();
     }

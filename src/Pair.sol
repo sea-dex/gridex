@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./interfaces/IPair.sol";
 
-import "./libraries/TransferHelper.sol";
-import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
+// import "./libraries/TransferHelper.sol";
+import {Currency} from "./libraries/Currency.sol";
 
 abstract contract Pair is IPair {
     /// pair id

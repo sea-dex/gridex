@@ -25,6 +25,8 @@ library Lens {
         if (amt >= uint256(type(uint128).max)) {
             revert IOrderErrors.ExceedQuoteAmt();
         }
+        // casting to 'uint128' is safe because has verified above
+        // forge-lint: disable-next-line(unsafe-typecast)
         return uint128(amt);
     }
 

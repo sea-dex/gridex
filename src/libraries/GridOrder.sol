@@ -12,11 +12,11 @@ library GridOrder {
     uint32 public constant MIN_FEE = 100; // 0.01%
     uint32 public constant MAX_FEE = 100000; // 10%
 
-    uint256 private constant OderIdMask = 0xffffffffffffffffffffffffffffffff;
-    uint128 private constant AskOderMask = 0x80000000000000000000000000000000;
+    uint256 private constant ODER_ID_MASK = 0xffffffffffffffffffffffffffffffff;
+    uint128 private constant ASK_ODER_MASK = 0x80000000000000000000000000000000;
 
-    uint32 private constant GridStatusNormal = 0;
-    uint32 private constant GridStatusCanceled = 1;
+    uint32 private constant GRID_STATUS_NORMAL = 0;
+    uint32 private constant GRID_STATUS_CANCELED = 1;
 
     struct GridState {
         uint128 nextGridId; // start from 1;
@@ -57,11 +57,13 @@ library GridOrder {
     }
 
     function isAskGridOrder(uint256 orderId) public pure returns (bool) {
-        return (orderId & AskOderMask) > 0;
+        return (orderId & ASK_ODER_MASK) > 0;
     }
 
     function extractGridIdOrderId(uint256 gridOrderId) internal pure returns (uint128, uint128) {
-        return (uint128(gridOrderId >> 128), uint128(gridOrderId & OderIdMask));
+        // casting to 'uint128' is safe here
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return (uint128(gridOrderId >> 128), uint128(gridOrderId & ODER_ID_MASK));
     }
 
     // should check order status by caller
@@ -136,7 +138,7 @@ library GridOrder {
             fee: param.fee,
             compound: param.compound,
             oneshot: param.oneshot,
-            status: GridStatusNormal
+            status: GRID_STATUS_NORMAL
         });
 
         return gridId;
@@ -172,7 +174,7 @@ library GridOrder {
 
             // uint256 price0 = param.bidPrice0;
             // uint256 gap = param.bidGap;
-            for (uint256 i = 0; i < param.bidOrderCount; ++i) {
+            for (uint128 i = 0; i < param.bidOrderCount; ++i) {
                 uint256 price = IGridStrategy(param.bidStrategy).getPrice(false, gridId, uint128(i));
                 uint128 amt = Lens.calcQuoteAmount(baseAmt, price, false);
                 quoteAmt += amt;
@@ -208,13 +210,13 @@ library GridOrder {
             );
         }
 
-        if ((self.orderStatus[gridOrderId] != GridStatusNormal) || gridConf.status != GridStatusNormal) {
+        if ((self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) || gridConf.status != GRID_STATUS_NORMAL) {
             if (forFill) {
                 revert IOrderErrors.OrderCanceled();
             }
-            orderInfo.status = GridStatusCanceled;
+            orderInfo.status = GRID_STATUS_CANCELED;
         } else {
-            orderInfo.status = GridStatusNormal;
+            orderInfo.status = GRID_STATUS_NORMAL;
         }
 
         orderInfo.gridId = gridId;
@@ -278,7 +280,7 @@ library GridOrder {
     }
 
     function completeOneShotOrder(GridState storage self, uint256 gridOrderId) internal {
-        self.orderStatus[gridOrderId] = GridStatusCanceled;
+        self.orderStatus[gridOrderId] = GRID_STATUS_CANCELED;
     }
 
     function fillAskOrder(
@@ -458,7 +460,7 @@ library GridOrder {
             revert IOrderErrors.NotGridOwer();
         }
 
-        if (gridConf.status != GridStatusNormal) {
+        if (gridConf.status != GRID_STATUS_NORMAL) {
             revert IOrderErrors.OrderCanceled();
         }
 
@@ -469,7 +471,7 @@ library GridOrder {
             for (uint32 i = 0; i < gridConf.askOrderCount; i++) {
                 uint128 orderId = gridConf.startAskOrderId + i;
                 uint256 gridOrderId = toGridOrderId(gridId, orderId);
-                if (self.orderStatus[gridOrderId] != GridStatusNormal) {
+                if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
                     continue;
                 }
 
@@ -488,7 +490,7 @@ library GridOrder {
             for (uint32 i = 0; i < gridConf.bidOrderCount; i++) {
                 uint128 orderId = gridConf.startBidOrderId + i;
                 uint256 gridOrderId = toGridOrderId(gridId, orderId);
-                if (self.orderStatus[gridOrderId] != GridStatusNormal) {
+                if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
                     continue;
                 }
                 // do not set orderStatus to save gas
@@ -508,7 +510,7 @@ library GridOrder {
             self.gridConfigs[gridId].profits = 0;
         }
 
-        self.gridConfigs[gridId].status = GridStatusCanceled;
+        self.gridConfigs[gridId].status = GRID_STATUS_CANCELED;
 
         return (gridConf.pairId, baseAmt, quoteAmt);
     }
@@ -522,7 +524,7 @@ library GridOrder {
             revert IOrderErrors.NotGridOwer();
         }
 
-        if (gridConf.status != GridStatusNormal) {
+        if (gridConf.status != GRID_STATUS_NORMAL) {
             revert IOrderErrors.OrderCanceled();
         }
 
@@ -533,7 +535,7 @@ library GridOrder {
             (uint128 gid, uint128 orderId) = extractGridIdOrderId(gridOrderId);
             require(gid == gridId, "E5");
 
-            if (self.orderStatus[gridOrderId] != GridStatusNormal) {
+            if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
                 revert IOrderErrors.OrderCanceled();
             }
 
@@ -542,7 +544,7 @@ library GridOrder {
                 baseAmt += ba;
                 quoteAmt += qa;
             }
-            self.orderStatus[gridOrderId] = GridStatusCanceled;
+            self.orderStatus[gridOrderId] = GRID_STATUS_CANCELED;
             emit IOrderEvents.CancelGridOrder(msg.sender, orderId, gridId);
         }
 

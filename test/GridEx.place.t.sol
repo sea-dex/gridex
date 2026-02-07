@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-import {IWETH} from "../src/interfaces/IWETH.sol";
-import {IPair} from "../src/interfaces/IPair.sol";
-import {IGridEx} from "../src/interfaces/IGridEx.sol";
+// import {IWETH} from "../src/interfaces/IWETH.sol";
+// import {IPair} from "../src/interfaces/IPair.sol";
+// import {IGridEx} from "../src/interfaces/IGridEx.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 // import {IGridExCallback} from "../src/interfaces/IGridExCallback.sol";
-import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
+// import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
 
-import {Test, console} from "forge-std/Test.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {Test} from "forge-std/Test.sol";
+// import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {GridEx} from "../src/GridEx.sol";
 // import {GridOrder} from "../src/GridOrder.sol";
 import {Linear} from "../src/strategy/Linear.sol";
-import {Currency, CurrencyLibrary} from "../src/libraries/Currency.sol";
+import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
 
 import {SEA} from "./utils/SEA.sol";
@@ -34,7 +34,7 @@ contract GridExPlaceTest is Test {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
-        exchange = new GridEx(address(weth), address(usdc), address(0));
+        exchange = new GridEx(address(weth), address(usdc), address(0x0888880));
         linear = new Linear();
     }
 
@@ -46,6 +46,7 @@ contract GridExPlaceTest is Test {
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
+        // forge-lint: disable-next-line
         sea.transfer(maker, baseAmt);
 
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
@@ -54,7 +55,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+           // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+           // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: 0,
@@ -90,7 +93,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: 0,
@@ -118,6 +123,7 @@ contract GridExPlaceTest is Test {
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
         address maker = address(0x123);
 
+        // forge-lint: disable-next-line
         usdc.transfer(maker, usdcAmt);
 
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
@@ -126,7 +132,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: 0,
             // bidPrice0: bidPrice0,
@@ -163,7 +171,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: 0,
             // bidPrice0: bidPrice0,
@@ -198,7 +208,9 @@ contract GridExPlaceTest is Test {
         uint256 bidPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
+        // forge-lint: disable-next-line
         usdc.transfer(maker, usdcAmt);
+        // forge-lint: disable-next-line
         sea.transfer(maker, uint256(asks) * perBaseAmt);
 
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
@@ -207,7 +219,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
@@ -244,6 +258,7 @@ contract GridExPlaceTest is Test {
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // eth/usdc
+        // forge-lint: disable-next-line
         usdc.transfer(maker, usdcAmt);
         vm.deal(maker, uint256(asks) * perBaseAmt);
 
@@ -253,7 +268,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
@@ -293,6 +310,7 @@ contract GridExPlaceTest is Test {
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // eth/usdc
+        // forge-lint: disable-next-line
         usdc.transfer(maker, usdcAmt);
         vm.deal(maker, uint256(asks) * perBaseAmt);
 
@@ -302,7 +320,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,
@@ -342,6 +362,7 @@ contract GridExPlaceTest is Test {
         uint256 gap = uint256((5 * PRICE_MULTIPLIER) / 10000 / (10 ** 12));
 
         // sea/weth
+        // forge-lint: disable-next-line
         sea.transfer(maker, baseAmt);
         vm.deal(maker, ethAmt);
 
@@ -351,7 +372,9 @@ contract GridExPlaceTest is Test {
             baseAmount: perBaseAmt,
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             // askPrice0: askPrice0,
             // bidPrice0: bidPrice0,

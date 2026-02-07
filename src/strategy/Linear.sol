@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-import {IGridOrder} from "../interfaces/IGridOrder.sol";
+// import {IGridOrder} from "../interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../interfaces/IGridStrategy.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
@@ -39,7 +39,7 @@ contract Linear is IGridStrategy {
         bytes memory data
     ) external override {
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
-        strategies[gridIdKey(isAsk, gridId)] = LinearStrategy(price0, gap);
+        strategies[gridIdKey(isAsk, gridId)] = LinearStrategy({basePrice: price0, gap: gap});
 
         emit LinearStrategyCreated(isAsk, gridId, price0, gap);
     }
@@ -52,12 +52,16 @@ contract Linear is IGridStrategy {
     ) external pure override {
         require(count >= 1, "L0");
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
-        require(price0 > 0 && gap != 0, "L1");
+        require(price0 > 0 && price0 < (1<<128) && gap != 0, "L1");
 
         if (isAsk) {
             require(gap > 0, "L2");
+            // casting to 'uint256' is safe because gap > 0
+            // forge-lint: disable-next-line(unsafe-typecast)
             require(uint256(gap) < price0, "L3");
             require(
+                // casting to 'uint256' is safe because gap > 0
+                // forge-lint: disable-next-line(unsafe-typecast)
                 uint256(price0) + uint256(count - 1) * uint256(int256(gap)) <
                     uint256(type(uint256).max),
                 "L4"
@@ -65,6 +69,8 @@ contract Linear is IGridStrategy {
             require(
                 FullMath.mulDivRoundingUp(
                     uint256(amt),
+                    // casting to 'uint256' is safe because gap > 0
+                    // forge-lint: disable-next-line(unsafe-typecast)
                     uint256(price0 - uint256(gap)),
                     PRICE_MULTIPLIER
                 ) > 0,
@@ -73,17 +79,22 @@ contract Linear is IGridStrategy {
         } else {
             require(gap < 0, "L5");
             require(
+                // casting to 'uint256' is safe because gap < 0
+                // forge-lint: disable-next-line(unsafe-typecast)
                 uint256(price0) + uint256(-int256(gap)) <
                     uint256(type(uint256).max),
                 "L6"
             );
+            // casting to 'uint256' is safe because price0 < 1<<128
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256 priceLast = int256(uint256(price0)) +
                 int256(gap) *
-                int256(int32(count) - 1);
+                int256(uint256(count) - 1);
             require(priceLast > 0, "L7");
             require(
                 FullMath.mulDivRoundingUp(
                     uint256(amt),
+                    // forge-lint: disable-next-line(unsafe-typecast)
                     uint256(priceLast),
                     PRICE_MULTIPLIER
                 ) > 0,
