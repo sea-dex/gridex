@@ -35,7 +35,7 @@ contract GridExPlaceTest is Test {
         sea = new SEA();
         usdc = new USDC();
         exchange = new GridEx(address(weth), address(usdc), address(0x0888880));
-        linear = new Linear();
+        linear = new Linear(address(exchange));
     }
 
     function test_PlaceAskGridOrder() public {

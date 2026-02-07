@@ -44,7 +44,7 @@ contract GridExBaseTest is Test {
         sea = new SEA();
         usdc = new USDC();
         exchange = new GridEx(address(weth), address(usdc), vault);
-        linear = new Linear();
+        linear = new Linear(address(exchange));
 
         vm.deal(maker, initialETHAmt);
         // forge-lint: disable-next-line
