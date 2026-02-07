@@ -3,8 +3,6 @@ pragma solidity ^0.8.33;
 
 import {GridExBaseTest} from "./GridExBase.t.sol";
 import {IGridCallback} from "../src/interfaces/IGridCallback.sol";
-import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-import {Currency} from "../src/libraries/Currency.sol";
 import {IERC20Minimal} from "../src/interfaces/IERC20Minimal.sol";
 
 /// @title GridExCallbackTest
@@ -24,16 +22,24 @@ contract GridExCallbackTest is GridExBaseTest {
         validCallback = new ValidCallback();
         
         // Fund the callback contracts
+        // forge-lint: disable-next-line
         sea.transfer(address(maliciousCallback), 1000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(address(maliciousCallback), 1000_000_000);
         
+        // forge-lint: disable-next-line
         sea.transfer(address(reentrantCallback), 1000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(address(reentrantCallback), 1000_000_000);
         
+        // forge-lint: disable-next-line
         sea.transfer(address(insufficientCallback), 1000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(address(insufficientCallback), 1000_000_000);
         
+        // forge-lint: disable-next-line
         sea.transfer(address(validCallback), 1000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(address(validCallback), 1000_000_000);
         
         // Approve exchange for callback contracts
@@ -223,7 +229,9 @@ contract GridExCallbackTest is GridExBaseTest {
         
         // Use a callback that doesn't pay if reentrancy fails
         ReentrantNoPayCallback noPayCallback = new ReentrantNoPayCallback(address(exchange));
+        // forge-lint: disable-next-line
         sea.transfer(address(noPayCallback), 1000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(address(noPayCallback), 1000_000_000);
         
         vm.startPrank(address(noPayCallback));
@@ -397,6 +405,7 @@ contract MaliciousCallback is IGridCallback {
             revert("Malicious revert");
         }
         // Pay the required amount
+        // forge-lint: disable-next-line
         IERC20Minimal(inToken).transfer(msg.sender, inAmt);
     }
 }
@@ -458,6 +467,7 @@ contract ReentrantCallback is IGridCallback {
             }
         }
         // Pay the required amount
+        // forge-lint: disable-next-line
         IERC20Minimal(inToken).transfer(msg.sender, inAmt);
     }
 }
@@ -480,6 +490,7 @@ contract InsufficientPayCallback is IGridCallback {
         // Pay only a percentage of required amount
         uint128 payAmt = uint128((uint256(inAmt) * payPercentage) / 100);
         if (payAmt > 0) {
+            // forge-lint: disable-next-line
             IERC20Minimal(inToken).transfer(msg.sender, payAmt);
         }
     }
@@ -501,6 +512,7 @@ contract ValidCallback is IGridCallback {
         bytes calldata
     ) external override {
         // Pay the full required amount
+        // forge-lint: disable-next-line
         IERC20Minimal(inToken).transfer(msg.sender, inAmt);
     }
 }
@@ -561,6 +573,7 @@ contract ReentrantNoPayCallback is IGridCallback {
         // Only pay if reentrancy succeeded (which it shouldn't)
         if (success) {
             reentrancySucceeded = true;
+            // forge-lint: disable-next-line
             IERC20Minimal(inToken).transfer(msg.sender, inAmt);
         }
         // If reentrancy failed, don't pay - this will cause the outer call to fail

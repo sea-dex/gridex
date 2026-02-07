@@ -5,7 +5,6 @@ import {GridExBaseTest} from "./GridExBase.t.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../src/interfaces/IGridStrategy.sol";
 import {Currency} from "../src/libraries/Currency.sol";
-import {Lens} from "../src/libraries/Lens.sol";
 import {IERC20Minimal} from "../src/interfaces/IERC20Minimal.sol";
 import {ERC20} from "./utils/ERC20.sol";
 
@@ -53,6 +52,7 @@ contract GridExEdgeTest is GridExBaseTest {
     /// @notice Test placing maximum number of bid orders
     function test_maxBidOrderCount() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        // forge-lint: disable-next-line
         int256 gap = -int256(askPrice0 / 1000); // Negative gap for bid orders
         uint256 bidPrice0 = askPrice0 * 100; // Start high enough to accommodate 100 orders
         uint128 amt = 0.01 ether;
@@ -88,7 +88,9 @@ contract GridExEdgeTest is GridExBaseTest {
     /// @notice Test placing both ask and bid orders at maximum
     function test_maxBothOrderCounts() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        // forge-lint: disable-next-line
         uint256 askGap = askPrice0 / 1000; // Positive gap for ask orders
+        // forge-lint: disable-next-line
         int256 bidGap = -int256(askPrice0 / 1000); // Negative gap for bid orders
         uint256 bidPrice0 = askPrice0 * 50; // Start high enough for 50 bid orders
         uint128 amt = 0.01 ether;
@@ -127,6 +129,7 @@ contract GridExEdgeTest is GridExBaseTest {
     function test_minimumBaseAmount_tooSmall_reverts() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 askGap = askPrice0 / 20;
+        // forge-lint: disable-next-line
         int256 bidGap = -int256(askPrice0 / 20); // Negative gap for bid orders
         uint256 bidPrice0 = askPrice0 * 2; // Higher bid price
         
@@ -160,6 +163,7 @@ contract GridExEdgeTest is GridExBaseTest {
     function test_minimumBaseAmount_viable() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 askGap = askPrice0 / 20;
+        // forge-lint: disable-next-line
         int256 bidGap = -int256(askPrice0 / 20); // Negative gap for bid orders
         uint256 bidPrice0 = askPrice0 * 2; // Higher bid price
         
@@ -471,7 +475,7 @@ contract GridExEdgeTest is GridExBaseTest {
     /// @notice Test placing grid with zero ask and zero bid orders
     /// @dev The protocol allows zero order counts (creates empty grid)
     function test_zeroOrderCounts_allowed() public {
-        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        // uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint128 amt = 1 ether;
         
         vm.startPrank(maker);

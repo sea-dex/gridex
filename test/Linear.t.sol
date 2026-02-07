@@ -34,6 +34,7 @@ contract LinearTest is Test {
     /// @notice Test valid ask order parameters
     function test_validateParams_askValid() public view {
         uint256 price0 = PRICE_MULTIPLIER / 1000; // 0.001
+        // forge-lint: disable-next-line
         int256 gap = int256(price0 / 10); // 0.0001 (positive for ask)
         bytes memory data = abi.encode(price0, gap);
         
@@ -44,6 +45,7 @@ contract LinearTest is Test {
     /// @notice Test ask order with zero count reverts
     function test_validateParams_askZeroCount() public {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = int256(price0 / 10);
         bytes memory data = abi.encode(price0, gap);
         
@@ -72,6 +74,7 @@ contract LinearTest is Test {
     /// @notice Test ask order with negative gap reverts (ask requires positive gap)
     function test_validateParams_askNegativeGap() public {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = -int256(price0 / 10); // negative gap
         bytes memory data = abi.encode(price0, gap);
         
@@ -82,6 +85,7 @@ contract LinearTest is Test {
     /// @notice Test ask order with gap >= price reverts
     function test_validateParams_askGapTooLarge() public {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = int256(price0); // gap == price0
         bytes memory data = abi.encode(price0, gap);
         
@@ -92,6 +96,7 @@ contract LinearTest is Test {
     /// @notice Test ask order with gap > price reverts
     function test_validateParams_askGapGreaterThanPrice() public {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = int256(price0 * 2); // gap > price0
         bytes memory data = abi.encode(price0, gap);
         
@@ -100,7 +105,7 @@ contract LinearTest is Test {
     }
 
     /// @notice Test ask order price overflow scenario - gap must be less than price
-    function test_validateParams_askPriceOverflow() public {
+    function test_validateParams_askPriceOverflow() public view {
         // For ask orders, gap must be < price0, so we can't easily trigger overflow
         // Instead, test that very large price + gap * count stays within bounds
         // This test verifies the L4 check: price0 + (count-1) * gap < uint256.max
@@ -143,6 +148,7 @@ contract LinearTest is Test {
     /// @notice Test valid bid order parameters
     function test_validateParams_bidValid() public view {
         uint256 price0 = PRICE_MULTIPLIER / 1000; // 0.001
+        // forge-lint: disable-next-line
         int256 gap = -int256(price0 / 10); // -0.0001 (negative for bid)
         bytes memory data = abi.encode(price0, gap);
         
@@ -153,6 +159,7 @@ contract LinearTest is Test {
     /// @notice Test bid order with positive gap reverts (bid requires negative gap)
     function test_validateParams_bidPositiveGap() public {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = int256(price0 / 10); // positive gap
         bytes memory data = abi.encode(price0, gap);
         
@@ -163,6 +170,7 @@ contract LinearTest is Test {
     /// @notice Test bid order where last price becomes negative
     function test_validateParams_bidNegativeLastPrice() public {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = -int256(price0); // gap magnitude equals price
         bytes memory data = abi.encode(price0, gap);
         
@@ -197,6 +205,7 @@ contract LinearTest is Test {
     /// @notice Test bid order with single order (count = 1)
     function test_validateParams_bidSingleOrder() public view {
         uint256 price0 = PRICE_MULTIPLIER / 1000;
+        // forge-lint: disable-next-line
         int256 gap = -int256(price0 / 2); // large negative gap
         bytes memory data = abi.encode(price0, gap);
         

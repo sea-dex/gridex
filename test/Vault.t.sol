@@ -28,7 +28,9 @@ contract VaultTest is Test {
         usdc = new USDC();
         
         // Fund the vault with tokens and ETH
+        // forge-lint: disable-next-line
         sea.transfer(address(vault), INITIAL_SEA);
+        // forge-lint: disable-next-line
         usdc.transfer(address(vault), INITIAL_USDC);
         vm.deal(address(vault), INITIAL_ETH);
     }

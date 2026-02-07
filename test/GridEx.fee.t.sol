@@ -54,7 +54,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -80,7 +82,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -106,7 +110,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -132,7 +138,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -158,7 +166,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -244,7 +254,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -274,7 +286,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -302,7 +316,9 @@ contract GridExFeeTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -358,7 +374,9 @@ contract GridExFeeTest is GridExBaseTest {
         uint128 orderId = 0x80000000000000000000000000000001;
 
         // Give maker more tokens
+        // forge-lint: disable-next-line
         sea.transfer(maker, 100000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(maker, 10000_000_000); // 10000 USDC
         
         vm.startPrank(maker);

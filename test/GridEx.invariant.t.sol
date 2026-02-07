@@ -59,7 +59,9 @@ contract GridExInvariantTest is StdInvariant, Test {
         handler = new GridExHandler(gridEx, linear, sea, usdc, maker, taker);
         
         // Fund handler
+        // forge-lint: disable-next-line
         sea.transfer(address(handler), 1_000_000 ether);
+        // forge-lint: disable-next-line
         usdc.transfer(address(handler), 1_000_000_000);
         
         // Target the handler for invariant testing
@@ -212,6 +214,7 @@ contract GridExHandler is Test {
         baseToken.approve(address(gridEx), type(uint256).max);
         
         // Transfer tokens to maker
+        // forge-lint: disable-next-line
         baseToken.transfer(maker, totalBase);
         
         vm.prank(maker);
@@ -226,6 +229,7 @@ contract GridExHandler is Test {
         } catch {
             // Order placement failed, return tokens
             vm.prank(maker);
+            // forge-lint: disable-next-line
             baseToken.transfer(address(this), baseToken.balanceOf(maker));
         }
     }
@@ -270,6 +274,7 @@ contract GridExHandler is Test {
         quoteToken.approve(address(gridEx), type(uint256).max);
         
         // Transfer tokens to maker
+        // forge-lint: disable-next-line
         quoteToken.transfer(maker, totalQuote);
         
         vm.prank(maker);
@@ -282,6 +287,7 @@ contract GridExHandler is Test {
         } catch {
             // Order placement failed, return tokens
             vm.prank(maker);
+            // forge-lint: disable-next-line
             quoteToken.transfer(address(this), quoteToken.balanceOf(maker));
         }
     }
@@ -314,6 +320,7 @@ contract GridExHandler is Test {
             }
             
             // Transfer to taker
+            // forge-lint: disable-next-line
             quoteToken.transfer(taker, quoteNeeded);
             
             vm.prank(taker);
@@ -325,6 +332,7 @@ contract GridExHandler is Test {
             } catch {
                 // Fill failed, return tokens
                 vm.prank(taker);
+                // forge-lint: disable-next-line
                 quoteToken.transfer(address(this), quoteToken.balanceOf(taker));
             }
         } catch {
@@ -359,6 +367,7 @@ contract GridExHandler is Test {
             }
             
             // Transfer to taker
+            // forge-lint: disable-next-line
             baseToken.transfer(taker, baseNeeded);
             
             vm.prank(taker);
@@ -370,6 +379,7 @@ contract GridExHandler is Test {
             } catch {
                 // Fill failed, return tokens
                 vm.prank(taker);
+                // forge-lint: disable-next-line
                 baseToken.transfer(address(this), baseToken.balanceOf(taker));
             }
         } catch {
@@ -378,7 +388,9 @@ contract GridExHandler is Test {
     }
     
     function _extractIds(uint256 gridOrderId) internal pure returns (uint128 gridId_, uint128 orderId_) {
+        // forge-lint: disable-next-line
         gridId_ = uint128(gridOrderId >> 128);
+        // forge-lint: disable-next-line
         orderId_ = uint128(gridOrderId);
     }
 }
