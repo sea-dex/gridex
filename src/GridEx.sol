@@ -578,65 +578,6 @@ contract GridEx is
         uint128 gridId,
         uint32 flag
     ) public override {
-        // IGridOrder.GridConfig memory gridConf = gridConfigs[gridId];
-        // if (msg.sender != gridConf.owner) {
-        //     revert IOrderErrors.NotGridOwer();
-        // }
-
-        // if (gridConf.status != GridStatusNormal) {
-        //     revert OrderCanceled();
-        // }
-
-        // uint256 baseAmt = 0;
-        // uint256 quoteAmt = 0;
-
-        // if (gridConf.askOrderCount > 0) {
-        //     for (uint32 i = 0; i < gridConf.askOrderCount; i++) {
-        //         uint128 orderId = gridConf.startAskOrderId + i;
-        //         if (orderStatus[orderId] != GridStatusNormal) {
-        //             continue;
-        //         }
-
-        //         // do not set orderStatus to save gas
-        //         // orderStatus[orderId] = GridStatusCanceled;
-
-        //         (uint128 ba, uint128 qa) = getOrderAmountsForCancel(
-        //             gridConf,
-        //             orderId
-        //         );
-        //         unchecked {
-        //             baseAmt += ba;
-        //             quoteAmt += qa;
-        //         }
-        //     }
-        // }
-
-        // if (gridConf.bidOrderCount > 0) {
-        //     for (uint32 i = 0; i < gridConf.bidOrderCount; i++) {
-        //         uint128 orderId = gridConf.startBidOrderId + i;
-        //         if (orderStatus[orderId] != GridStatusNormal) {
-        //             continue;
-        //         }
-        //         // do not set orderStatus to save gas
-        //         // orderStatus[orderId] = GridStatusCanceled;
-
-        //         (uint128 ba, uint128 qa) = getOrderAmountsForCancel(
-        //             gridConf,
-        //             orderId
-        //         );
-        //         unchecked {
-        //             baseAmt += ba;
-        //             quoteAmt += qa;
-        //         }
-        //     }
-        // }
-
-        // clean grid profits
-        // if (gridConf.profits > 0) {
-        //     quoteAmt += gridConf.profits;
-        //     gridConfigs[gridId].profits = 0;
-        // }
-
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState
             .cancelGrid(msg.sender, gridId);
         Pair memory pair = getPairById[pairId];
@@ -686,36 +627,6 @@ contract GridEx is
         uint256[] memory idList,
         uint32 flag
     ) public override {
-        // uint256 baseAmt = 0;
-        // uint256 quoteAmt = 0;
-
-        // IGridOrder.GridConfig memory gridConf = gridConfigs[gridId];
-        // if (msg.sender != gridConf.owner) {
-        //     revert NotGridOwer();
-        // }
-
-        // if (gridConf.status != GridStatusNormal) {
-        //     revert OrderCanceled();
-        // }
-
-        // for (uint128 i = 0; i < idList.length; ++i) {
-        //     uint128 orderId = idList[i];
-        //     if (orderStatus[orderId] != GridStatusNormal) {
-        //         revert OrderCanceled();
-        //     }
-
-        //     (uint128 ba, uint128 qa) = getOrderAmountsForCancel(
-        //         gridConf,
-        //         orderId
-        //     );
-        //     unchecked {
-        //         baseAmt += ba;
-        //         quoteAmt += qa;
-        //     }
-        //     orderStatus[orderId] = GridStatusCanceled;
-        //     emit CancelGridOrder(msg.sender, orderId, gridId);
-        // }
-
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState
             .cancelGridOrders(msg.sender, gridId, idList);
 
