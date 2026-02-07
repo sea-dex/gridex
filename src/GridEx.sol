@@ -405,28 +405,10 @@ contract GridEx is
             result.orderRevAmt,
             false
         );
-        // IGridOrder.Order storage order = orderInfo.isAsk
-        //     ? askOrders[orderInfo.orderId]
-        //     : bidOrders[orderInfo.orderId];
-        // order.amount = result.orderAmt;
-        // order.revAmount = result.orderRevAmt;
-
-        // if (result.profit > 0) {
-        // uint128 gridId = orderInfo.gridId;
-        // IGridOrder.GridConfig storage gridConfig = gridConfigs[gridId];
-        // gridConfigs[orderInfo.gridId].profits += uint128(result.profit);
-        // }
 
         Pair memory pair = getPairById[result.pairId];
-        // transfer quote token to taker
-        // pair.quote.transfer(taker, filledVol);
-        // SafeTransferLib.safeTransfer(ERC20(pair.quote), taker, filledVol);
-        // protocol fee
-        // protocolFees[pair.quote] += result.protocolFee;
-
-        // ensure receive enough base token
-        // _settle(pair.base, taker, filledAmt, msg.value);
         uint128 outAmt = result.filledVol - result.lpFee - result.protocolFee;
+        
         if (data.length > 0) {
             incProtocolProfits(pair.quote, result.protocolFee);
             // always transfer ERC20 to msg.sender
@@ -796,4 +778,13 @@ contract GridEx is
     //     _transferAssetTo(token, recipient, amount, flag);
     //     protocolProfits[token] -= amount;
     // }
+
+    /// @notice Rescue stuck ETH (e.g., from failed refunds)
+    /// @param to The address to receive the ETH
+    /// @param amount The amount of ETH to withdraw
+    // forge-lint: disable-next-line(mixed-case-function)
+    function rescueETH(address to, uint256 amount) external onlyOwner {
+        (bool success,) = to.call{value: amount}("");
+        require(success, "ETH transfer failed");
+    }
 }

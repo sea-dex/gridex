@@ -34,6 +34,13 @@ contract AssetSettle {
         require(success, "TransferHelper::safeTransferETH: ETH transfer failed");
     }
 
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function tryPaybackETH(address to, uint256 value) internal {
+        (bool success,) = to.call{value: value}(new bytes(0));
+        success;
+    }
+
     function settleAssetWith(
         Currency inToken,
         Currency outToken,
@@ -52,7 +59,7 @@ contract AssetSettle {
                 assert(Currency.unwrap(inToken) == WETH);
                 IWETH(WETH).deposit{value: inAmt}();
                 if (paid > inAmt) {
-                    safeTransferETH(addr, paid - inAmt);
+                    tryPaybackETH(addr, paid - inAmt);
                 }
             } else {
                 ERC20(Currency.unwrap(inToken)).safeTransferFrom(addr, address(this), inAmt);
