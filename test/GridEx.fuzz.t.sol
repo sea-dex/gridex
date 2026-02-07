@@ -17,15 +17,17 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcQuoteAmount with valid inputs
     function testFuzz_calcQuoteAmount_valid(uint128 baseAmt, uint256 price) public pure {
-        // Bound inputs to valid ranges
-        vm.assume(baseAmt > 0);
-        vm.assume(price > 0 && price < type(uint128).max);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        baseAmt = uint128(bound(uint256(baseAmt), 1e12, type(uint128).max / 2));
+        price = bound(price, PRICE_MULTIPLIER / 1e12, PRICE_MULTIPLIER * 1e12);
 
         // Calculate expected result
         uint256 expected = FullMath.mulDiv(uint256(baseAmt), price, PRICE_MULTIPLIER);
 
         // Skip if result would be zero or overflow
-        vm.assume(expected > 0 && expected < type(uint128).max);
+        if (expected == 0 || expected >= type(uint128).max) {
+            return;
+        }
 
         uint128 result = Lens.calcQuoteAmount(baseAmt, price, false);
         assertEq(result, expected);
@@ -33,15 +35,16 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcQuoteAmount rounding up
     function testFuzz_calcQuoteAmount_roundUp(uint128 baseAmt, uint256 price) public pure {
-        // Need meaningful amounts to avoid zero results
-        vm.assume(baseAmt > 1e15);
-        vm.assume(price > PRICE_MULTIPLIER / 1000 && price < type(uint128).max);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        baseAmt = uint128(bound(uint256(baseAmt), 1e15, type(uint128).max / 2));
+        price = bound(price, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1e6);
 
         uint256 expectedRoundDown = FullMath.mulDiv(uint256(baseAmt), price, PRICE_MULTIPLIER);
         uint256 expectedRoundUp = FullMath.mulDivRoundingUp(uint256(baseAmt), price, PRICE_MULTIPLIER);
 
-        vm.assume(expectedRoundUp > 0 && expectedRoundUp < type(uint128).max);
-        vm.assume(expectedRoundDown > 0);
+        if (expectedRoundUp == 0 || expectedRoundUp >= type(uint128).max || expectedRoundDown == 0) {
+            return;
+        }
 
         uint128 resultDown = Lens.calcQuoteAmount(baseAmt, price, false);
         uint128 resultUp = Lens.calcQuoteAmount(baseAmt, price, true);
@@ -55,8 +58,9 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcQuoteAmount reverts on zero result
     function testFuzz_calcQuoteAmount_revertsOnZero(uint128 baseAmt, uint256 price) public {
-        vm.assume(baseAmt > 0 && baseAmt < 1e20);
-        vm.assume(price > 0 && price < PRICE_MULTIPLIER / 1e20);
+        // Use bound() to constrain inputs to ranges that will produce zero results
+        baseAmt = uint128(bound(uint256(baseAmt), 1, 1e15));
+        price = bound(price, 1, PRICE_MULTIPLIER / 1e21);
 
         uint256 expected = FullMath.mulDiv(uint256(baseAmt), price, PRICE_MULTIPLIER);
 
@@ -70,12 +74,15 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcBaseAmount with valid inputs
     function testFuzz_calcBaseAmount_valid(uint128 quoteAmt, uint256 price) public pure {
-        vm.assume(quoteAmt > 0);
-        vm.assume(price > 0 && price < type(uint128).max);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        quoteAmt = uint128(bound(uint256(quoteAmt), 1e12, type(uint128).max / 2));
+        price = bound(price, PRICE_MULTIPLIER / 1e12, PRICE_MULTIPLIER * 1e12);
 
         uint256 expected = FullMath.mulDiv(uint256(quoteAmt), PRICE_MULTIPLIER, price);
 
-        vm.assume(expected > 0 && expected < type(uint128).max);
+        if (expected == 0 || expected >= type(uint128).max) {
+            return;
+        }
 
         uint256 result = Lens.calcBaseAmount(quoteAmt, price, false);
         assertEq(result, expected);
@@ -83,15 +90,16 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcBaseAmount rounding
     function testFuzz_calcBaseAmount_roundUp(uint128 quoteAmt, uint256 price) public pure {
-        // Need meaningful amounts to avoid zero results
-        vm.assume(quoteAmt > 1e15);
-        vm.assume(price > PRICE_MULTIPLIER / 1e20 && price < PRICE_MULTIPLIER * 1e10);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        quoteAmt = uint128(bound(uint256(quoteAmt), 1e15, type(uint128).max / 2));
+        price = bound(price, PRICE_MULTIPLIER / 1e10, PRICE_MULTIPLIER * 1e10);
 
         uint256 expectedRoundDown = FullMath.mulDiv(uint256(quoteAmt), PRICE_MULTIPLIER, price);
         uint256 expectedRoundUp = FullMath.mulDivRoundingUp(uint256(quoteAmt), PRICE_MULTIPLIER, price);
 
-        vm.assume(expectedRoundUp > 0 && expectedRoundUp < type(uint128).max);
-        vm.assume(expectedRoundDown > 0);
+        if (expectedRoundUp == 0 || expectedRoundUp >= type(uint128).max || expectedRoundDown == 0) {
+            return;
+        }
 
         uint256 resultDown = Lens.calcBaseAmount(quoteAmt, price, false);
         uint256 resultUp = Lens.calcBaseAmount(quoteAmt, price, true);
@@ -104,12 +112,15 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcAskOrderQuoteAmount
     function testFuzz_calcAskOrderQuoteAmount(uint128 baseAmt, uint256 price, uint32 feebps) public pure {
-        vm.assume(baseAmt > 0);
-        vm.assume(price > 0 && price < type(uint128).max);
-        vm.assume(feebps >= MIN_FEE && feebps <= MAX_FEE);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        baseAmt = uint128(bound(uint256(baseAmt), 1e12, type(uint128).max / 2));
+        price = bound(price, PRICE_MULTIPLIER / 1e12, PRICE_MULTIPLIER * 1e12);
+        feebps = uint32(bound(uint256(feebps), MIN_FEE, MAX_FEE));
 
         uint256 quoteVol = FullMath.mulDivRoundingUp(uint256(baseAmt), price, PRICE_MULTIPLIER);
-        vm.assume(quoteVol > 0 && quoteVol < type(uint128).max);
+        if (quoteVol == 0 || quoteVol >= type(uint128).max) {
+            return;
+        }
 
         (uint128 resultVol, uint128 resultFee) = Lens.calcAskOrderQuoteAmount(price, baseAmt, feebps);
 
@@ -126,12 +137,15 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calcBidOrderQuoteAmount
     function testFuzz_calcBidOrderQuoteAmount(uint128 baseAmt, uint256 price, uint32 feebps) public pure {
-        vm.assume(baseAmt > 0);
-        vm.assume(price > 0 && price < type(uint128).max);
-        vm.assume(feebps >= MIN_FEE && feebps <= MAX_FEE);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        baseAmt = uint128(bound(uint256(baseAmt), 1e12, type(uint128).max / 2));
+        price = bound(price, PRICE_MULTIPLIER / 1e12, PRICE_MULTIPLIER * 1e12);
+        feebps = uint32(bound(uint256(feebps), MIN_FEE, MAX_FEE));
 
         uint256 filledVol = FullMath.mulDiv(uint256(baseAmt), price, PRICE_MULTIPLIER);
-        vm.assume(filledVol > 0 && filledVol < type(uint128).max);
+        if (filledVol == 0 || filledVol >= type(uint128).max) {
+            return;
+        }
 
         (uint128 resultVol, uint128 resultFee) = Lens.calcBidOrderQuoteAmount(price, baseAmt, feebps);
 
@@ -150,8 +164,9 @@ contract GridExFuzzTest is Test {
 
     /// @notice Fuzz test calculateFees
     function testFuzz_calculateFees(uint128 vol, uint32 bps) public pure {
-        vm.assume(vol > 0);
-        vm.assume(bps >= MIN_FEE && bps <= MAX_FEE);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        vol = uint128(bound(uint256(vol), 1, type(uint128).max));
+        bps = uint32(bound(uint256(bps), MIN_FEE, MAX_FEE));
 
         (uint128 lpFee, uint128 protocolFee) = Lens.calculateFees(vol, bps);
 

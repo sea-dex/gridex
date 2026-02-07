@@ -276,7 +276,8 @@ contract GridExFeeTest is GridExBaseTest {
 
     /// @notice Fuzz test for invalid fee range (below min)
     function testFuzz_placeOrders_invalidFeeBelowMin(uint32 fee) public {
-        vm.assume(fee < MIN_FEE);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        fee = uint32(bound(uint256(fee), 0, MIN_FEE - 1));
 
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
@@ -306,7 +307,8 @@ contract GridExFeeTest is GridExBaseTest {
 
     /// @notice Fuzz test for invalid fee range (above max)
     function testFuzz_placeOrders_invalidFeeAboveMax(uint32 fee) public {
-        vm.assume(fee > MAX_FEE);
+        // Use bound() instead of vm.assume() to avoid rejecting too many inputs
+        fee = uint32(bound(uint256(fee), MAX_FEE + 1, type(uint32).max));
 
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
