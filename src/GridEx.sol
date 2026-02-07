@@ -122,7 +122,11 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     }
 
     /// @inheritdoc IGridEx
-    function placeGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param) public override whenNotPaused {
+    function placeGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param)
+        public
+        override
+        whenNotPaused
+    {
         if (base.isAddressZero() || quote.isAddressZero()) {
             revert IOrderErrors.InvalidParam();
         }

@@ -22,7 +22,7 @@ contract GridExPauseTest is GridExBaseTest {
 
     function setUp() public override {
         super.setUp();
-        
+
         // Deposit ETH to get WETH for maker and taker
         vm.startPrank(maker);
         weth.deposit{value: 5 ether}();
@@ -64,7 +64,7 @@ contract GridExPauseTest is GridExBaseTest {
     function test_OwnerCanUnpause() public {
         exchange.pause();
         assertTrue(exchange.paused(), "Exchange should be paused");
-        
+
         exchange.unpause();
         assertFalse(exchange.paused(), "Exchange should not be paused after unpause()");
     }
@@ -79,7 +79,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test non-owner cannot unpause
     function test_NonOwnerCannotUnpause() public {
         exchange.pause();
-        
+
         vm.prank(maker);
         vm.expectRevert("UNAUTHORIZED");
         exchange.unpause();
@@ -88,7 +88,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test cannot pause when already paused
     function test_CannotPauseWhenPaused() public {
         exchange.pause();
-        
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         exchange.pause();
     }
@@ -156,18 +156,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test fillAskOrder reverts when paused
     function test_FillAskOrderRevertsWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -183,18 +172,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test fillBidOrder reverts when paused
     function test_FillBidOrderRevertsWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -210,18 +188,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test fillAskOrders reverts when paused
     function test_FillAskOrdersRevertsWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -230,7 +197,7 @@ contract GridExPauseTest is GridExBaseTest {
         uint256[] memory idList = new uint256[](2);
         idList[0] = toAskOrderId(1, 0);
         idList[1] = toAskOrderId(1, 1);
-        
+
         uint128[] memory amtList = new uint128[](2);
         amtList[0] = 0.5 ether;
         amtList[1] = 0.5 ether;
@@ -244,18 +211,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test fillBidOrders reverts when paused
     function test_FillBidOrdersRevertsWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -264,7 +220,7 @@ contract GridExPauseTest is GridExBaseTest {
         uint256[] memory idList = new uint256[](2);
         idList[0] = toBidOrderId(1, 0);
         idList[1] = toBidOrderId(1, 1);
-        
+
         uint128[] memory amtList = new uint128[](2);
         amtList[0] = 0.5 ether;
         amtList[1] = 0.5 ether;
@@ -282,18 +238,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test cancelGrid works when paused
     function test_CancelGridWorksWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -307,18 +252,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test cancelGridOrders works when paused
     function test_CancelGridOrdersWorksWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -336,18 +270,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test withdrawGridProfits works when paused
     function test_WithdrawGridProfitsWorksWhenPaused() public {
         // First place orders and generate some profits (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Fill an ask order to generate profits (use correct ask order ID)
         uint256 orderId = toAskOrderId(1, 0);
@@ -362,8 +285,9 @@ contract GridExPauseTest is GridExBaseTest {
         vm.startPrank(maker);
         // This may revert with NoProfits if there are no profits, but not with EnforcedPause
         try exchange.withdrawGridProfits(1, 0, maker, 0) {
-            // Success - profits were withdrawn
-        } catch {
+        // Success - profits were withdrawn
+        }
+            catch {
             // May fail for other reasons (no profits), but not because of pause
         }
         vm.stopPrank();
@@ -372,18 +296,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test getGridOrder works when paused
     function test_GetGridOrderWorksWhenPaused() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Now pause
         exchange.pause();
@@ -401,18 +314,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test operations work after unpause
     function test_OperationsWorkAfterUnpause() public {
         // First place orders while not paused (SEA/WETH pair)
-        _placeOrders(
-            address(sea),
-            address(weth),
-            1 ether,
-            5,
-            5,
-            ASK_PRICE,
-            BID_PRICE,
-            PRICE_GAP,
-            false,
-            1000
-        );
+        _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Pause
         exchange.pause();
@@ -493,7 +395,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test Unpaused event is emitted
     function test_UnpausedEventEmitted() public {
         exchange.pause();
-        
+
         vm.expectEmit(true, false, false, false);
         emit Pausable.Unpaused(address(this));
         exchange.unpause();
