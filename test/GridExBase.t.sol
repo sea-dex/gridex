@@ -31,7 +31,7 @@ contract GridExBaseTest is Test {
     // forge-lint: disable-next-line(mixed-case-variable)
     uint256 initialUSDCAmt = 10000_000_000; 
 
-    function setUp() public {
+    function setUp() public virtual {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
