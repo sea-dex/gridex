@@ -557,6 +557,10 @@ library GridOrder {
             revert IOrderErrors.NotGridOwer();
         }
 
+        if (fee > MAX_FEE || fee < MIN_FEE) {
+            revert IOrderErrors.InvalidGridFee();
+        }
+        
         gridConf.fee = fee;
 
         emit IOrderEvents.GridFeeChanged(sender, gridId, fee);
