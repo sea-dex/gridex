@@ -9,6 +9,22 @@ import {FullMath} from "../libraries/FullMath.sol";
 contract Linear is IGridStrategy {
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
 
+    address public immutable GRID_EX;
+
+    function _onlyGridEx() internal view {
+        require(msg.sender == GRID_EX, "Unauthorized");
+    }
+
+    modifier onlyGridEx() {
+        _onlyGridEx();
+        _;
+    }
+
+    constructor(address _gridEx) {
+        require(_gridEx != address(0), "Invalid gridEx address");
+        GRID_EX = _gridEx;
+    }
+
     event LinearStrategyCreated(
         bool isAsk,
         uint128 gridId,
@@ -37,9 +53,11 @@ contract Linear is IGridStrategy {
         bool isAsk,
         uint128 gridId,
         bytes memory data
-    ) external override {
+    ) external override onlyGridEx {
+        uint256 key = gridIdKey(isAsk, gridId);
+        require(strategies[key].basePrice == 0, "Already exists");
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
-        strategies[gridIdKey(isAsk, gridId)] = LinearStrategy({basePrice: price0, gap: gap});
+        strategies[key] = LinearStrategy({basePrice: price0, gap: gap});
 
         emit LinearStrategyCreated(isAsk, gridId, price0, gap);
     }
