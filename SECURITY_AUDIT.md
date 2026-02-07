@@ -11,7 +11,7 @@
 
 GridEx is a decentralized grid trading exchange built on Solidity that allows makers to place grid orders at multiple price levels and takers to fill them. The system supports both ERC20 tokens and native ETH (via WETH wrapping), with configurable fee structures and compound/non-compound order modes.
 
-This re-audit reflects significant improvements from the previous audit. Several critical and high-severity issues have been resolved. The current audit identified **0 Critical**, **1 High**, **3 Medium**, **4 Low**, and **5 Informational** findings.
+This re-audit reflects significant improvements from the previous audit. Several critical and high-severity issues have been resolved. The current audit identified **0 Critical**, **0 High**, **2 Medium**, **4 Low**, and **5 Informational** findings.
 
 ### Previous Issues Status
 
@@ -21,7 +21,7 @@ This re-audit reflects significant improvements from the previous audit. Several
 | C-02: Linear.sol No Access Control | Critical | ✅ **Resolved** - Added `onlyGridEx` modifier |
 | H-01: modifyGridFee No Fee Validation | High | ✅ **Resolved** - Added MIN_FEE/MAX_FEE validation |
 | H-02: Vault.sol No Withdrawal Mechanism | High | ✅ **Resolved** - Added withdrawal functions |
-| H-03: Pair.getOrCreatePair Public | High | ⚠️ **Acknowledged** - Design decision |
+| H-03: Pair.getOrCreatePair Public | High | ✅ **Not Applicable** - Permissionless DEX by design |
 | M-02: FlashLoan.sol Dead Code | Medium | ✅ **Resolved** - Contract removed |
 
 ---
@@ -29,12 +29,11 @@ This re-audit reflects significant improvements from the previous audit. Several
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
-2. [High Findings](#high-findings)
-3. [Medium Findings](#medium-findings)
-4. [Low Findings](#low-findings)
-5. [Informational Findings](#informational-findings)
-6. [Test Coverage Analysis](#test-coverage-analysis)
-7. [Recommendations](#recommendations)
+2. [Medium Findings](#medium-findings)
+3. [Low Findings](#low-findings)
+4. [Informational Findings](#informational-findings)
+5. [Test Coverage Analysis](#test-coverage-analysis)
+6. [Recommendations](#recommendations)
 
 ---
 
@@ -68,43 +67,6 @@ This re-audit reflects significant improvements from the previous audit. Several
 4. **Fee Validation** with MIN_FEE/MAX_FEE bounds ([`GridOrder.sol:560-562`](src/libraries/GridOrder.sol:560))
 5. **Safe Math** via Solidity 0.8.28 built-in overflow checks
 6. **SafeTransferLib** for ERC20 transfers
-
----
-
-## High Findings
-
-### [H-01] Pair.getOrCreatePair is Public Without Access Control
-
-**Severity:** High  
-**Location:** [`src/Pair.sol:37-67`](src/Pair.sol:37)  
-**Status:** Acknowledged (Design Decision)
-
-**Description:**
-
-The [`getOrCreatePair()`](src/Pair.sol:37) function is public, allowing anyone to create trading pairs:
-
-```solidity
-function getOrCreatePair(Currency base, Currency quote) public override returns (Pair memory) {
-    Pair memory pair = getPair[base][quote];
-    if (pair.pairId > 0) {
-        return pair;
-    }
-    // ... creates pair if doesn't exist
-}
-```
-
-**Impact:**
-
-- Anyone can create pairs with arbitrary tokens, including malicious tokens
-- Could be used to create pairs with fee-on-transfer tokens, rebasing tokens, or other non-standard tokens that may cause accounting issues
-- May create confusion with unofficial/malicious token pairs
-
-**Recommendation:**
-
-Consider one of the following approaches:
-1. Restrict pair creation to owner or whitelisted addresses
-2. Add a token whitelist for allowed base/quote tokens
-3. Document this as an intentional design decision with user warnings
 
 ---
 
@@ -203,49 +165,6 @@ function claimRefund() external {
 
 ---
 
-### [M-03] No Maximum Order Count Validation
-
-**Severity:** Medium  
-**Location:** [`src/libraries/GridOrder.sol:147-191`](src/libraries/GridOrder.sol:147)
-
-**Description:**
-
-The [`placeGridOrder()`](src/libraries/GridOrder.sol:147) function doesn't validate maximum order counts:
-
-```solidity
-function placeGridOrder(
-    GridState storage self,
-    uint64 pairId,
-    address maker,
-    IGridOrder.GridOrderParam calldata param
-) internal returns (uint128, uint256, uint256, uint128, uint128) {
-    validateGridOrderParam(param);
-    // ... no max order count check
-}
-```
-
-**Impact:**
-
-- Users could create grids with extremely large order counts
-- Could cause gas issues during cancellation (loops in [`cancelGrid()`](src/libraries/GridOrder.sol:454))
-- Potential DoS vector for grid owners
-
-**Recommendation:**
-
-Add a maximum order count constant:
-
-```solidity
-uint32 public constant MAX_ORDER_COUNT = 1000;
-
-function validateGridOrderParam(IGridOrder.GridOrderParam calldata param) private pure {
-    // ... existing validation
-    if (param.askOrderCount > MAX_ORDER_COUNT || param.bidOrderCount > MAX_ORDER_COUNT) {
-        revert IOrderErrors.ExceedMaxOrderCount();
-    }
-}
-```
-
----
 
 ## Low Findings
 
