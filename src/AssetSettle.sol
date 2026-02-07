@@ -82,7 +82,7 @@ contract AssetSettle {
         } else {
             // in token
             if (flag & 0x01 > 0) {
-                assert(Currency.unwrap(inToken) == WETH);
+                require(Currency.unwrap(inToken) == WETH, "Not WETH");
                 IWETH(WETH).deposit{value: inAmt}();
                 if (paid > inAmt) {
                     tryPaybackETH(addr, paid - inAmt);
@@ -93,7 +93,7 @@ contract AssetSettle {
 
             // out token
             if (flag & 0x02 > 0) {
-                assert(Currency.unwrap(outToken) == WETH);
+                require(Currency.unwrap(outToken) == WETH, "Not WETH");
                 IWETH(WETH).withdraw(outAmt);
                 safeTransferETH(addr, outAmt);
             } else {
@@ -112,7 +112,7 @@ contract AssetSettle {
         if (flag == 0) {
             token.transfer(addr, amount);
         } else {
-            assert(Currency.unwrap(token) == WETH);
+            require(Currency.unwrap(token) == WETH, "Not WETH");
             IWETH(WETH).withdraw(amount);
             safeTransferETH(addr, amount);
         }
