@@ -221,11 +221,12 @@ contract GridExBaseTest is Test {
     }
 
     function calcProtocolFee(uint128 fee) internal pure returns (uint128) {
-        return fee >> 2;
+        // here if change to fee >> 2, will cause stack too deep problem
+        return fee / 4;
     }
 
     function calcMakerFee(uint128 fee) internal pure returns (uint128) {
-        return fee - (fee >> 2);
+        return fee - (fee / 4);
         // return fee - (fee >> 1);
     }
 }
