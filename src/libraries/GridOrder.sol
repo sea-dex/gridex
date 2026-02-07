@@ -12,42 +12,62 @@ import {ProtocolConstants} from "./ProtocolConstants.sol";
 /// @title GridOrder
 /// @author GridEx Protocol
 /// @notice Library for managing grid order state and operations
-/// @dev Contains all logic for placing, filling, and canceling grid orders
+/// @dev Contains all logic for placing, filling, and canceling grid orders.
+///      Grid orders are automated trading strategies that place multiple orders at different price levels.
+///      This library handles:
+///      - Grid order placement with configurable ask/bid strategies
+///      - Order filling with fee calculation (LP fees and protocol fees)
+///      - Grid and order cancellation with proper refund calculations
+///      - Compound and oneshot order modes
 library GridOrder {
     /// @notice Minimum fee in basis points (0.01%)
+    /// @dev Fee is represented as basis points where 1 = 0.0001% (1e-6)
+    ///      MIN_FEE of 100 = 0.01%
     uint32 public constant MIN_FEE = 100;
 
     /// @notice Maximum fee in basis points (10%)
+    /// @dev MAX_FEE of 100000 = 10%
     uint32 public constant MAX_FEE = 100000;
 
-    /// @dev Mask for extracting order ID from grid order ID
+    /// @dev Mask for extracting order ID from grid order ID (lower 128 bits)
     uint256 private constant ODER_ID_MASK = 0xffffffffffffffffffffffffffffffff;
 
-    /// @dev Mask for identifying ask orders (high bit set)
+    /// @dev Mask for identifying ask orders (high bit of order ID is set)
+    /// @dev Ask orders have order IDs starting from 0x80000000000000000000000000000001
     uint128 private constant ASK_ODER_MASK = ProtocolConstants.ASK_ORDER_FLAG;
 
-    /// @dev Grid status: normal/active
+    /// @dev Grid status: normal/active - grid is operational and orders can be filled
     uint32 private constant GRID_STATUS_NORMAL = 0;
 
-    /// @dev Grid status: canceled
+    /// @dev Grid status: canceled - grid is no longer active, orders cannot be filled
     uint32 private constant GRID_STATUS_CANCELED = 1;
 
     /// @notice State structure for managing all grid orders
-    /// @dev Stored in contract storage
+    /// @dev Stored in contract storage. This is the main state container for the grid order system.
+    ///      Grid order IDs are composed of: (gridId << 128) | orderId
+    ///      - gridId: Unique identifier for a grid (128 bits)
+    ///      - orderId: Unique identifier for an order within the grid (128 bits)
     struct GridState {
         /// @notice Next grid ID to assign (starts from 1)
+        /// @dev Incremented each time a new grid is created
         uint128 nextGridId;
         /// @notice Next bid order ID to assign (starts from 1)
+        /// @dev Bid orders have IDs in the range [1, ASK_ORDER_FLAG)
         uint128 nextBidOrderId;
         /// @notice Next ask order ID to assign (starts from 0x80000000000000000000000000000001)
+        /// @dev Ask orders have the high bit set to distinguish from bid orders
         uint128 nextAskOrderId;
         /// @notice Protocol fee in basis points for oneshot orders (all fee goes to protocol, no LP fee)
+        /// @dev Default is 500 (0.05%). For oneshot orders, there is no LP fee component.
         uint32 oneshotProtocolFeeBps;
         /// @notice Mapping from grid order ID to order status
+        /// @dev 0 = GRID_STATUS_NORMAL (active), 1 = GRID_STATUS_CANCELED
         mapping(uint256 gridOrderId => uint256) orderStatus;
         /// @notice Mapping from grid order ID to order data
+        /// @dev Contains the current amount and reverse amount for each order
         mapping(uint256 gridOrderId => IGridOrder.Order) orderInfos;
         /// @notice Mapping from grid ID to grid configuration
+        /// @dev Contains all configuration parameters for a grid including owner, strategies, and fees
         mapping(uint256 gridId => IGridOrder.GridConfig) gridConfigs;
     }
 

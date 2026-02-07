@@ -169,9 +169,11 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
         );
     }
 
-    /// @notice Increment protocol profits and transfer to vault
-    /// @param quote The quote token
-    /// @param profit The profit amount to transfer
+    /// @notice Transfers protocol profits to the vault
+    /// @dev This function is called internally when protocol fees are collected from trades.
+    ///      The profit is transferred directly to the vault address for later withdrawal by the protocol owner.
+    /// @param quote The quote currency (token) in which the profit is denominated
+    /// @param profit The profit amount to transfer to the vault
     function incProtocolProfits(Currency quote, uint128 profit) private {
         quote.transfer(vault, profit);
     }

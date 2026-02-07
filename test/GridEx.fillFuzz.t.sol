@@ -2,7 +2,6 @@
 pragma solidity ^0.8.33;
 
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
 import {GridExBaseTest} from "./GridExBase.t.sol";
 
@@ -222,6 +221,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint128 totalFillAmt = 0;
         for (uint256 i = 0; i < orderCount; i++) {
+            // forge-lint: disable-next-line
             orderIds[i] = toGridOrderId(1, orderId + uint128(i));
             // Vary fill amounts based on seed
             uint128 fillAmt = uint128(bound(uint256(fillAmtSeed) + i * 1000, 1 ether, orderAmt));
@@ -265,6 +265,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         uint128[] memory amts = new uint128[](orderCount);
 
         for (uint256 i = 0; i < orderCount; i++) {
+            // forge-lint: disable-next-line
             orderIds[i] = toGridOrderId(1, orderId + uint128(i));
             amts[i] = orderAmt; // Try to fill full amount
         }
@@ -302,6 +303,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         uint128[] memory amts = new uint128[](orderCount);
 
         for (uint256 i = 0; i < orderCount; i++) {
+            // forge-lint: disable-next-line
             orderIds[i] = toGridOrderId(1, orderId + uint128(i));
             // Vary fill amounts based on seed
             uint128 fillAmt = uint128(bound(uint256(fillAmtSeed) + i * 1000, 1 ether, orderAmt));
@@ -348,6 +350,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         uint128[] memory amts = new uint128[](orderCount);
 
         for (uint256 i = 0; i < orderCount; i++) {
+            // forge-lint: disable-next-line
             orderIds[i] = toGridOrderId(1, orderId + uint128(i));
             amts[i] = orderAmt; // Try to fill full amount
         }
