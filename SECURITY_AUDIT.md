@@ -2,7 +2,7 @@
 
 **Project:** GridEx - Grid Trading Exchange  
 **Version:** Solidity 0.8.33  
-**Audit Date:** February 2026 (Re-audit)  
+**Audit Date:** February 2026 (Re-audit v2)  
 **Auditor:** Security Review  
 
 ---
@@ -11,7 +11,7 @@
 
 GridEx is a decentralized grid trading exchange built on Solidity that allows makers to place grid orders at multiple price levels and takers to fill them. The system supports both ERC20 tokens and native ETH (via WETH wrapping), with configurable fee structures and compound/non-compound order modes.
 
-This re-audit reflects significant improvements from the previous audit. Several critical and high-severity issues have been resolved. The current audit identified **0 Critical**, **0 High**, **2 Medium**, **4 Low**, and **5 Informational** findings.
+This re-audit reflects significant improvements from previous audits. The codebase demonstrates mature security practices with proper access control, reentrancy protection, and comprehensive input validation. The current audit identified **0 Critical**, **0 High**, **1 Medium**, **3 Low**, and **4 Informational** findings.
 
 ### Previous Issues Status
 
@@ -22,7 +22,10 @@ This re-audit reflects significant improvements from the previous audit. Several
 | H-01: modifyGridFee No Fee Validation | High | ✅ **Resolved** - Added MIN_FEE/MAX_FEE validation |
 | H-02: Vault.sol No Withdrawal Mechanism | High | ✅ **Resolved** - Added withdrawal functions |
 | H-03: Pair.getOrCreatePair Public | High | ✅ **Not Applicable** - Permissionless DEX by design |
+| M-01: Callback Pattern Risks | Medium | ✅ **Mitigated** - ReentrancyGuard + balance checks |
 | M-02: FlashLoan.sol Dead Code | Medium | ✅ **Resolved** - Contract removed |
+| M-03: tryPaybackETH Silently Fails | Medium | ⚠️ **Acknowledged** - rescueEth function added |
+| L-03: Assert Statements Used | Low | ✅ **Resolved** - Replaced with require() |
 
 ---
 
@@ -43,88 +46,47 @@ This re-audit reflects significant improvements from the previous audit. Several
 
 | Contract | Description | Lines |
 |----------|-------------|-------|
-| [`GridEx.sol`](src/GridEx.sol) | Main exchange contract handling order placement, filling, and cancellation | 702 |
-| [`Pair.sol`](src/Pair.sol) | Abstract contract managing trading pairs | 68 |
-| [`AssetSettle.sol`](src/AssetSettle.sol) | Handles token/ETH settlement and transfers | 100 |
-| [`Vault.sol`](src/Vault.sol) | Protocol fee vault with withdrawal functions | 24 |
-| [`GridOrder.sol`](src/libraries/GridOrder.sol) | Library containing grid order state and logic | 568 |
-| [`Linear.sol`](src/strategy/Linear.sol) | Linear price strategy implementation | 142 |
+| [`GridEx.sol`](src/GridEx.sol) | Main exchange contract handling order placement, filling, and cancellation | 664 |
+| [`Pair.sol`](src/Pair.sol) | Abstract contract managing trading pairs | 84 |
+| [`AssetSettle.sol`](src/AssetSettle.sol) | Handles token/ETH settlement and transfers | 141 |
+| [`Vault.sol`](src/Vault.sol) | Protocol fee vault with withdrawal functions | 39 |
+| [`GridOrder.sol`](src/libraries/GridOrder.sol) | Library containing grid order state and logic | 676 |
+| [`Linear.sol`](src/strategy/Linear.sol) | Linear price strategy implementation | 171 |
+| [`Lens.sol`](src/libraries/Lens.sol) | Price calculation utilities | 131 |
+| [`Currency.sol`](src/libraries/Currency.sol) | Custom type for ETH/ERC20 handling | 168 |
 
 ### Key Design Patterns
 
 - **Grid Order System**: Makers place orders at multiple price levels; orders flip between ask/bid states when filled
 - **Strategy Pattern**: External strategy contracts (IGridStrategy) calculate prices with access control
-- **Callback Pattern**: Flash-swap style fills via IGridCallback
+- **Callback Pattern**: Flash-swap style fills via IGridCallback with balance verification
 - **ReentrancyGuard**: Applied to all fill functions
-- **Protocol Fees**: 60% protocol / 40% LP fee split, sent directly to vault
-- **Checks-Effects-Interactions**: Properly followed in most functions
+- **Protocol Fees**: 75% LP / 25% protocol fee split (using bit shift `>> 2`)
+- **Checks-Effects-Interactions**: Properly followed in all functions
 
 ### Security Features Implemented
 
-1. **ReentrancyGuard** on all fill functions ([`GridEx.sol:213`](src/GridEx.sol:213), [`GridEx.sol:289`](src/GridEx.sol:289), [`GridEx.sol:385`](src/GridEx.sol:385), [`GridEx.sol:451`](src/GridEx.sol:451))
+1. **ReentrancyGuard** on all fill functions ([`GridEx.sol:229`](src/GridEx.sol:229), [`GridEx.sol:295`](src/GridEx.sol:295), [`GridEx.sol:377`](src/GridEx.sol:377), [`GridEx.sol:439`](src/GridEx.sol:439))
 2. **Access Control** via Owned pattern for admin functions
-3. **Strategy Access Control** via `onlyGridEx` modifier ([`Linear.sol:18-21`](src/Linear.sol:18))
-4. **Fee Validation** with MIN_FEE/MAX_FEE bounds ([`GridOrder.sol:560-562`](src/libraries/GridOrder.sol:560))
+3. **Strategy Access Control** via `onlyGridEx` modifier ([`Linear.sol:25-28`](src/strategy/Linear.sol:25))
+4. **Fee Validation** with MIN_FEE (100 bps = 0.01%) / MAX_FEE (100000 bps = 10%) bounds ([`GridOrder.sol:17-20`](src/libraries/GridOrder.sol:17))
 5. **Safe Math** via Solidity 0.8.33 built-in overflow checks
 6. **SafeTransferLib** for ERC20 transfers
+7. **512-bit Math** via FullMath library for precision in price calculations
+8. **Input Validation** in require statements with proper error messages
 
 ---
 
 ## Medium Findings
 
-### [M-01] Callback Pattern Allows Arbitrary External Calls
+### [M-01] tryPaybackETH Silently Fails (Acknowledged)
 
 **Severity:** Medium  
-**Location:** [`src/GridEx.sol:252-258`](src/GridEx.sol:252), [`src/GridEx.sol:353-359`](src/GridEx.sol:353), [`src/GridEx.sol:417-423`](src/GridEx.sol:417), [`src/GridEx.sol:513-519`](src/GridEx.sol:513)
+**Location:** [`src/AssetSettle.sol:56-59`](src/AssetSettle.sol:56)
 
 **Description:**
 
-The fill functions allow callers to provide callback data, which triggers an external call to `msg.sender`:
-
-```solidity
-if (data.length > 0) {
-    incProtocolProfits(pair.quote, result.protocolFee);
-    uint256 balanceBefore = pair.quote.balanceOfSelf();
-
-    // always transfer ERC20 to msg.sender
-    pair.base.transfer(msg.sender, result.filledAmt);
-    IGridCallback(msg.sender).gridFillCallback(
-        Currency.unwrap(pair.quote),
-        Currency.unwrap(pair.base),
-        inAmt,
-        result.filledAmt,
-        data
-    );
-    require(balanceBefore + inAmt <= pair.quote.balanceOfSelf(), "G1");
-}
-```
-
-**Mitigating Factors:**
-
-1. ReentrancyGuard prevents re-entry
-2. Balance check after callback ensures payment
-3. Tokens transferred before callback (not after)
-
-**Impact:**
-
-- Callback receiver can perform arbitrary operations before balance check
-- Could interact with other protocols in unexpected ways
-- Potential for complex attack vectors if combined with other vulnerabilities
-
-**Recommendation:**
-
-Document the security assumptions clearly. Consider implementing a whitelist for callback receivers in high-security deployments.
-
----
-
-### [M-02] tryPaybackETH Silently Fails
-
-**Severity:** Medium  
-**Location:** [`src/AssetSettle.sol:39-42`](src/AssetSettle.sol:39)
-
-**Description:**
-
-The [`tryPaybackETH()`](src/AssetSettle.sol:39) function silently ignores failed ETH transfers:
+The [`tryPaybackETH()`](src/AssetSettle.sol:56) function silently ignores failed ETH transfers:
 
 ```solidity
 function tryPaybackETH(address to, uint256 value) internal {
@@ -137,45 +99,105 @@ function tryPaybackETH(address to, uint256 value) internal {
 
 - If a user's contract cannot receive ETH, the refund is lost
 - Users may not realize they didn't receive their refund
-- ETH accumulates in the contract (can be rescued via `rescueETH`)
+- ETH accumulates in the contract
+
+**Mitigating Factors:**
+
+1. The [`rescueEth()`](src/GridEx.sol:659) function allows owner to recover stuck ETH
+2. This is a known design decision for gas efficiency
+3. Users can avoid this by using EOA accounts or contracts that accept ETH
 
 **Recommendation:**
 
-Consider implementing a pull pattern for refunds:
+Consider implementing a pull pattern for refunds or emitting an event when refund fails:
 
 ```solidity
-mapping(address => uint256) public pendingRefunds;
+event RefundFailed(address indexed to, uint256 amount);
 
 function tryPaybackETH(address to, uint256 value) internal {
     (bool success,) = to.call{value: value}("");
     if (!success) {
-        pendingRefunds[to] += value;
-        emit RefundPending(to, value);
+        emit RefundFailed(to, value);
     }
-}
-
-function claimRefund() external {
-    uint256 amount = pendingRefunds[msg.sender];
-    require(amount > 0, "No refund");
-    pendingRefunds[msg.sender] = 0;
-    (bool success,) = msg.sender.call{value: amount}("");
-    require(success, "Transfer failed");
 }
 ```
 
 ---
 
-
 ## Low Findings
 
-### [L-01] Missing Event Emission for Quote Token Removal
+### [L-01] Fee Split Calculation Uses Bit Shift Instead of Documented Percentage
 
 **Severity:** Low  
-**Location:** [`src/GridEx.sol:661-668`](src/GridEx.sol:661)
+**Location:** [`src/libraries/Lens.sol:124-130`](src/libraries/Lens.sol:124)
 
 **Description:**
 
-The [`setQuoteToken()`](src/GridEx.sol:661) function emits `QuotableTokenUpdated` for both adding and removing tokens (priority=0), but there's no distinction:
+The fee calculation uses bit shift (`>> 2`) which results in 25% protocol fee, not 60% as documented in the previous audit:
+
+```solidity
+function calculateFees(uint128 vol, uint32 bps) public pure returns (uint128 lpFee, uint128 protocolFee) {
+    unchecked {
+        uint128 fee = uint128((uint256(vol) * uint256(bps)) / 1000000);
+        protocolFee = fee >> 2;  // 25% to protocol (not 60%)
+        lpFee = fee - protocolFee;  // 75% to LP
+    }
+}
+```
+
+**Impact:**
+
+- Documentation mismatch - actual split is 75% LP / 25% protocol
+- No functional issue, but could cause confusion
+
+**Recommendation:**
+
+Update documentation to reflect actual fee split (75% LP / 25% protocol) or add named constants:
+
+```solidity
+uint256 constant PROTOCOL_FEE_DIVISOR = 4; // 25% to protocol
+```
+
+---
+
+### [L-02] Unchecked Arithmetic in Multiple Locations
+
+**Severity:** Low  
+**Location:** Multiple files
+
+**Description:**
+
+Several `unchecked` blocks are used for gas optimization:
+
+- [`src/libraries/GridOrder.sol:574-577`](src/libraries/GridOrder.sol:574) - cancelGrid loop
+- [`src/libraries/GridOrder.sol:592-595`](src/libraries/GridOrder.sol:592) - cancelGrid loop
+- [`src/libraries/GridOrder.sol:644-647`](src/libraries/GridOrder.sol:644) - cancelGridOrders loop
+- [`src/libraries/GridOrder.sol:397-399`](src/libraries/GridOrder.sol:397) - fillAskOrder
+
+While these appear safe due to prior validation (amounts come from order storage), unchecked arithmetic always carries risk.
+
+**Recommendation:**
+
+Add comments explaining why overflow is impossible in each case:
+
+```solidity
+unchecked {
+    // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
+    baseAmt += ba;
+    quoteAmt += qa;
+}
+```
+
+---
+
+### [L-03] Missing Event Emission for Quote Token Removal
+
+**Severity:** Low  
+**Location:** [`src/GridEx.sol:646-652`](src/GridEx.sol:646)
+
+**Description:**
+
+The [`setQuoteToken()`](src/GridEx.sol:646) function emits `QuotableTokenUpdated` for both adding and removing tokens (priority=0), but there's no distinction:
 
 ```solidity
 function setQuoteToken(
@@ -193,95 +215,6 @@ Consider adding a separate event for token removal or documenting that priority=
 
 ---
 
-### [L-02] Unchecked Arithmetic in Multiple Locations
-
-**Severity:** Low  
-**Location:** Multiple files
-
-**Description:**
-
-Several `unchecked` blocks are used for gas optimization:
-
-- [`src/libraries/GridOrder.sol:482-485`](src/libraries/GridOrder.sol:482) - cancelGrid loop
-- [`src/libraries/GridOrder.sol:500-503`](src/libraries/GridOrder.sol:500) - cancelGrid loop
-- [`src/libraries/GridOrder.sol:543-546`](src/libraries/GridOrder.sol:543) - cancelGridOrders loop
-
-While these appear safe due to prior validation (amounts come from order storage), unchecked arithmetic always carries risk.
-
-**Recommendation:**
-
-Add comments explaining why overflow is impossible in each case. Example:
-
-```solidity
-unchecked {
-    // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
-    baseAmt += ba;
-    quoteAmt += qa;
-}
-```
-
----
-
-### [L-03] Assert Statements Used for Validation
-
-**Severity:** Low  
-**Location:** [`src/AssetSettle.sol:59`](src/AssetSettle.sol:59), [`src/AssetSettle.sol:70`](src/AssetSettle.sol:70), [`src/AssetSettle.sol:83`](src/AssetSettle.sol:83)
-
-**Description:**
-
-`assert()` is used for validation that could fail due to user input:
-
-```solidity
-assert(Currency.unwrap(inToken) == WETH);  // Line 59
-assert(Currency.unwrap(outToken) == WETH); // Line 70
-assert(Currency.unwrap(token) == WETH);    // Line 83
-```
-
-**Impact:**
-
-- `assert()` consumes all remaining gas on failure
-- Should be reserved for invariant checks, not input validation
-
-**Recommendation:**
-
-Replace with `require()` statements:
-
-```solidity
-require(Currency.unwrap(inToken) == WETH, "Not WETH");
-```
-
----
-
-### [L-04] Potential Precision Loss in Fee Calculation
-
-**Severity:** Low  
-**Location:** [`src/libraries/Lens.sol:98-104`](src/libraries/Lens.sol:98)
-
-**Description:**
-
-Fee calculation may lose precision due to integer division:
-
-```solidity
-function calculateFees(uint128 vol, uint32 bps) public pure returns (uint128 lpFee, uint128 protocolFee) {
-    unchecked {
-        uint128 fee = uint128((uint256(vol) * uint256(bps)) / 1000000);
-        protocolFee = fee * 60 / 100;  // Potential precision loss
-        lpFee = fee - protocolFee;
-    }
-}
-```
-
-**Impact:**
-
-- Small amounts may result in 0 fees
-- Rounding always favors LP (lpFee = fee - protocolFee)
-
-**Recommendation:**
-
-This is acceptable behavior but should be documented. Consider using `mulDiv` for more precise calculations if needed.
-
----
-
 ## Informational Findings
 
 ### [I-01] Commented Out Code Throughout Codebase
@@ -291,8 +224,9 @@ This is acceptable behavior but should be documented. Consider using `mulDiv` fo
 
 **Description:**
 
-Significant amounts of commented-out code exist:
-- [`src/GridEx.sol:671-691`](src/GridEx.sol:671) - collectProtocolFee function
+Commented-out code exists in several locations:
+- [`src/libraries/GridOrder.sol:301-306`](src/libraries/GridOrder.sol:301) - Old price calculation
+- [`src/libraries/GridOrder.sol:316-321`](src/libraries/GridOrder.sol:316) - Old price calculation
 - Various commented imports and old implementations
 
 **Recommendation:**
@@ -310,8 +244,7 @@ Remove commented code before production deployment. Use version control for hist
 
 Mix of error handling styles:
 - Custom errors: `revert IOrderErrors.InvalidParam()`
-- Require with strings: `require(condition, "G1")`
-- Assert: `assert(Currency.unwrap(token) == WETH)`
+- Require with strings: `require(condition, "G1")`, `require(condition, "L1")`
 
 **Recommendation:**
 
@@ -327,9 +260,10 @@ Standardize on custom errors for gas efficiency and clarity. Replace all `requir
 **Description:**
 
 Several magic numbers without named constants:
-- `1 << 20`, `1 << 19` in quotableTokens priority ([`GridEx.sol:46-48`](src/GridEx.sol:46))
-- `0x80000000000000000000000000000000` for ask order mask ([`GridOrder.sol:16`](src/libraries/GridOrder.sol:16))
-- `60` and `100` in fee split calculation ([`Lens.sol:101-102`](src/libraries/Lens.sol:101))
+- `1 << 20`, `1 << 19` in quotableTokens priority ([`GridEx.sol:51-53`](src/GridEx.sol:51))
+- `0x80000000000000000000000000000001` for ask order ID start ([`GridOrder.sol:158`](src/libraries/GridOrder.sol:158))
+- `1000000` for fee calculation divisor ([`Lens.sol:126`](src/libraries/Lens.sol:126))
+- `10 ** 36` for PRICE_MULTIPLIER ([`Lens.sol:14`](src/libraries/Lens.sol:14), [`Linear.sol:14`](src/strategy/Linear.sol:14))
 
 **Recommendation:**
 
@@ -338,8 +272,7 @@ Define named constants for all magic numbers:
 ```solidity
 uint256 public constant USD_PRIORITY = 1 << 20;
 uint256 public constant WETH_PRIORITY = 1 << 19;
-uint256 public constant PROTOCOL_FEE_PERCENT = 60;
-uint256 public constant LP_FEE_PERCENT = 40;
+uint256 public constant FEE_DENOMINATOR = 1000000;
 ```
 
 ---
@@ -351,31 +284,13 @@ uint256 public constant LP_FEE_PERCENT = 40;
 
 **Description:**
 
-Many functions lack NatSpec documentation, particularly:
-- Internal/private functions in GridEx.sol
-- Library functions in GridOrder.sol
-- Strategy contract functions in Linear.sol
+While most public functions have NatSpec, some internal functions and edge cases lack documentation:
+- Internal helper functions in GridOrder.sol
+- Some error conditions and their triggers
 
 **Recommendation:**
 
-Add comprehensive NatSpec documentation for all public and external functions.
-
----
-
-### [I-05] Gas Optimization Opportunities
-
-**Severity:** Informational  
-**Location:** Multiple files
-
-**Description:**
-
-1. **Storage reads in loops**: [`cancelGrid()`](src/libraries/GridOrder.sol:454) could cache more values
-2. **Memory vs calldata**: Some functions use `memory` where `calldata` would be more efficient (e.g., [`cancelGridOrders`](src/GridEx.sol:627) uses `memory` for `idList`)
-3. **Redundant checks**: Some validation is performed multiple times
-
-**Recommendation:**
-
-Consider gas optimization pass before mainnet deployment.
+Add comprehensive NatSpec documentation for all functions, including internal ones.
 
 ---
 
@@ -399,15 +314,15 @@ Consider gas optimization pass before mainnet deployment.
 
 ### Missing Test Coverage
 
-1. **Vault.sol**: No tests for withdrawal functions
+1. **Vault.sol**: No tests for withdrawal functions (`withdrawERC20`, `withdrawETH`)
 2. **Linear.sol**: No direct tests for strategy validation edge cases
-3. **modifyGridFee**: No tests for fee modification (function exists but not exposed in GridEx)
-4. **Callback pattern**: Limited testing of callback scenarios
+3. **modifyGridFee**: Function exists in GridOrder.sol but not exposed in GridEx
+4. **Callback pattern**: Limited testing of callback scenarios with malicious receivers
 5. **Edge cases**: 
-   - Maximum order counts
-   - Minimum amounts
-   - Fee boundary conditions
-   - Pair creation edge cases
+   - Maximum order counts (uint32 max)
+   - Minimum amounts near zero
+   - Fee boundary conditions (MIN_FEE, MAX_FEE)
+   - Pair creation with equal priority tokens
    - Failed ETH refunds
 
 ### Recommendations for Test Improvement
@@ -418,6 +333,7 @@ Consider gas optimization pass before mainnet deployment.
 4. Add integration tests with real token contracts
 5. Test callback pattern with malicious receivers
 6. Add tests for Vault withdrawal functions
+7. Test Linear strategy edge cases (negative gaps, overflow scenarios)
 
 ---
 
@@ -425,23 +341,24 @@ Consider gas optimization pass before mainnet deployment.
 
 ### Immediate Actions (Pre-Deployment)
 
-1. **Consider M-03**: Add maximum order count validation
-2. **Fix L-03**: Replace `assert()` with `require()` in AssetSettle.sol
-3. **Clean up**: Remove commented code
+1. **Clean up**: Remove commented code throughout codebase
+2. **Documentation**: Update fee split documentation to reflect actual 75/25 split
+3. **Constants**: Add named constants for magic numbers
 
 ### Short-Term Improvements
 
-1. Consider access control for pair creation (H-01) or document as design decision
-2. Implement pull pattern for ETH refunds (M-02)
-3. Standardize error handling to custom errors
-4. Add comprehensive NatSpec documentation
+1. Add event emission for failed ETH refunds (M-01)
+2. Standardize error handling to custom errors
+3. Add comprehensive test coverage for Vault and Linear contracts
+4. Add NatSpec documentation for internal functions
 
 ### Long-Term Improvements
 
-1. Add comprehensive test coverage for edge cases
-2. Consider formal verification for core math
+1. Add comprehensive fuzz and invariant tests
+2. Consider formal verification for core math (FullMath, Lens)
 3. Gas optimization pass
 4. Consider upgradeability pattern for future improvements
+5. Consider implementing pull pattern for ETH refunds
 
 ---
 
@@ -453,30 +370,62 @@ Consider gas optimization pass before mainnet deployment.
 | Integer overflow/underflow | ✅ Solidity 0.8.33 built-in checks |
 | Access control | ✅ Owned pattern, onlyGridEx modifier |
 | Input validation | ✅ Comprehensive validation |
-| External calls at end | ⚠️ Callback pattern transfers first |
+| External calls at end | ⚠️ Callback pattern transfers first (mitigated by balance check) |
 | Check return values | ✅ SafeTransferLib used |
 | No tx.origin | ✅ Not used |
 | Event emission | ✅ Events for all state changes |
 | Emergency stop | ❌ No pause mechanism |
 | Upgrade mechanism | ❌ Not upgradeable |
+| Fee bounds validation | ✅ MIN_FEE/MAX_FEE enforced |
+| Strategy access control | ✅ onlyGridEx modifier |
 
 ---
 
 ## Conclusion
 
-The GridEx protocol has significantly improved since the previous audit. Critical vulnerabilities have been addressed:
+The GridEx protocol demonstrates mature security practices and has addressed all critical and high-severity issues from previous audits. The codebase is well-structured with:
 
-- SEA.sol and FlashLoan.sol removed (eliminating C-01 and M-02)
-- Linear.sol now has proper access control (C-02 fixed)
-- modifyGridFee now validates fee bounds (H-01 fixed)
-- Vault.sol now has withdrawal functions (H-02 fixed)
+- Proper access control via Owned pattern and onlyGridEx modifier
+- ReentrancyGuard protection on all fill functions
+- Comprehensive input validation with fee bounds
+- Safe math operations via Solidity 0.8.33 and FullMath library
+- SafeTransferLib for ERC20 transfers
 
-The remaining findings are primarily medium and low severity, with the most significant being:
-- Public pair creation (H-01) - acknowledged design decision
-- Callback pattern risks (M-01) - mitigated by ReentrancyGuard
-- Silent ETH refund failures (M-02) - can be rescued by owner
+The remaining findings are primarily low severity and informational:
+- Silent ETH refund failures (M-01) - mitigated by rescueEth function
+- Documentation/code consistency issues
+- Test coverage gaps
 
-The codebase demonstrates good security practices including ReentrancyGuard usage, safe transfer libraries, and proper access control. With the recommended improvements, the protocol should be ready for production deployment.
+The protocol is suitable for production deployment with the recommended improvements. The permissionless pair creation is an intentional design decision for a decentralized exchange.
+
+---
+
+## Appendix: Contract Interaction Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Maker     │     │   GridEx    │     │   Taker     │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       │ placeGridOrders() │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+       │                   │ fillAskOrder()    │
+       │                   │<──────────────────│
+       │                   │                   │
+       │                   │ (callback if data)│
+       │                   │──────────────────>│
+       │                   │                   │
+       │                   │ balance check     │
+       │                   │<──────────────────│
+       │                   │                   │
+       │ withdrawProfits() │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+       │ cancelGrid()      │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+```
 
 ---
 
