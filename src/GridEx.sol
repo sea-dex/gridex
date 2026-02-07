@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
-// import "./interfaces/IWETH.sol";
-// import {IPair} from "./interfaces/IPair.sol";
 import {IGridOrder} from "./interfaces/IGridOrder.sol";
 import {IGridEx} from "./interfaces/IGridEx.sol";
-// import {IERC20Minimal} from "./interfaces/IERC20Minimal.sol";
 import {IGridCallback} from "./interfaces/IGridCallback.sol";
 import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "./interfaces/IOrderEvents.sol";
@@ -16,7 +13,6 @@ import {AssetSettle} from "./AssetSettle.sol";
 import {SafeCast} from "./libraries/SafeCast.sol";
 import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
 import {GridOrder} from "./libraries/GridOrder.sol";
-// import {Lens} from "./libraries/Lens.sol";
 
 import {Owned} from "solmate/auth/Owned.sol";
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
@@ -41,8 +37,6 @@ contract GridEx is
 
     /// @dev Internal state for managing grid orders
     GridOrder.GridState internal _gridState;
-
-    // mapping(Currency => uint256) public protocolProfits;
 
     /// @notice Creates a new GridEx contract
     /// @param weth_ The WETH contract address
@@ -222,12 +216,6 @@ contract GridEx is
     /// @param quote The quote token
     /// @param profit The profit amount to transfer
     function incProtocolProfits(Currency quote, uint128 profit) private {
-        // Pair memory pair = getPairById[pairId];
-        // transfer base token to taker
-        // pair.base.transfer(taker, filledAmt);
-        // SafeTransferLib.safeTransfer(ERC20(pair.base), taker, filledAmt);
-        // protocol fee
-        // protocolProfits[quote] += profit;
         quote.transfer(vault, profit);
     }
 
@@ -239,8 +227,6 @@ contract GridEx is
         bytes calldata data,
         uint32 flag
     ) public payable override nonReentrant {
-        // bool isAsk = isAskGridOrder(gridOrderId);
-        // (uint128 gridId, uint128 orderId) = extractGridIdOrderId(gridOrderId);
         IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(
             gridOrderId,
             amt
@@ -261,15 +247,6 @@ contract GridEx is
         );
 
         Pair memory pair = getPairById[result.pairId];
-        // transfer base token to taker
-        // pair.base.transfer(taker, filledAmt);
-        // SafeTransferLib.safeTransfer(ERC20(pair.base), taker, filledAmt);
-        // protocol fee
-        // protocolProfits[pair.quote] += result.protocolFee;
-
-        // ensure receive enough quote token
-        // _settle(pair.quote, taker, filledVol, msg.value);
-
         uint128 inAmt = result.filledVol + result.lpFee + result.protocolFee;
         if (data.length > 0) {
             incProtocolProfits(pair.quote, result.protocolFee);
@@ -324,12 +301,6 @@ contract GridEx is
         AccFilled memory filled;
         for (uint256 i = 0; i < idList.length; ++i) {
             uint256 gridOrderId = idList[i];
-            // IGridOrder.OrderInfo memory orderInfo = getOrderInfo(
-            //     idList[i],
-            //     true
-            // );
-
-            // uint96 orderId = idList[i];
             uint128 amt = amtList[i];
 
             if (maxAmt > 0 && maxAmt < filled.amt + amt) {
@@ -366,14 +337,6 @@ contract GridEx is
 
         Pair memory pair = getPairById[pairId];
         Currency quote = pair.quote;
-        // transfer base token to taker
-        // pair.base.transfer(taker, filled.amt);
-        // SafeTransferLib.safeTransfer(ERC20(pair.base), taker, filled.amt);
-        // protocol fee
-        // protocolFees[quote] += filled.protocolFee;
-
-        // ensure receive enough quote token
-        // _settle(quote, taker, filled.vol, msg.value);
         if (data.length > 0) {
             incProtocolProfits(quote, filled.protocolFee);
             uint256 balanceBefore = pair.quote.balanceOfSelf();
@@ -412,10 +375,6 @@ contract GridEx is
         bytes calldata data,
         uint32 flag
     ) public payable override nonReentrant {
-        // bool isAsk = isAskGridOrder(orderId);
-        // address taker = msg.sender;
-        // IGridOrder.OrderInfo memory orderInfo = getOrderInfo(gridOrderId, true);
-
         IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(
             gridOrderId,
             amt
@@ -488,12 +447,6 @@ contract GridEx is
         uint128 protocolFee = 0; // accumulate protocol fees
 
         for (uint256 i = 0; i < idList.length; ++i) {
-            // IGridOrder.OrderInfo memory orderInfo = getOrderInfo(
-            //     idList[i],
-            //     true
-            // );
-
-            // uint96 orderId = idList[i];
             uint256 gridOrderId = idList[i];
             uint128 amt = amtList[i];
 
@@ -593,9 +546,7 @@ contract GridEx is
         // casting to 'uint128' is safe because amt < 1<<128
         // forge-lint: disable-next-line(unsafe-typecast)
         _gridState.gridConfigs[gridId].profits = conf.profits - uint128(amt);
-        // pair.quote.transfer(to, amt);
-        // casting to 'uint128' is safe because amt < 1<<128
-        // forge-lint: disable-next-line(unsafe-typecast)
+
         AssetSettle.transferAssetTo(pair.quote, to, uint128(amt), flag);
 
         emit WithdrawProfit(gridId, pair.quote, to, amt);
@@ -667,7 +618,6 @@ contract GridEx is
         Pair memory pair = getPairById[pairId];
         if (baseAmt > 0) {
             // transfer base
-            // pair.base.transfer(recipient, baseAmt);
             AssetSettle.transferAssetTo(
                 pair.base,
                 recipient,
@@ -676,8 +626,7 @@ contract GridEx is
             );
         }
         if (quoteAmt > 0) {
-            // transfer
-            // pair.quote.transfer(recipient, quoteAmt);
+            // transfer quote
             AssetSettle.transferAssetTo(
                 pair.quote,
                 recipient,
@@ -700,29 +649,6 @@ contract GridEx is
 
         emit QuotableTokenUpdated(token, priority);
     }
-
-    /// @inheritdoc IGridEx
-    // function collectProtocolFee(
-    //     Currency token,
-    //     address recipient,
-    //     uint256 amount,
-    //     uint32 flag
-    // ) external override onlyOwner {
-    //     if (amount == 0) {
-    //         amount = protocolProfits[token] - 1; // revert if overflow
-    //     } else {
-    //         amount = amount >= protocolProfits[token]
-    //             ? protocolProfits[token] - 1 // revert if overflow
-    //             : amount;
-    //     }
-    //     if (amount == 0) {
-    //         return;
-    //     }
-
-    //     // token.transfer(recipient, amount);
-    //     _transferAssetTo(token, recipient, amount, flag);
-    //     protocolProfits[token] -= amount;
-    // }
 
     /// @notice Rescue stuck ETH (e.g., from failed refunds)
     /// @dev Only callable by the owner

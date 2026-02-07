@@ -3,9 +3,6 @@ pragma solidity ^0.8.28;
 
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "./interfaces/IPair.sol";
-
-// forge-lint: disable-next-line(unaliased-plain-import)
-// import "./libraries/TransferHelper.sol";
 import {Currency} from "./libraries/Currency.sol";
 
 /// @title Pair
