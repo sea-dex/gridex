@@ -555,6 +555,11 @@ contract GridEx is
     }
 
     /// @inheritdoc IGridEx
+    function modifyGridFee(uint128 gridId, uint32 fee) public override {
+        _gridState.modifyGridFee(msg.sender, gridId, fee);
+    }
+
+    /// @inheritdoc IGridEx
     function cancelGrid(
         address recipient,
         uint128 gridId,

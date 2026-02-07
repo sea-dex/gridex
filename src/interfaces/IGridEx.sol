@@ -134,6 +134,12 @@ interface IGridEx {
     /// @param priority The priority value (0 = not quotable, higher = more preferred)
     function setQuoteToken(Currency token, uint256 priority) external;
 
+    /// @notice Modify the fee for a grid
+    /// @dev Only callable by the grid owner
+    /// @param gridId The grid ID to modify
+    /// @param fee The new fee in basis points (must be between MIN_FEE and MAX_FEE)
+    function modifyGridFee(uint128 gridId, uint32 fee) external;
+
     /// @notice Withdraw accumulated profits from a grid
     /// @param gridId The grid ID to withdraw profits from
     /// @param amt The amount to withdraw (0 = withdraw all)
