@@ -110,7 +110,9 @@ contract GridExPauseTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(ASK_PRICE, int256(PRICE_GAP)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(BID_PRICE, -int256(PRICE_GAP)),
             askOrderCount: 5,
             bidOrderCount: 5,
@@ -133,7 +135,9 @@ contract GridExPauseTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(ASK_PRICE, int256(PRICE_GAP)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(BID_PRICE, -int256(PRICE_GAP)),
             askOrderCount: 5,
             bidOrderCount: 0,
@@ -444,7 +448,9 @@ contract GridExPauseTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: linear,
+            // forge-lint: disable-next-line
             askData: abi.encode(ASK_PRICE, int256(PRICE_GAP)),
+            // forge-lint: disable-next-line
             bidData: abi.encode(BID_PRICE, -int256(PRICE_GAP)),
             askOrderCount: 5,
             bidOrderCount: 5,
