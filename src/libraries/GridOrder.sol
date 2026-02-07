@@ -57,6 +57,11 @@ library GridOrder {
     /// @param param The grid order parameters to validate
     /// @param oneshotFeeBps The oneshot protocol fee in basis points (used to validate oneshot orders)
     function validateGridOrderParam(IGridOrder.GridOrderParam calldata param, uint32 oneshotFeeBps) private pure {
+        // Require at least one order (ask or bid)
+        if (param.askOrderCount == 0 && param.bidOrderCount == 0) {
+            revert IOrderErrors.ZeroGridOrderCount();
+        }
+
         // For oneshot orders, skip user fee validation since it will be overridden
         if (!param.oneshot) {
             if (param.fee > MAX_FEE || param.fee < MIN_FEE) {

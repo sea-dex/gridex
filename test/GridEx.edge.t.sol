@@ -477,10 +477,9 @@ contract GridExEdgeTest is GridExBaseTest {
 
     // ============ Zero Order Count Tests ============
 
-    /// @notice Test placing grid with zero ask and zero bid orders
-    /// @dev The protocol allows zero order counts (creates empty grid)
-    function test_zeroOrderCounts_allowed() public {
-        // uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+    /// @notice Test placing grid with zero ask and zero bid orders reverts
+    /// @dev The protocol now rejects zero order counts
+    function test_zeroOrderCounts_reverts() public {
         uint128 amt = 1 ether;
 
         vm.startPrank(maker);
@@ -499,13 +498,10 @@ contract GridExEdgeTest is GridExBaseTest {
             baseAmount: amt
         });
 
-        // Zero order counts are allowed - creates an empty grid
+        // Zero order counts should revert
+        vm.expectRevert(IOrderErrors.ZeroGridOrderCount.selector);
         exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
-
-        IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
-        assertEq(config.askOrderCount, 0);
-        assertEq(config.bidOrderCount, 0);
     }
 
     // ============ Fill Amount Validation Tests ============
