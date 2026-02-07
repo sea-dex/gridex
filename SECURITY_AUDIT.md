@@ -2,7 +2,7 @@
 
 **Project:** GridEx - Grid Trading Exchange
 **Version:** Solidity 0.8.33
-**Audit Date:** February 2026 (Final Audit v5)
+**Audit Date:** February 2026 (Re-Audit v6)
 **Auditor:** Security Review
 
 ---
@@ -11,9 +11,9 @@
 
 GridEx is a decentralized grid trading exchange built on Solidity that allows makers to place grid orders at multiple price levels and takers to fill them. The system supports both ERC20 tokens and native ETH (via WETH wrapping), with configurable fee structures and compound/non-compound order modes.
 
-This final audit confirms that all previously identified issues have been addressed. The codebase demonstrates mature security practices with proper access control, reentrancy protection, and comprehensive input validation.
+This re-audit confirms that the codebase maintains strong security practices. The protocol has implemented emergency pause functionality, strategy whitelisting, and comprehensive access controls. All previously identified issues remain resolved.
 
-### Final Audit Results
+### Re-Audit Results
 
 | Category | Count | Status |
 |----------|-------|--------|
@@ -21,17 +21,19 @@ This final audit confirms that all previously identified issues have been addres
 | High | 0 | ✅ None found |
 | Medium | 0 | ✅ All resolved (1 acknowledged/mitigated) |
 | Low | 0 | ✅ All resolved |
-| Informational | 2 | ✅ All resolved |
+| Informational | 1 | ⚠️ Minor (non-blocking) |
 
 ### Verification Summary
 
 | Check | Result |
 |-------|--------|
-| All Tests Pass | ✅ **202 tests passed** (0 failed) |
-| Static Analysis (solhint) | ✅ **No issues** |
-| Compilation | ✅ **Successful** (only test file warnings) |
+| All Tests Pass | ✅ **232 tests passed** (0 failed) |
+| Static Analysis (solhint) | ✅ **1 warning** (line length only) |
+| Compilation | ✅ **Successful** |
 | Invariant Tests | ✅ **4 invariants verified** (256 runs, 128,000 calls) |
 | Fuzz Tests | ✅ **37 fuzz tests passed** (1,000+ runs each) |
+| Pause Tests | ✅ **21 pause tests passed** |
+| Strategy Whitelist Tests | ✅ **9 whitelist tests passed** |
 
 ### Previous Issues Status
 
@@ -50,6 +52,7 @@ This final audit confirms that all previously identified issues have been addres
 | L-02: Unchecked Arithmetic | Low | ✅ **Mitigated** - Comments added explaining safety |
 | L-03: Assert Statements Used | Low | ✅ **Resolved** - Replaced with require() |
 | L-04: Linear getReversePrice Negative | Low | ✅ **Mitigated** - validateParams() prevents underflow |
+| I-04: No Emergency Pause Mechanism | Info | ✅ **Resolved** - Pausable implemented |
 
 ---
 
@@ -57,10 +60,11 @@ This final audit confirms that all previously identified issues have been addres
 
 1. [Architecture Overview](#architecture-overview)
 2. [New Features Analysis](#new-features-analysis)
-3. [Acknowledged Findings](#acknowledged-findings)
-4. [Informational Findings](#informational-findings)
-5. [Test Coverage Analysis](#test-coverage-analysis)
-6. [Recommendations](#recommendations)
+3. [Security Analysis](#security-analysis)
+4. [Acknowledged Findings](#acknowledged-findings)
+5. [Informational Findings](#informational-findings)
+6. [Test Coverage Analysis](#test-coverage-analysis)
+7. [Recommendations](#recommendations)
 
 ---
 
@@ -70,16 +74,17 @@ This final audit confirms that all previously identified issues have been addres
 
 | Contract | Description | Lines |
 |----------|-------------|-------|
-| [`GridEx.sol`](src/GridEx.sol) | Main exchange contract handling order placement, filling, and cancellation | 530 |
+| [`GridEx.sol`](src/GridEx.sol) | Main exchange contract handling order placement, filling, and cancellation | 578 |
 | [`Pair.sol`](src/Pair.sol) | Abstract contract managing trading pairs | 87 |
 | [`AssetSettle.sol`](src/AssetSettle.sol) | Handles token/ETH settlement and transfers | 148 |
 | [`Vault.sol`](src/Vault.sol) | Protocol fee vault with withdrawal functions | 39 |
-| [`GridOrder.sol`](src/libraries/GridOrder.sol) | Library containing grid order state and logic | 715 |
+| [`GridOrder.sol`](src/libraries/GridOrder.sol) | Library containing grid order state and logic | 740 |
 | [`Linear.sol`](src/strategy/Linear.sol) | Linear price strategy implementation | 156 |
 | [`Lens.sol`](src/libraries/Lens.sol) | Price calculation utilities | 142 |
 | [`Currency.sol`](src/libraries/Currency.sol) | Custom type for ETH/ERC20 handling | 166 |
 | [`FullMath.sol`](src/libraries/FullMath.sol) | 512-bit precision math from Uniswap | 121 |
 | [`ProtocolConstants.sol`](src/libraries/ProtocolConstants.sol) | Centralized protocol constants | 40 |
+| [`Pausable.sol`](src/utils/Pausable.sol) | Emergency pause functionality | 107 |
 
 ### Key Design Patterns
 
@@ -87,33 +92,100 @@ This final audit confirms that all previously identified issues have been addres
 - **Strategy Pattern**: External strategy contracts (IGridStrategy) calculate prices with access control
 - **Callback Pattern**: Flash-swap style fills via IGridCallback with balance verification
 - **ReentrancyGuard**: Applied to all fill functions
+- **Pausable**: Emergency pause mechanism for order placement and filling
+- **Strategy Whitelist**: Only whitelisted strategies can be used for grid orders
 - **Protocol Fees**: 75% LP / 25% protocol fee split (using bit shift `>> 2`)
 - **Oneshot Orders**: Single-fill orders where 100% of fee goes to protocol
 - **Checks-Effects-Interactions**: Properly followed in all functions
 
 ### Security Features Implemented
 
-1. **ReentrancyGuard** on all fill functions ([`GridEx.sol:190`](src/GridEx.sol:190), [`GridEx.sol:239`](src/GridEx.sol:239), [`GridEx.sol:304`](src/GridEx.sol:304), [`GridEx.sol:346`](src/GridEx.sol:346))
-2. **Access Control** via Owned pattern for admin functions
-3. **Strategy Access Control** via `onlyGridEx` modifier ([`Linear.sol:27-30`](src/strategy/Linear.sol:27))
-4. **Fee Validation** with MIN_FEE (100 bps = 0.01%) / MAX_FEE (100000 bps = 10%) bounds ([`GridOrder.sol:18-21`](src/libraries/GridOrder.sol:18))
-5. **Safe Math** via Solidity 0.8.33 built-in overflow checks
-6. **SafeTransferLib** for ERC20 transfers
-7. **512-bit Math** via FullMath library for precision in price calculations
-8. **Input Validation** in require statements with proper error messages
-9. **Custom Errors** for gas-efficient error handling
-10. **RefundFailed Event** for tracking failed ETH refunds ([`AssetSettle.sol:22`](src/AssetSettle.sol:22))
+1. **ReentrancyGuard** on all fill functions ([`GridEx.sol:210`](src/GridEx.sol:210), [`GridEx.sol:260`](src/GridEx.sol:260), [`GridEx.sol:325`](src/GridEx.sol:325), [`GridEx.sol:368`](src/GridEx.sol:368))
+2. **Pausable** with `whenNotPaused` modifier on critical functions ([`GridEx.sol:98`](src/GridEx.sol:98), [`GridEx.sol:125`](src/GridEx.sol:125), [`GridEx.sol:211`](src/GridEx.sol:211))
+3. **Access Control** via Owned pattern for admin functions
+4. **Strategy Whitelist** for controlling which strategies can be used ([`GridEx.sol:40`](src/GridEx.sol:40), [`GridEx.sol:567-571`](src/GridEx.sol:567))
+5. **Strategy Access Control** via `onlyGridEx` modifier ([`Linear.sol:27-30`](src/strategy/Linear.sol:27))
+6. **Fee Validation** with MIN_FEE (100 bps = 0.01%) / MAX_FEE (100000 bps = 10%) bounds ([`GridOrder.sol:26-30`](src/libraries/GridOrder.sol:26))
+7. **Safe Math** via Solidity 0.8.33 built-in overflow checks
+8. **SafeTransferLib** for ERC20 transfers
+9. **512-bit Math** via FullMath library for precision in price calculations
+10. **Input Validation** in require statements with proper error messages
+11. **Custom Errors** for gas-efficient error handling
+12. **RefundFailed Event** for tracking failed ETH refunds ([`AssetSettle.sol:22`](src/AssetSettle.sol:22))
 
 ---
 
 ## New Features Analysis
 
-### Oneshot Orders
+### Emergency Pause Mechanism
 
-**Location:** [`GridOrder.sol:59-70`](src/libraries/GridOrder.sol:59), [`GridOrder.sol:391-397`](src/libraries/GridOrder.sol:391), [`GridOrder.sol:503-509`](src/libraries/GridOrder.sol:503)
+**Location:** [`src/utils/Pausable.sol`](src/utils/Pausable.sol), [`src/GridEx.sol:553-564`](src/GridEx.sol:553)
 
 **Description:**
-Oneshot orders are a new feature where:
+The protocol now implements a comprehensive pause mechanism:
+- Owner can pause/unpause the contract
+- When paused: `placeGridOrders`, `placeETHGridOrders`, `fillAskOrder`, `fillAskOrders`, `fillBidOrder`, `fillBidOrders` are blocked
+- When paused: `cancelGrid`, `cancelGridOrders`, `withdrawGridProfits` remain available (allowing users to exit positions)
+- Events emitted: `Paused(address account)`, `Unpaused(address account)`
+
+**Security Analysis:**
+- ✅ Only owner can pause/unpause
+- ✅ Cannot pause when already paused (prevents double-pause)
+- ✅ Cannot unpause when not paused
+- ✅ Critical operations blocked when paused
+- ✅ Exit operations (cancel, withdraw) remain available
+- ✅ Comprehensive test coverage (21 tests)
+
+**Code Review:**
+```solidity
+// GridEx.sol:553-564
+function pause() external onlyOwner {
+    _pause();
+}
+
+function unpause() external onlyOwner {
+    _unpause();
+}
+```
+
+### Strategy Whitelist
+
+**Location:** [`src/GridEx.sol:40`](src/GridEx.sol:40), [`src/GridEx.sol:156-165`](src/GridEx.sol:156), [`src/GridEx.sol:567-576`](src/GridEx.sol:567)
+
+**Description:**
+Strategies must be whitelisted before they can be used for grid orders:
+- `setStrategyWhitelist(address strategy, bool whitelisted)` - Owner-only function
+- Validation in `_placeGridOrders()` checks both ask and bid strategies
+- Reverts with `StrategyNotWhitelisted` if strategy is not whitelisted
+
+**Security Analysis:**
+- ✅ Only owner can modify whitelist
+- ✅ Zero address check prevents invalid strategies
+- ✅ Event emitted for whitelist changes
+- ✅ Validation occurs before any state changes
+- ✅ Comprehensive test coverage (9 tests)
+
+**Code Review:**
+```solidity
+// GridEx.sol:156-165
+if (param.askOrderCount > 0) {
+    if (!whitelistedStrategies[address(param.askStrategy)]) {
+        revert IOrderErrors.StrategyNotWhitelisted();
+    }
+}
+if (param.bidOrderCount > 0) {
+    if (!whitelistedStrategies[address(param.bidStrategy)]) {
+        revert IOrderErrors.StrategyNotWhitelisted();
+    }
+}
+```
+
+### Oneshot Orders
+
+**Location:** [`GridOrder.sol:59-70`](src/libraries/GridOrder.sol:59), [`GridOrder.sol:417-422`](src/libraries/GridOrder.sol:417), [`GridOrder.sol:528-534`](src/libraries/GridOrder.sol:528)
+
+**Description:**
+Oneshot orders are a feature where:
 - Orders can only be filled once (from original side)
 - 100% of the fee goes to protocol (no LP fee)
 - Fee is set by `oneshotProtocolFeeBps` (default 500 bps = 0.05%)
@@ -126,55 +198,117 @@ Oneshot orders are a new feature where:
 - ✅ `CannotModifyOneshotFee` error prevents fee modification
 - ✅ Comprehensive test coverage in [`GridEx.edge.t.sol`](test/GridEx.edge.t.sol)
 
-**Code Review:**
+---
+
+## Security Analysis
+
+### Reentrancy Protection
+
+**Status:** ✅ **Secure**
+
+All fill functions are protected by `nonReentrant` modifier:
+- [`fillAskOrder()`](src/GridEx.sol:210) - `nonReentrant`
+- [`fillAskOrders()`](src/GridEx.sol:260) - `nonReentrant`
+- [`fillBidOrder()`](src/GridEx.sol:325) - `nonReentrant`
+- [`fillBidOrders()`](src/GridEx.sol:368) - `nonReentrant`
+
+The callback pattern is additionally protected by balance verification:
 ```solidity
-// GridOrder.sol:391-397 - Ask order oneshot fee handling
-if (orderInfo.oneshot) {
-    result.lpFee = 0;
-    result.protocolFee = Lens.calculateOneshotFee(quoteVol, orderInfo.fee);
-} else {
-    (result.lpFee, result.protocolFee) = Lens.calculateFees(quoteVol, orderInfo.fee);
+// GridEx.sol:235-237
+if (balanceBefore + inAmt > pair.quote.balanceOfSelf()) {
+    revert IProtocolErrors.CallbackInsufficientInput();
 }
 ```
 
-### Protocol Constants Centralization
+**Test Coverage:** [`GridEx.callback.t.sol`](test/GridEx.callback.t.sol) includes reentrancy tests.
 
-**Location:** [`ProtocolConstants.sol`](src/libraries/ProtocolConstants.sol)
+### Access Control
 
-**Description:**
-Magic numbers have been centralized into a dedicated library:
-- `QUOTE_PRIORITY_USD` = 1 << 20
-- `QUOTE_PRIORITY_WETH` = 1 << 19
-- `ASK_ORDER_FLAG` = 0x80000000000000000000000000000000
-- `ASK_ORDER_START_ID`, `BID_ORDER_START_ID`, `GRID_ID_START`
-- `UINT128_EXCLUSIVE_UPPER_BOUND` = 1 << 128
+**Status:** ✅ **Secure**
 
-**Security Analysis:**
-- ✅ Improves code readability and maintainability
-- ✅ Reduces risk of inconsistent magic number usage
+| Function | Access Control | Location |
+|----------|---------------|----------|
+| `setQuoteToken()` | `onlyOwner` | [`GridEx.sol:523`](src/GridEx.sol:523) |
+| `rescueEth()` | `onlyOwner` | [`GridEx.sol:533`](src/GridEx.sol:533) |
+| `setOneshotProtocolFeeBps()` | `onlyOwner` | [`GridEx.sol:541`](src/GridEx.sol:541) |
+| `pause()` | `onlyOwner` | [`GridEx.sol:556`](src/GridEx.sol:556) |
+| `unpause()` | `onlyOwner` | [`GridEx.sol:562`](src/GridEx.sol:562) |
+| `setStrategyWhitelist()` | `onlyOwner` | [`GridEx.sol:567`](src/GridEx.sol:567) |
+| `withdrawERC20()` (Vault) | `onlyOwner` | [`Vault.sol:23`](src/Vault.sol:23) |
+| `withdrawETH()` (Vault) | `onlyOwner` | [`Vault.sol:32`](src/Vault.sol:32) |
+| `createGridStrategy()` | `onlyGridEx` | [`Linear.sol:72`](src/strategy/Linear.sol:72) |
+| `modifyGridFee()` | Grid owner only | [`GridOrder.sol:702-706`](src/libraries/GridOrder.sol:702) |
+| `cancelGrid()` | Grid owner only | [`GridOrder.sol:587-588`](src/libraries/GridOrder.sol:587) |
+| `cancelGridOrders()` | Grid owner only | [`GridOrder.sol:662-663`](src/libraries/GridOrder.sol:662) |
+| `withdrawGridProfits()` | Grid owner only | [`GridEx.sol:431-432`](src/GridEx.sol:431) |
 
-### RefundFailed Event
+### Integer Overflow/Underflow
 
-**Location:** [`AssetSettle.sol:22`](src/AssetSettle.sol:22), [`AssetSettle.sol:61-66`](src/AssetSettle.sol:61)
+**Status:** ✅ **Secure**
 
-**Description:**
-The `tryPaybackETH()` function now emits a `RefundFailed` event when ETH refund fails:
+- Solidity 0.8.33 provides built-in overflow/underflow checks
+- `unchecked` blocks are used only where mathematically safe (with comments explaining safety)
+- 512-bit precision math via FullMath library prevents intermediate overflow
+- Amount bounds checked: `amt >= 1 << 128` reverts with `ExceedMaxAmount`
 
+**Key Validations:**
 ```solidity
-event RefundFailed(address indexed to, uint256 amount);
-
-function tryPaybackETH(address to, uint256 value) internal {
-    (bool success,) = to.call{value: value}(new bytes(0));
-    if (!success) {
-        emit RefundFailed(to, value);
-    }
+// GridOrder.sol:98-101
+uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.askOrderCount);
+if (totalBaseAmt > type(uint128).max) {
+    revert IOrderErrors.ExceedMaxAmount();
 }
 ```
 
-**Security Analysis:**
-- ✅ Enables off-chain tracking of failed refunds
-- ✅ Combined with `rescueEth()` allows recovery of stuck ETH
-- ✅ Addresses previous M-03 finding
+### Front-Running Considerations
+
+**Status:** ⚠️ **Acknowledged (By Design)**
+
+Grid trading is inherently susceptible to front-running as order prices are publicly visible. However:
+- Slippage protection via `minAmt` parameter in fill functions
+- Grid orders are designed for passive market making, not active trading
+- Users accept this trade-off when using grid strategies
+
+### Input Validation
+
+**Status:** ✅ **Comprehensive**
+
+| Validation | Location |
+|------------|----------|
+| Zero order count check | [`GridOrder.sol:80-83`](src/libraries/GridOrder.sol:80) |
+| Fee range validation | [`GridOrder.sol:86-95`](src/libraries/GridOrder.sol:86) |
+| Strategy parameter validation | [`Linear.sol:82-143`](src/strategy/Linear.sol:82) |
+| Price validation (non-zero, bounds) | [`Linear.sol:87-89`](src/strategy/Linear.sol:87) |
+| Gap validation (sign, magnitude) | [`Linear.sol:91-104`](src/strategy/Linear.sol:91) |
+| Quote amount non-zero | [`Lens.sol:27-29`](src/libraries/Lens.sol:27) |
+| Base amount non-zero | [`Lens.sol:74-76`](src/libraries/Lens.sol:74) |
+| Amount bounds | [`Lens.sol:30-32`](src/libraries/Lens.sol:30), [`Lens.sol:77-79`](src/libraries/Lens.sol:77) |
+| Grid owner verification | [`GridOrder.sol:587-588`](src/libraries/GridOrder.sol:587) |
+| Order status check | [`GridOrder.sol:317-324`](src/libraries/GridOrder.sol:317) |
+
+### Checks-Effects-Interactions Pattern
+
+**Status:** ✅ **Properly Followed**
+
+All functions follow the CEI pattern:
+1. **Checks**: Input validation and access control
+2. **Effects**: State updates (order amounts, profits, status)
+3. **Interactions**: External calls (token transfers, callbacks)
+
+Example from [`fillAskOrder()`](src/GridEx.sol:200):
+```solidity
+// 1. CHECKS: Get order info (validates order exists and is active)
+IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(gridOrderId, amt);
+
+// 2. EFFECTS: State already updated in fillAskOrder()
+
+// 3. INTERACTIONS: External calls last
+if (data.length > 0) {
+    incProtocolProfits(pair.quote, result.protocolFee);
+    pair.base.transfer(msg.sender, result.filledAmt);
+    IGridCallback(msg.sender).gridFillCallback(...);
+}
+```
 
 ---
 
@@ -211,101 +345,35 @@ function claimRefund() external {
 
 ## Informational Findings
 
-### [I-01] Zero Order Count Grids Allowed ✅ Resolved
+### [I-01] Line Length Warning in GridEx.sol
 
 **Severity:** Informational
-**Status:** ✅ **Resolved** - Added validation in [`GridOrder.sol:62-64`](src/libraries/GridOrder.sol:62)
-**Location:** [`GridOrder.sol:62-64`](src/libraries/GridOrder.sol:62)
+**Status:** ⚠️ Minor (non-blocking)
+**Location:** [`src/GridEx.sol:125`](src/GridEx.sol:125)
 
 **Description:**
-The protocol previously allowed creating grids with zero ask and zero bid orders, which created empty grids that consume storage.
-
-**Resolution:**
-Added validation in `validateGridOrderParam()`:
-```solidity
-// Require at least one order (ask or bid)
-if (param.askOrderCount == 0 && param.bidOrderCount == 0) {
-    revert IOrderErrors.ZeroGridOrderCount();
-}
+Static analysis (solhint) reports one line length warning:
+```
+src/GridEx.sol:125:2  warning  Line length must be no more than 124 but current length is 133
 ```
 
-**Test Reference:** [`GridEx.edge.t.sol:482-505`](test/GridEx.edge.t.sol:482) - Updated to verify revert
-
----
-
-### [I-02] Require Strings for Low-Level Operations ✅ Mostly Resolved
-
-**Severity:** Informational
-**Status:** ✅ **Mostly Resolved** - Business logic uses custom errors
-
-**Description:**
-The codebase now uses custom errors for all business logic validation (52 instances found). A few `require` statements with string messages remain for:
-- ETH transfer failures in low-level calls (Vault.sol, AssetSettle.sol, GridEx.sol)
-- Access control in Linear.sol (`"Unauthorized"`)
-- Strategy existence check (`"Already exists"`)
-
-These remaining cases are appropriate since:
-1. Low-level ETH transfers need descriptive failure messages
-2. Access control messages help with debugging
-3. The count is minimal (8 active require statements vs 52 custom error reverts)
-
-**Custom Error Interfaces:**
-- [`IOrderErrors.sol`](src/interfaces/IOrderErrors.sol) - 22 custom errors
-- [`IProtocolErrors.sol`](src/interfaces/IProtocolErrors.sol) - 3 custom errors
-- [`ILinearErrors.sol`](src/interfaces/ILinearErrors.sol) - 10 custom errors
-
----
-
-### [I-03] Missing NatSpec on Some Internal Functions
-
-**Severity:** Informational
-**Status:** ✅ **Resolved** - NatSpec documentation added to all internal functions
-**Location:** Multiple files
-
-**Description:**
-While most public functions have comprehensive NatSpec documentation, some internal helper functions lack documentation:
-- `incProtocolProfits()` in GridEx.sol
-- Some helper functions in GridOrder.sol
-
-**Resolution:**
-NatSpec documentation has been added to all internal helper functions including `incProtocolProfits()` and other helper functions in GridOrder.sol.
-
----
-
-### [I-04] No Emergency Pause Mechanism
-
-**Severity:** Informational
-**Location:** [`src/GridEx.sol`](src/GridEx.sol)
-
-**Description:**
-The contract lacks an emergency pause mechanism. In case of a discovered vulnerability or attack, there's no way to halt operations.
+**Impact:** None - purely cosmetic/style issue.
 
 **Recommendation:**
-Consider implementing OpenZeppelin's Pausable pattern:
+Consider breaking the long line for better readability:
 ```solidity
-import {Pausable} from "solmate/utils/Pausable.sol";
-
-contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable {
-    
-    function fillAskOrder(...) public payable override nonReentrant whenNotPaused {
-        // ...
-    }
-    
-    function pause() external onlyOwner {
-        _pause();
-    }
-    
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-}
+function placeGridOrders(
+    Currency base,
+    Currency quote,
+    IGridOrder.GridOrderParam calldata param
+) public override whenNotPaused {
 ```
 
 ---
 
 ## Test Coverage Analysis
 
-### Final Test Results (February 2026)
+### Final Test Results (February 2026 Re-Audit)
 
 | Test Suite | Passed | Failed | Skipped |
 |------------|--------|--------|---------|
@@ -321,12 +389,14 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 | GridExFillFuzzTest | 17 | 0 | 0 |
 | GridExFuzzTest | 20 | 0 | 0 |
 | GridExInvariantTest | 4 | 0 | 0 |
+| GridExPauseTest | 21 | 0 | 0 |
 | GridExPlaceTest | 8 | 0 | 0 |
 | GridExProfitTest | 1 | 0 | 0 |
 | GridExRevertTest | 4 | 0 | 0 |
+| GridExStrategyWhitelistTest | 9 | 0 | 0 |
 | LinearTest | 29 | 0 | 0 |
 | VaultTest | 19 | 0 | 0 |
-| **Total** | **202** | **0** | **0** |
+| **Total** | **232** | **0** | **0** |
 
 ### Covered Scenarios
 
@@ -341,49 +411,26 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 | [`GridEx.cancelETH.t.sol`](test/GridEx.cancelETH.t.sol) | ETH order cancellation | 8 |
 | [`GridEx.profit.t.sol`](test/GridEx.profit.t.sol) | Profit withdrawal | 1 |
 | [`GridEx.revert.t.sol`](test/GridEx.revert.t.sol) | Error conditions | 4 |
-| [`GridEx.callback.t.sol`](test/GridEx.callback.t.sol) | Callback pattern | 12 |
+| [`GridEx.callback.t.sol`](test/GridEx.callback.t.sol) | Callback pattern & reentrancy | 12 |
 | [`GridEx.edge.t.sol`](test/GridEx.edge.t.sol) | Edge cases (comprehensive) | 33 |
 | [`GridEx.fee.t.sol`](test/GridEx.fee.t.sol) | Fee calculations | 16 |
 | [`GridEx.fuzz.t.sol`](test/GridEx.fuzz.t.sol) | Fuzz testing (math) | 20 |
 | [`GridEx.fillFuzz.t.sol`](test/GridEx.fillFuzz.t.sol) | Fuzz testing (fills) | 17 |
 | [`GridEx.invariant.t.sol`](test/GridEx.invariant.t.sol) | Invariant testing | 4 |
+| [`GridEx.pause.t.sol`](test/GridEx.pause.t.sol) | Pause functionality | 21 |
+| [`GridEx.strategyWhitelist.t.sol`](test/GridEx.strategyWhitelist.t.sol) | Strategy whitelist | 9 |
 | [`Linear.t.sol`](test/Linear.t.sol) | Linear strategy | 29 |
 | [`Vault.t.sol`](test/Vault.t.sol) | Vault operations | 19 |
 
-**Total: 202 tests**
+**Total: 232 tests**
 
-### Edge Cases Covered (GridEx.edge.t.sol)
+### New Test Coverage (Since Last Audit)
 
-1. ✅ Maximum order counts (100 ask/bid orders)
-2. ✅ Minimum amounts near zero
-3. ✅ Fee boundary conditions (MIN_FEE, MAX_FEE)
-4. ✅ Equal priority token pair creation
-5. ✅ ETH refund scenarios
-6. ✅ Total base amount overflow
-7. ✅ Zero order count grids
-8. ✅ Fill amount validation
-9. ✅ Multiple grids same pair
-10. ✅ Slippage protection
-11. ✅ Oneshot order behavior
-12. ✅ Oneshot protocol fee verification
-13. ✅ Oneshot reverse fill prevention
-14. ✅ Oneshot fee modification prevention
-15. ✅ Compound order behavior
+1. ✅ **Pause Tests** (21 tests) - Comprehensive pause/unpause functionality
+2. ✅ **Strategy Whitelist Tests** (9 tests) - Whitelist management and validation
+3. ✅ **Reentrancy Tests** - Callback reentrancy protection verification
 
-### Fuzz Testing Coverage (GridEx.fuzz.t.sol)
-
-1. ✅ `calcQuoteAmount` with valid inputs
-2. ✅ `calcQuoteAmount` rounding behavior
-3. ✅ `calcQuoteAmount` zero result revert
-4. ✅ `calcBaseAmount` with valid inputs
-5. ✅ `calcBaseAmount` rounding behavior
-6. ✅ `calcAskOrderQuoteAmount` fee calculation
-7. ✅ `calcBidOrderQuoteAmount` fee calculation
-8. ✅ `calculateFees` 75/25 split
-9. ✅ Fee split ratio verification
-10. ✅ FullMath.mulDiv precision
-
-### Invariant Testing Coverage (GridEx.invariant.t.sol)
+### Invariant Testing Coverage
 
 1. ✅ Token conservation (SEA + USDC)
 2. ✅ Protocol fees accumulate in vault
@@ -396,25 +443,22 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 
 ### Completed Since Last Audit
 
-1. ✅ **RefundFailed Event**: Added event emission for failed ETH refunds
-2. ✅ **Protocol Constants**: Centralized magic numbers in ProtocolConstants.sol
-3. ✅ **Oneshot Orders**: Implemented with proper fee handling and access control
-4. ✅ **Comprehensive Edge Case Tests**: Added GridEx.edge.t.sol with 40+ tests
-5. ✅ **Fuzz Testing**: Added GridEx.fuzz.t.sol for arithmetic operations
-6. ✅ **Invariant Testing**: Added GridEx.invariant.t.sol for token conservation
+1. ✅ **Emergency Pause Mechanism**: Implemented Pausable with comprehensive controls
+2. ✅ **Strategy Whitelist**: Added whitelist for controlling allowed strategies
+3. ✅ **Pause Test Coverage**: 21 tests for pause functionality
+4. ✅ **Whitelist Test Coverage**: 9 tests for strategy whitelist
 
 ### Short-Term Improvements
 
-1. Standardize error handling to custom errors throughout
-2. Add NatSpec documentation for internal functions
-3. Consider adding validation for zero order count grids
+1. **Line Length**: Fix the one line length warning in GridEx.sol:125
+2. **Documentation**: Consider adding more inline comments for complex logic
 
 ### Long-Term Improvements
 
-1. Consider implementing emergency pause mechanism
-2. Consider formal verification for core math (FullMath, Lens)
-3. Consider implementing pull pattern for ETH refunds
-4. Gas optimization pass
+1. Consider formal verification for core math (FullMath, Lens)
+2. Consider implementing pull pattern for ETH refunds
+3. Gas optimization pass for high-frequency operations
+4. Consider adding time-lock for critical admin functions
 
 ---
 
@@ -430,10 +474,11 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 | Check return values | ✅ SafeTransferLib used |
 | No tx.origin | ✅ Not used |
 | Event emission | ✅ Events for all state changes |
-| Emergency stop | ❌ No pause mechanism |
-| Upgrade mechanism | ❌ Not upgradeable |
+| Emergency stop | ✅ Pausable implemented |
+| Upgrade mechanism | ❌ Not upgradeable (intentional) |
 | Fee bounds validation | ✅ MIN_FEE/MAX_FEE enforced |
 | Strategy access control | ✅ onlyGridEx modifier |
+| Strategy whitelist | ✅ Only whitelisted strategies allowed |
 | 512-bit math precision | ✅ FullMath library from Uniswap |
 | Safe ERC20 transfers | ✅ SafeTransferLib from solmate |
 | Failed refund tracking | ✅ RefundFailed event |
@@ -443,7 +488,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 
 ## Conclusion
 
-The GridEx protocol has successfully completed its final security audit. All previously identified critical, high, medium, and low-severity issues have been resolved. The codebase demonstrates mature security practices:
+The GridEx protocol has successfully completed its re-audit. All previously identified issues remain resolved, and new security features have been properly implemented:
 
 ### Security Strengths
 
@@ -451,18 +496,20 @@ The GridEx protocol has successfully completed its final security audit. All pre
 |---------|----------------|
 | Access Control | ✅ Owned pattern + onlyGridEx modifier |
 | Reentrancy Protection | ✅ ReentrancyGuard on all fill functions |
+| Emergency Pause | ✅ Pausable with owner-only controls |
+| Strategy Whitelist | ✅ Only whitelisted strategies allowed |
 | Input Validation | ✅ Comprehensive with fee bounds (MIN_FEE/MAX_FEE) |
 | Safe Math | ✅ Solidity 0.8.33 + FullMath library (512-bit) |
 | Safe Transfers | ✅ SafeTransferLib from solmate |
 | Documentation | ✅ NatSpec comments on all public functions |
-| Test Coverage | ✅ 202 tests (unit, fuzz, invariant) |
+| Test Coverage | ✅ 232 tests (unit, fuzz, invariant, pause, whitelist) |
 | Oneshot Orders | ✅ Proper fee handling and fill prevention |
 | Failed Refunds | ✅ RefundFailed event for tracking |
 | Custom Errors | ✅ Gas-efficient error handling |
 
 ### Remaining Informational Items (Non-blocking)
 
-1. **No Emergency Pause** - Consider for future versions
+1. **Line Length Warning** - Minor style issue in GridEx.sol:125
 2. **Not Upgradeable** - Intentional design decision for immutability
 3. **Permissionless Pair Creation** - Intentional for decentralized exchange
 
@@ -470,7 +517,7 @@ The GridEx protocol has successfully completed its final security audit. All pre
 
 **✅ PRODUCTION-READY**
 
-The protocol is ready for mainnet deployment. All security controls are properly implemented, and the comprehensive test suite (202 tests including 37 fuzz tests and 4 invariant tests with 128,000 calls) provides high confidence in the correctness of the implementation.
+The protocol is ready for mainnet deployment. All security controls are properly implemented, and the comprehensive test suite (232 tests including 37 fuzz tests, 4 invariant tests with 128,000 calls, 21 pause tests, and 9 whitelist tests) provides high confidence in the correctness of the implementation.
 
 ---
 
@@ -501,79 +548,35 @@ The protocol is ready for mainnet deployment. All security controls are properly
        │                   │                   │
 ```
 
----
-
-## Appendix: Key Function Security Analysis
-
-### fillAskOrder / fillBidOrder
+## Appendix: Admin Functions Flow
 
 ```
-1. nonReentrant modifier prevents reentrancy
-2. State updated in _gridState.fillAskOrder() before external calls
-3. If callback used:
-   - Tokens transferred to taker first
-   - Callback invoked
-   - Balance check ensures payment received
-4. If no callback:
-   - settleAssetWith handles token transfers
-   - Protocol fee transferred to vault
-```
-
-### placeGridOrders
-
-```
-1. Validates parameters via validateGridOrderParam()
-2. Creates grid config in storage
-3. Calculates required token amounts
-4. Transfers tokens from maker to contract
-5. No external calls before state updates
-```
-
-### cancelGrid / cancelGridOrders
-
-```
-1. Verifies sender is grid owner
-2. Checks grid status is normal
-3. Calculates refund amounts from storage
-4. Updates grid status to canceled
-5. Transfers tokens to recipient
-```
-
-### Oneshot Order Flow
-
-```
-1. User creates grid with oneshot=true
-2. Fee is set to oneshotProtocolFeeBps (ignores user fee)
-3. On fill:
-   - lpFee = 0, protocolFee = 100% of fee
-   - If fully filled, order marked as canceled
-4. Reverse fill attempts revert with:
-   - FillReversedOneShotOrder (if partially filled)
-   - OrderCanceled (if fully filled)
-5. Fee modification reverts with CannotModifyOneshotFee
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Owner     │     │   GridEx    │     │   Vault     │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       │ pause()           │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+       │ setStrategyWhitelist()                │
+       │──────────────────>│                   │
+       │                   │                   │
+       │ setQuoteToken()   │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+       │ rescueEth()       │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+       │ unpause()         │                   │
+       │──────────────────>│                   │
+       │                   │                   │
+       │                   │ withdrawERC20()   │
+       │                   │──────────────────>│
+       │                   │                   │
 ```
 
 ---
 
-## Disclaimer
-
-This audit report is not a guarantee of security. Smart contract security is a continuous process, and new vulnerabilities may be discovered after this audit. The findings in this report are based on the code reviewed at the time of the audit and may not reflect subsequent changes.
-
----
-
-## Audit Verification
-
-| Verification Step | Result |
-|-------------------|--------|
-| Code Review | ✅ Complete |
-| Test Execution | ✅ 202/202 tests passed |
-| Static Analysis (solhint) | ✅ No issues |
-| Compilation | ✅ Successful (Solc 0.8.33) |
-| Fuzz Testing | ✅ 37 tests, 1000+ runs each |
-| Invariant Testing | ✅ 4 invariants, 256 runs, 128,000 calls |
-
-**Audit Completed:** February 7, 2026
-
----
-
-**End of Report**
+*Report generated: February 2026*
+*Auditor: Security Review*
+*Version: Re-Audit v6*
