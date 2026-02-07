@@ -6,6 +6,7 @@ import {IGridEx} from "./interfaces/IGridEx.sol";
 import {IGridCallback} from "./interfaces/IGridCallback.sol";
 import {IOrderErrors} from "./interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "./interfaces/IOrderEvents.sol";
+import {IProtocolErrors} from "./interfaces/IProtocolErrors.sol";
 
 import {Pair} from "./Pair.sol";
 import {AssetSettle} from "./AssetSettle.sol";
@@ -13,6 +14,7 @@ import {AssetSettle} from "./AssetSettle.sol";
 import {SafeCast} from "./libraries/SafeCast.sol";
 import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
 import {GridOrder} from "./libraries/GridOrder.sol";
+import {ProtocolConstants} from "./libraries/ProtocolConstants.sol";
 
 import {Owned} from "solmate/auth/Owned.sol";
 import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
@@ -21,13 +23,7 @@ import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
 /// @author GridEx Protocol
 /// @notice Main contract for the GridEx decentralized grid trading protocol
 /// @dev Implements grid order placement, filling, and cancellation with support for ETH and ERC20 tokens
-contract GridEx is
-    IGridEx,
-    AssetSettle,
-    Pair,
-    Owned,
-    ReentrancyGuard
-{
+contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard {
     using SafeCast for *;
     using CurrencyLibrary for Currency;
     using GridOrder for GridOrder.GridState;
@@ -48,9 +44,9 @@ contract GridEx is
         require(_vault != address(0), "invalid vault");
 
         // usd is the most priority quote token
-        quotableTokens[Currency.wrap(usd_)] = 1 << 20;
-        // quotableTokens[Currency.wrap(address(0))] = 1 << 19;
-        quotableTokens[Currency.wrap(weth_)] = 1 << 19;
+        quotableTokens[Currency.wrap(usd_)] = ProtocolConstants.QUOTE_PRIORITY_USD;
+        // quotableTokens[Currency.wrap(address(0))] = ProtocolConstants.QUOTE_PRIORITY_WETH;
+        quotableTokens[Currency.wrap(weth_)] = ProtocolConstants.QUOTE_PRIORITY_WETH;
         WETH = weth_;
         vault = _vault;
 
@@ -61,19 +57,13 @@ contract GridEx is
     receive() external payable {}
 
     /// @inheritdoc IGridEx
-    function getGridOrder(
-        uint256 id
-    ) public view override returns (IGridOrder.OrderInfo memory) {
+    function getGridOrder(uint256 id) public view override returns (IGridOrder.OrderInfo memory) {
         return _gridState.getOrderInfo(id, false);
     }
 
     /// @inheritdoc IGridEx
-    function getGridOrders(
-        uint256[] calldata idList
-    ) public view override returns (IGridOrder.OrderInfo[] memory) {
-        IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](
-            idList.length
-        );
+    function getGridOrders(uint256[] calldata idList) public view override returns (IGridOrder.OrderInfo[] memory) {
+        IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](idList.length);
 
         for (uint256 i = 0; i < idList.length; ++i) {
             orderList[i] = _gridState.getOrderInfo(idList[i], false);
@@ -82,16 +72,12 @@ contract GridEx is
     }
 
     /// @inheritdoc IGridEx
-    function getGridProfits(
-        uint96 gridId
-    ) public view override returns (uint256) {
+    function getGridProfits(uint96 gridId) public view override returns (uint256) {
         return _gridState.gridConfigs[gridId].profits;
     }
 
     /// @inheritdoc IGridEx
-    function getGridConfig(
-        uint96 gridId
-    ) public view override returns (IGridOrder.GridConfig memory) {
+    function getGridConfig(uint96 gridId) public view override returns (IGridOrder.GridConfig memory) {
         return _gridState.gridConfigs[gridId];
     }
 
@@ -101,11 +87,10 @@ contract GridEx is
     /// @param quote The quote token (address(0) for ETH)
     /// @param param The grid order parameters
     // forge-lint: disable-next-line(mixed-case-function)
-    function placeETHGridOrders(
-        Currency base,
-        Currency quote,
-        IGridOrder.GridOrderParam calldata param
-    ) public payable {
+    function placeETHGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param)
+        public
+        payable
+    {
         // forge-lint: disable-next-line(mixed-case-variable)
         bool baseIsETH = false;
         if (base.isAddressZero()) {
@@ -117,47 +102,26 @@ contract GridEx is
             revert IOrderErrors.InvalidParam();
         }
 
-        (, uint128 baseAmt, uint128 quoteAmt) = _placeGridOrders(
-            msg.sender,
-            base,
-            quote,
-            param
-        );
+        (, uint128 baseAmt, uint128 quoteAmt) = _placeGridOrders(msg.sender, base, quote, param);
 
         if (baseIsETH) {
             require(msg.value >= baseAmt, "GridEx: Insufficient ETH sent");
-            AssetSettle.transferETHFrom(
-                msg.sender,
-                baseAmt,
-                uint128(msg.value)
-            );
+            AssetSettle.transferETHFrom(msg.sender, baseAmt, uint128(msg.value));
             AssetSettle.transferTokenFrom(quote, msg.sender, quoteAmt);
         } else {
             require(msg.value >= quoteAmt, "GridEx: Insufficient ETH sent");
-            AssetSettle.transferETHFrom(
-                msg.sender,
-                quoteAmt,
-                uint128(msg.value)
-            );
+            AssetSettle.transferETHFrom(msg.sender, quoteAmt, uint128(msg.value));
             AssetSettle.transferTokenFrom(base, msg.sender, baseAmt);
         }
     }
 
     /// @inheritdoc IGridEx
-    function placeGridOrders(
-        Currency base,
-        Currency quote,
-        IGridOrder.GridOrderParam calldata param
-    ) public override {
+    function placeGridOrders(Currency base, Currency quote, IGridOrder.GridOrderParam calldata param) public override {
         if (base.isAddressZero() || quote.isAddressZero()) {
             revert IOrderErrors.InvalidParam();
         }
 
-        (
-            Pair memory pair,
-            uint128 baseAmt,
-            uint128 quoteAmt
-        ) = _placeGridOrders(msg.sender, base, quote, param);
+        (Pair memory pair, uint128 baseAmt, uint128 quoteAmt) = _placeGridOrders(msg.sender, base, quote, param);
 
         // transfer base token
         if (baseAmt > 0) {
@@ -178,24 +142,17 @@ contract GridEx is
     /// @return pair The trading pair info
     /// @return baseAmt The total base token amount required
     /// @return quoteAmt The total quote token amount required
-    function _placeGridOrders(
-        address maker,
-        Currency base,
-        Currency quote,
-        IGridOrder.GridOrderParam calldata param
-    ) private returns (Pair memory pair, uint128 baseAmt, uint128 quoteAmt) {
+    function _placeGridOrders(address maker, Currency base, Currency quote, IGridOrder.GridOrderParam calldata param)
+        private
+        returns (Pair memory pair, uint128 baseAmt, uint128 quoteAmt)
+    {
         pair = getOrCreatePair(base, quote);
 
         uint256 startAskOrderId;
         uint256 startBidOrderId;
         uint128 gridId;
-        (
-            gridId,
-            startAskOrderId,
-            startBidOrderId,
-            baseAmt,
-            quoteAmt
-        ) = _gridState.placeGridOrder(pair.pairId, maker, param);
+        (gridId, startAskOrderId, startBidOrderId, baseAmt, quoteAmt) =
+            _gridState.placeGridOrder(pair.pairId, maker, param);
 
         emit IOrderEvents.GridOrderCreated(
             maker,
@@ -226,24 +183,20 @@ contract GridEx is
         uint128 minAmt, // base amount
         bytes calldata data,
         uint32 flag
-    ) public payable override nonReentrant {
-        IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(
-            gridOrderId,
-            amt
-        );
+    )
+        public
+        payable
+        override
+        nonReentrant
+    {
+        IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(gridOrderId, amt);
 
         if (minAmt > 0 && result.filledAmt < minAmt) {
             revert IOrderErrors.NotEnoughToFill();
         }
 
         emit IOrderEvents.FilledOrder(
-            msg.sender,
-            gridOrderId,
-            result.filledAmt,
-            result.filledVol,
-            result.orderAmt,
-            result.orderRevAmt,
-            true
+            msg.sender, gridOrderId, result.filledAmt, result.filledVol, result.orderAmt, result.orderRevAmt, true
         );
 
         Pair memory pair = getPairById[result.pairId];
@@ -254,24 +207,15 @@ contract GridEx is
 
             // always transfer ERC20 to msg.sender
             pair.base.transfer(msg.sender, result.filledAmt);
-            IGridCallback(msg.sender).gridFillCallback(
-                Currency.unwrap(pair.quote),
-                Currency.unwrap(pair.base),
-                inAmt,
-                result.filledAmt,
-                data
-            );
-            require(balanceBefore + inAmt <= pair.quote.balanceOfSelf(), "G1");
+            IGridCallback(msg.sender)
+                .gridFillCallback(
+                    Currency.unwrap(pair.quote), Currency.unwrap(pair.base), inAmt, result.filledAmt, data
+                );
+            if (balanceBefore + inAmt > pair.quote.balanceOfSelf()) {
+                revert IProtocolErrors.CallbackInsufficientInput();
+            }
         } else {
-            AssetSettle.settleAssetWith(
-                pair.quote,
-                pair.base,
-                msg.sender,
-                inAmt,
-                result.filledAmt,
-                msg.value,
-                flag
-            );
+            AssetSettle.settleAssetWith(pair.quote, pair.base, msg.sender, inAmt, result.filledAmt, msg.value, flag);
             incProtocolProfits(pair.quote, result.protocolFee);
         }
     }
@@ -307,20 +251,13 @@ contract GridEx is
                 amt = maxAmt - filled.amt;
             }
 
-            IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(
-                gridOrderId,
-                amt
-            );
-            require(result.pairId == pairId, "G2");
+            IGridOrder.OrderFillResult memory result = _gridState.fillAskOrder(gridOrderId, amt);
+            if (result.pairId != pairId) {
+                revert IProtocolErrors.PairIdMismatch();
+            }
 
             emit IOrderEvents.FilledOrder(
-                msg.sender,
-                gridOrderId,
-                result.filledAmt,
-                result.filledVol,
-                result.orderAmt,
-                result.orderRevAmt,
-                true
+                msg.sender, gridOrderId, result.filledAmt, result.filledVol, result.orderAmt, result.orderRevAmt, true
             );
             filled.amt += result.filledAmt;
             filled.vol += result.filledVol + result.lpFee + result.protocolFee;
@@ -342,27 +279,13 @@ contract GridEx is
             uint256 balanceBefore = pair.quote.balanceOfSelf();
             // always transfer ERC20 to msg.sender
             pair.base.transfer(msg.sender, filled.amt);
-            IGridCallback(msg.sender).gridFillCallback(
-                Currency.unwrap(pair.quote),
-                Currency.unwrap(pair.base),
-                filled.vol,
-                filled.amt,
-                data
-            );
-            require(
-                balanceBefore + filled.vol <= pair.quote.balanceOfSelf(),
-                "G3"
-            );
+            IGridCallback(msg.sender)
+                .gridFillCallback(Currency.unwrap(pair.quote), Currency.unwrap(pair.base), filled.vol, filled.amt, data);
+            if (balanceBefore + filled.vol > pair.quote.balanceOfSelf()) {
+                revert IProtocolErrors.CallbackInsufficientInput();
+            }
         } else {
-            AssetSettle.settleAssetWith(
-                quote,
-                pair.base,
-                msg.sender,
-                filled.vol,
-                filled.amt,
-                msg.value,
-                flag
-            );
+            AssetSettle.settleAssetWith(quote, pair.base, msg.sender, filled.vol, filled.amt, msg.value, flag);
             incProtocolProfits(quote, filled.protocolFee);
         }
     }
@@ -374,55 +297,39 @@ contract GridEx is
         uint128 minAmt, // base amount
         bytes calldata data,
         uint32 flag
-    ) public payable override nonReentrant {
-        IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(
-            gridOrderId,
-            amt
-        );
+    )
+        public
+        payable
+        override
+        nonReentrant
+    {
+        IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(gridOrderId, amt);
 
         if (minAmt > 0 && result.filledAmt < minAmt) {
             revert IOrderErrors.NotEnoughToFill();
         }
 
         emit IOrderEvents.FilledOrder(
-            msg.sender,
-            gridOrderId,
-            result.filledAmt,
-            result.filledVol,
-            result.orderAmt,
-            result.orderRevAmt,
-            false
+            msg.sender, gridOrderId, result.filledAmt, result.filledVol, result.orderAmt, result.orderRevAmt, false
         );
 
         Pair memory pair = getPairById[result.pairId];
         uint128 outAmt = result.filledVol - result.lpFee - result.protocolFee;
-        
+
         if (data.length > 0) {
             incProtocolProfits(pair.quote, result.protocolFee);
             // always transfer ERC20 to msg.sender
             pair.quote.transfer(msg.sender, outAmt);
             uint256 balanceBefore = pair.base.balanceOfSelf();
-            IGridCallback(msg.sender).gridFillCallback(
-                Currency.unwrap(pair.base),
-                Currency.unwrap(pair.quote),
-                result.filledAmt,
-                outAmt,
-                data
-            );
-            require(
-                balanceBefore + result.filledAmt <= pair.base.balanceOfSelf(),
-                "G4"
-            );
+            IGridCallback(msg.sender)
+                .gridFillCallback(
+                    Currency.unwrap(pair.base), Currency.unwrap(pair.quote), result.filledAmt, outAmt, data
+                );
+            if (balanceBefore + result.filledAmt > pair.base.balanceOfSelf()) {
+                revert IProtocolErrors.CallbackInsufficientInput();
+            }
         } else {
-            AssetSettle.settleAssetWith(
-                pair.base,
-                pair.quote,
-                msg.sender,
-                result.filledAmt,
-                outAmt,
-                msg.value,
-                flag
-            );
+            AssetSettle.settleAssetWith(pair.base, pair.quote, msg.sender, result.filledAmt, outAmt, msg.value, flag);
             incProtocolProfits(pair.quote, result.protocolFee);
         }
     }
@@ -454,23 +361,16 @@ contract GridEx is
                 amt = maxAmt - uint128(filledAmt);
             }
 
-            IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(
-                gridOrderId,
-                amt
-            );
+            IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(gridOrderId, amt);
             // taker
             // orderInfo
 
-            require(result.pairId == pairId, "G5");
+            if (result.pairId != pairId) {
+                revert IProtocolErrors.PairIdMismatch();
+            }
 
             emit IOrderEvents.FilledOrder(
-                msg.sender,
-                gridOrderId,
-                result.filledAmt,
-                result.filledVol,
-                result.orderAmt,
-                result.orderRevAmt,
-                false
+                msg.sender, gridOrderId, result.filledAmt, result.filledVol, result.orderAmt, result.orderRevAmt, false
             );
 
             filledAmt += result.filledAmt; // filledBaseAmt;
@@ -492,40 +392,23 @@ contract GridEx is
             // always transfer ERC20 to msg.sender
             pair.quote.transfer(msg.sender, filledVol);
             uint256 balanceBefore = pair.base.balanceOfSelf();
-            IGridCallback(msg.sender).gridFillCallback(
-                Currency.unwrap(pair.base),
-                Currency.unwrap(pair.quote),
-                filledAmt,
-                filledVol,
-                data
-            );
-            require(
-                balanceBefore + filledAmt <= pair.base.balanceOfSelf(),
-                "G6"
-            );
+            IGridCallback(msg.sender)
+                .gridFillCallback(Currency.unwrap(pair.base), Currency.unwrap(pair.quote), filledAmt, filledVol, data);
+            if (balanceBefore + filledAmt > pair.base.balanceOfSelf()) {
+                revert IProtocolErrors.CallbackInsufficientInput();
+            }
         } else {
-            AssetSettle.settleAssetWith(
-                pair.base,
-                pair.quote,
-                taker,
-                filledAmt,
-                filledVol,
-                msg.value,
-                flag
-            );
+            AssetSettle.settleAssetWith(pair.base, pair.quote, taker, filledAmt, filledVol, msg.value, flag);
             incProtocolProfits(pair.quote, protocolFee);
         }
     }
 
     /// @inheritdoc IGridEx
-    function withdrawGridProfits(
-        uint128 gridId,
-        uint256 amt,
-        address to,
-        uint32 flag
-    ) public override {
+    function withdrawGridProfits(uint128 gridId, uint256 amt, address to, uint32 flag) public override {
         IGridOrder.GridConfig memory conf = _gridState.gridConfigs[gridId];
-        require(conf.owner == msg.sender, "G7");
+        if (conf.owner != msg.sender) {
+            revert IOrderErrors.NotGridOwer();
+        }
 
         if (amt == 0) {
             amt = conf.profits;
@@ -537,7 +420,7 @@ contract GridEx is
             revert IOrderErrors.NoProfits();
         }
 
-        if (amt >= 1<<128) {
+        if (amt >= 1 << 128) {
             revert IOrderErrors.ExceedMaxAmount();
         }
 
@@ -560,33 +443,18 @@ contract GridEx is
     }
 
     /// @inheritdoc IGridEx
-    function cancelGrid(
-        address recipient,
-        uint128 gridId,
-        uint32 flag
-    ) public override {
-        (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState
-            .cancelGrid(msg.sender, gridId);
+    function cancelGrid(address recipient, uint128 gridId, uint32 flag) public override {
+        (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState.cancelGrid(msg.sender, gridId);
         Pair memory pair = getPairById[pairId];
         if (baseAmt > 0) {
             // transfer base
             // pair.base.transfer(recipient, baseAmt);
-            AssetSettle.transferAssetTo(
-                pair.base,
-                recipient,
-                baseAmt,
-                flag & 0x1
-            );
+            AssetSettle.transferAssetTo(pair.base, recipient, baseAmt, flag & 0x1);
         }
         if (quoteAmt > 0) {
             // transfer
             // pair.quote.transfer(recipient, quoteAmt);
-            AssetSettle.transferAssetTo(
-                pair.quote,
-                recipient,
-                quoteAmt,
-                flag & 0x2
-            );
+            AssetSettle.transferAssetTo(pair.quote, recipient, quoteAmt, flag & 0x2);
         }
 
         emit IOrderEvents.CancelWholeGrid(msg.sender, gridId);
@@ -597,14 +465,12 @@ contract GridEx is
     /// @param startGridOrderId The first grid order ID to cancel
     /// @param howmany The number of consecutive orders to cancel
     /// @param flag Bit flags for ETH conversion: 0x1 = base to ETH, 0x2 = quote to ETH
-    function cancelGridOrders(
-        address recipient,
-        uint256 startGridOrderId,
-        uint32 howmany,
-        uint32 flag
-    ) public override {
+    function cancelGridOrders(address recipient, uint256 startGridOrderId, uint32 howmany, uint32 flag)
+        public
+        override
+    {
         uint256[] memory idList = new uint256[](howmany);
-        (uint128 gridId, ) = GridOrder.extractGridIdOrderId(startGridOrderId);
+        (uint128 gridId,) = GridOrder.extractGridIdOrderId(startGridOrderId);
         for (uint256 i = 0; i < howmany; ++i) {
             idList[i] = startGridOrderId + i;
         }
@@ -613,33 +479,17 @@ contract GridEx is
     }
 
     /// @inheritdoc IGridEx
-    function cancelGridOrders(
-        uint128 gridId,
-        address recipient,
-        uint256[] memory idList,
-        uint32 flag
-    ) public override {
-        (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState
-            .cancelGridOrders(msg.sender, gridId, idList);
+    function cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag) public override {
+        (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState.cancelGridOrders(msg.sender, gridId, idList);
 
         Pair memory pair = getPairById[pairId];
         if (baseAmt > 0) {
             // transfer base
-            AssetSettle.transferAssetTo(
-                pair.base,
-                recipient,
-                baseAmt,
-                flag & 0x1
-            );
+            AssetSettle.transferAssetTo(pair.base, recipient, baseAmt, flag & 0x1);
         }
         if (quoteAmt > 0) {
             // transfer quote
-            AssetSettle.transferAssetTo(
-                pair.quote,
-                recipient,
-                quoteAmt,
-                flag & 0x2
-            );
+            AssetSettle.transferAssetTo(pair.quote, recipient, quoteAmt, flag & 0x2);
         }
     }
 
@@ -648,10 +498,7 @@ contract GridEx is
     //-------------------------------
 
     /// @inheritdoc IGridEx
-    function setQuoteToken(
-        Currency token,
-        uint256 priority
-    ) external override onlyOwner {
+    function setQuoteToken(Currency token, uint256 priority) external override onlyOwner {
         quotableTokens[token] = priority;
 
         emit QuotableTokenUpdated(token, priority);

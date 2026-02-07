@@ -7,6 +7,7 @@ import {IOrderErrors} from "../interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "../interfaces/IOrderEvents.sol";
 
 import {Lens} from "./Lens.sol";
+import {ProtocolConstants} from "./ProtocolConstants.sol";
 
 /// @title GridOrder
 /// @author GridEx Protocol
@@ -15,19 +16,19 @@ import {Lens} from "./Lens.sol";
 library GridOrder {
     /// @notice Minimum fee in basis points (0.01%)
     uint32 public constant MIN_FEE = 100;
-    
+
     /// @notice Maximum fee in basis points (10%)
     uint32 public constant MAX_FEE = 100000;
 
     /// @dev Mask for extracting order ID from grid order ID
     uint256 private constant ODER_ID_MASK = 0xffffffffffffffffffffffffffffffff;
-    
+
     /// @dev Mask for identifying ask orders (high bit set)
-    uint128 private constant ASK_ODER_MASK = 0x80000000000000000000000000000000;
+    uint128 private constant ASK_ODER_MASK = ProtocolConstants.ASK_ORDER_FLAG;
 
     /// @dev Grid status: normal/active
     uint32 private constant GRID_STATUS_NORMAL = 0;
-    
+
     /// @dev Grid status: canceled
     uint32 private constant GRID_STATUS_CANCELED = 1;
 
@@ -126,13 +127,13 @@ library GridOrder {
     {
         bool isAsk = isAskGridOrder(orderId);
         if (isAsk) {
-            require(
-                orderId >= gridConf.startAskOrderId && orderId < gridConf.startAskOrderId + gridConf.askOrderCount, "E1"
-            );
+            if (orderId < gridConf.startAskOrderId || orderId >= gridConf.startAskOrderId + gridConf.askOrderCount) {
+                revert IOrderErrors.InvalidGridId();
+            }
         } else {
-            require(
-                orderId >= gridConf.startBidOrderId && orderId < gridConf.startBidOrderId + gridConf.bidOrderCount, "E2"
-            );
+            if (orderId < gridConf.startBidOrderId || orderId >= gridConf.startBidOrderId + gridConf.bidOrderCount) {
+                revert IOrderErrors.InvalidGridId();
+            }
         }
 
         IGridOrder.Order memory order = self.orderInfos[toGridOrderId(gridConf.gridId, orderId)];
@@ -163,9 +164,9 @@ library GridOrder {
     /// @dev Sets initial values for grid ID and order ID counters
     /// @param self The grid state storage to initialize
     function initialize(GridState storage self) internal {
-        self.nextGridId = 1;
-        self.nextBidOrderId = 1;
-        self.nextAskOrderId = 0x80000000000000000000000000000001;
+        self.nextGridId = ProtocolConstants.GRID_ID_START;
+        self.nextBidOrderId = ProtocolConstants.BID_ORDER_START_ID;
+        self.nextAskOrderId = ProtocolConstants.ASK_ORDER_START_ID;
         self.oneshotProtocolFeeBps = 500; // default oneshot fee bps 0.05%
     }
 
@@ -279,13 +280,13 @@ library GridOrder {
         IGridOrder.GridConfig memory gridConf = self.gridConfigs[gridId];
 
         if (isAsk) {
-            require(
-                orderId >= gridConf.startAskOrderId && orderId < gridConf.startAskOrderId + gridConf.askOrderCount, "E3"
-            );
+            if (orderId < gridConf.startAskOrderId || orderId >= gridConf.startAskOrderId + gridConf.askOrderCount) {
+                revert IOrderErrors.InvalidGridId();
+            }
         } else {
-            require(
-                orderId >= gridConf.startBidOrderId && orderId < gridConf.startBidOrderId + gridConf.bidOrderCount, "E4"
-            );
+            if (orderId < gridConf.startBidOrderId || orderId >= gridConf.startBidOrderId + gridConf.bidOrderCount) {
+                revert IOrderErrors.InvalidGridId();
+            }
         }
 
         if ((self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) || gridConf.status != GRID_STATUS_NORMAL) {
@@ -321,15 +322,13 @@ library GridOrder {
             price = gridConf.askStrategy.getPrice(true, gridId, orderId - gridConf.startAskOrderId);
             orderInfo.price = price;
             // price - gridConf.askGap
-            orderInfo.revPrice =
-                gridConf.askStrategy.getReversePrice(true, gridId, orderId - gridConf.startAskOrderId);
+            orderInfo.revPrice = gridConf.askStrategy.getReversePrice(true, gridId, orderId - gridConf.startAskOrderId);
         } else {
             if (price == 0) {
                 price = gridConf.bidStrategy.getPrice(false, gridId, orderId - gridConf.startBidOrderId);
             }
             orderInfo.price = price;
-            orderInfo.revPrice =
-                gridConf.bidStrategy.getReversePrice(false, gridId, orderId - gridConf.startBidOrderId);
+            orderInfo.revPrice = gridConf.bidStrategy.getReversePrice(false, gridId, orderId - gridConf.startBidOrderId);
         }
 
         orderInfo.isAsk = isAsk;
@@ -358,7 +357,10 @@ library GridOrder {
         GridState storage self,
         uint256 gridOrderId,
         uint128 amt // base token amt
-    ) internal returns (IGridOrder.OrderFillResult memory result) {
+    )
+        internal
+        returns (IGridOrder.OrderFillResult memory result)
+    {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
         uint256 sellPrice;
@@ -462,7 +464,10 @@ library GridOrder {
         GridState storage self,
         uint256 gridOrderId,
         uint128 amt // base token amt
-    ) internal returns (IGridOrder.OrderFillResult memory result) {
+    )
+        internal
+        returns (IGridOrder.OrderFillResult memory result)
+    {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
         uint256 buyPrice;
@@ -642,7 +647,9 @@ library GridOrder {
         for (uint256 i = 0; i < idList.length; ++i) {
             uint256 gridOrderId = idList[i];
             (uint128 gid, uint128 orderId) = extractGridIdOrderId(gridOrderId);
-            require(gid == gridId, "E5");
+            if (gid != gridId) {
+                revert IOrderErrors.InvalidGridId();
+            }
 
             if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
                 revert IOrderErrors.OrderCanceled();
@@ -681,7 +688,7 @@ library GridOrder {
         if (fee > MAX_FEE || fee < MIN_FEE) {
             revert IOrderErrors.InvalidGridFee();
         }
-        
+
         gridConf.fee = fee;
 
         emit IOrderEvents.GridFeeChanged(sender, gridId, fee);

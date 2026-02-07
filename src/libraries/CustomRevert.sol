@@ -80,7 +80,7 @@ library CustomRevert {
     }
 
     /// @notice Bubble up the revert message returned by a call and revert with a wrapped ERC-7751 error
-    /// @dev This method can be vulnerable to revert data bombs
+    /// @dev Caps copied revert data to mitigate revert-data-bomb DoS.
     /// @param revertingContract The address of the contract that reverted
     /// @param revertingFunctionSelector The selector of the function that reverted
     /// @param additionalContext Additional context bytes4 to include in the wrapped error
@@ -90,9 +90,17 @@ library CustomRevert {
         bytes4 additionalContext
     ) internal pure {
         bytes4 wrappedErrorSelector = WrappedError.selector;
+        // Reason-copy cap (bytes). Keep small to prevent gas griefing via huge revert data.
+        // 4 KiB is enough for most ABI-encoded errors/strings while still safe.
+        uint256 cap = 4096;
         assembly ("memory-safe") {
-            // Ensure the size of the revert data is a multiple of 32 bytes
-            let encodedDataSize := mul(div(add(returndatasize(), 31), 32), 32)
+            let rds := returndatasize()
+            let truncated := gt(rds, cap)
+            let copySize := rds
+            if truncated { copySize := cap }
+
+            // Ensure the *copied* revert data size is a multiple of 32 bytes
+            let encodedDataSize := mul(div(add(copySize, 31), 32), 32)
 
             let fmp := mload(0x40)
 
@@ -107,16 +115,20 @@ library CustomRevert {
             mstore(add(fmp, 0x44), 0x80)
             // offset additional context
             mstore(add(fmp, 0x64), add(0xa0, encodedDataSize))
-            // size revert reason
-            mstore(add(fmp, 0x84), returndatasize())
-            // revert reason
-            returndatacopy(add(fmp, 0xa4), 0, returndatasize())
+            // size revert reason (set to copied size)
+            mstore(add(fmp, 0x84), copySize)
+            // revert reason (copy capped)
+            returndatacopy(add(fmp, 0xa4), 0, copySize)
+
             // size additional context
             mstore(add(fmp, add(0xa4, encodedDataSize)), 0x04)
-            // additional context
+
+            // additional context: if truncated, set the highest bit to signal truncation
+            let ctx := additionalContext
+            if truncated { ctx := or(ctx, shl(31, 1)) }
             mstore(
                 add(fmp, add(0xc4, encodedDataSize)),
-                and(additionalContext, 0xffffffff00000000000000000000000000000000000000000000000000000000)
+                and(ctx, 0xffffffff00000000000000000000000000000000000000000000000000000000)
             )
             revert(fmp, add(0xe4, encodedDataSize))
         }

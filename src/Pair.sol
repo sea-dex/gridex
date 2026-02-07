@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "./interfaces/IPair.sol";
+import {IProtocolErrors} from "./interfaces/IProtocolErrors.sol";
 import {Currency} from "./libraries/Currency.sol";
 
 /// @title Pair
@@ -66,7 +67,9 @@ abstract contract Pair is IPair {
         }
 
         if (quotableTokens[base] == quotableTokens[quote]) {
-            require(base < quote, "P1");
+            if (!(base < quote)) {
+                revert IProtocolErrors.TokenOrderInvalid();
+            }
         }
 
         uint64 pairId = nextPairId++;

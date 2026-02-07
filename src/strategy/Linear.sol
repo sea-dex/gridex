@@ -3,6 +3,8 @@ pragma solidity ^0.8.33;
 
 // import {IGridOrder} from "../interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../interfaces/IGridStrategy.sol";
+import {ILinearErrors} from "../interfaces/ILinearErrors.sol";
+import {ProtocolConstants} from "../libraries/ProtocolConstants.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
 /// @title Linear
@@ -39,12 +41,7 @@ contract Linear is IGridStrategy {
     /// @param gridId The grid ID this strategy belongs to
     /// @param price0 The base price (first order price)
     /// @param gap The price gap between consecutive orders
-    event LinearStrategyCreated(
-        bool isAsk,
-        uint128 gridId,
-        uint256 price0,
-        int256 gap
-    );
+    event LinearStrategyCreated(bool isAsk, uint128 gridId, uint256 price0, int256 gap);
 
     /// @notice Linear strategy parameters
     /// @dev Stored for each grid to calculate order prices
@@ -64,22 +61,15 @@ contract Linear is IGridStrategy {
     /// @param isAsk True if this is an ask strategy
     /// @param gridId The grid ID
     /// @return The storage key
-    function gridIdKey(
-        bool isAsk,
-        uint128 gridId
-    ) internal pure returns (uint256) {
+    function gridIdKey(bool isAsk, uint128 gridId) internal pure returns (uint256) {
         if (isAsk) {
-            return (1 << 128) | uint256(gridId);
+            return (uint256(ProtocolConstants.ASK_ORDER_FLAG) << 128) | uint256(gridId);
         }
         return uint256(gridId);
     }
 
     /// @inheritdoc IGridStrategy
-    function createGridStrategy(
-        bool isAsk,
-        uint128 gridId,
-        bytes memory data
-    ) external override onlyGridEx {
+    function createGridStrategy(bool isAsk, uint128 gridId, bytes memory data) external override onlyGridEx {
         uint256 key = gridIdKey(isAsk, gridId);
         require(strategies[key].basePrice == 0, "Already exists");
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
@@ -89,83 +79,78 @@ contract Linear is IGridStrategy {
     }
 
     /// @inheritdoc IGridStrategy
-    function validateParams(
-        bool isAsk,
-        uint128 amt,
-        bytes calldata data,
-        uint32 count
-    ) external pure override {
-        require(count >= 1, "L0");
+    function validateParams(bool isAsk, uint128 amt, bytes calldata data, uint32 count) external pure override {
+        if (count < 1) {
+            revert ILinearErrors.LinearInvalidCount();
+        }
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
-        require(price0 > 0 && price0 < (1<<128) && gap != 0, "L1");
+        if (price0 == 0 || price0 >= ProtocolConstants.UINT128_EXCLUSIVE_UPPER_BOUND || gap == 0) {
+            revert ILinearErrors.LinearInvalidPriceOrGap();
+        }
 
         if (isAsk) {
-            require(gap > 0, "L2");
+            if (gap <= 0) {
+                revert ILinearErrors.LinearAskGapNonPositive();
+            }
             // casting to 'uint256' is safe because gap > 0
             // forge-lint: disable-next-line(unsafe-typecast)
-            require(uint256(gap) < price0, "L3");
-            require(
-                // casting to 'uint256' is safe because gap > 0
-                // forge-lint: disable-next-line(unsafe-typecast)
-                uint256(price0) + uint256(count - 1) * uint256(int256(gap)) <
-                    uint256(type(uint256).max),
-                "L4"
-            );
-            require(
+            if (uint256(gap) >= price0) {
+                revert ILinearErrors.LinearAskGapTooLarge();
+            }
+            // casting to 'uint256' is safe because gap > 0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            if (uint256(price0) + uint256(count - 1) * uint256(int256(gap)) >= type(uint256).max) {
+                revert ILinearErrors.LinearAskPriceOverflow();
+            }
+            // ensure quote amount is non-zero
+            if (
                 FullMath.mulDivRoundingUp(
-                    uint256(amt),
-                    // casting to 'uint256' is safe because gap > 0
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    uint256(price0 - uint256(gap)),
-                    PRICE_MULTIPLIER
-                ) > 0,
-                "Q0"
-            );
+                        uint256(amt),
+                        // casting to 'uint256' is safe because gap > 0
+                        // forge-lint: disable-next-line(unsafe-typecast)
+                        uint256(price0 - uint256(gap)),
+                        PRICE_MULTIPLIER
+                    ) == 0
+            ) {
+                revert ILinearErrors.LinearAskZeroQuote();
+            }
         } else {
-            require(gap < 0, "L5");
-            require(
-                // casting to 'uint256' is safe because gap < 0
-                // forge-lint: disable-next-line(unsafe-typecast)
-                uint256(price0) + uint256(-int256(gap)) <
-                    uint256(type(uint256).max),
-                "L6"
-            );
+            if (gap >= 0) {
+                revert ILinearErrors.LinearBidGapNonNegative();
+            }
+            // casting to 'uint256' is safe because gap < 0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            if (uint256(price0) + uint256(-int256(gap)) >= type(uint256).max) {
+                revert ILinearErrors.LinearBidPriceOverflow();
+            }
             // casting to 'uint256' is safe because price0 < 1<<128
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256 priceLast = int256(uint256(price0)) +
-                int256(gap) *
-                int256(uint256(count) - 1);
-            require(priceLast > 0, "L7");
-            require(
+            int256 priceLast = int256(uint256(price0)) + int256(gap) * int256(uint256(count) - 1);
+            if (priceLast <= 0) {
+                revert ILinearErrors.LinearBidInvalidLastPrice();
+            }
+            if (
                 FullMath.mulDivRoundingUp(
-                    uint256(amt),
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    uint256(priceLast),
-                    PRICE_MULTIPLIER
-                ) > 0,
-                "Q1"
-            );
+                        uint256(amt),
+                        // forge-lint: disable-next-line(unsafe-typecast)
+                        uint256(priceLast),
+                        PRICE_MULTIPLIER
+                    ) == 0
+            ) {
+                revert ILinearErrors.LinearBidZeroQuote();
+            }
         }
     }
 
     /// @inheritdoc IGridStrategy
-    function getPrice(
-        bool isAsk,
-        uint128 gridId,
-        uint128 idx
-    ) external view override returns (uint256) {
+    function getPrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
         LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
         return uint256(int256(s.basePrice) + s.gap * int256(uint256(idx)));
     }
 
     /// @inheritdoc IGridStrategy
-    function getReversePrice(
-        bool isAsk,
-        uint128 gridId,
-        uint128 idx
-    ) external view override returns (uint256) {
+    function getReversePrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
         LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
-        return
-            uint256(int256(s.basePrice) + s.gap * (int256(uint256(idx)) - 1));
+        return uint256(int256(s.basePrice) + s.gap * (int256(uint256(idx)) - 1));
     }
 }
