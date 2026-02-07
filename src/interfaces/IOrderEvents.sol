@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity >=0.5.0;
+pragma solidity ^0.8.24;
 
 /// @title Events emitted by grid exchange
 /// @notice Contains all events emitted by grid exchange

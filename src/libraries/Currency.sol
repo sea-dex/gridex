@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {IERC20Minimal} from "../interfaces/IERC20Minimal.sol";
 import {CustomRevert} from "../libraries/CustomRevert.sol";

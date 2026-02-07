@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.24;
 
 import {IERC20Minimal} from "../interfaces/IERC20Minimal.sol";
 
 /// @title TransferHelper
+/// @author GridEx Protocol
 /// @notice Contains helper methods for interacting with ERC20 tokens that do not consistently return true/false
-/// @dev implementation from https://github.com/Rari-Capital/solmate/blob/main/src/utils/SafeTransferLib.sol#L63
+/// @dev Implementation adapted from https://github.com/Rari-Capital/solmate/blob/main/src/utils/SafeTransferLib.sol#L63
+/// Uses low-level assembly for gas optimization and handles tokens that don't return boolean values
 library TransferHelper {
-    /// @notice Transfers tokens from msg.sender to a recipient
-    /// @dev Calls transfer on token contract, errors with TF if transfer fails
-    /// @param token The contract address of the token which will be transferred
-    /// @param to The recipient of the transfer
-    /// @param value The value of the transfer
+    /// @notice Transfers tokens from the contract to a recipient
+    /// @dev Calls transfer on token contract using assembly for gas efficiency.
+    /// Handles tokens that don't return a boolean value (non-standard ERC20).
+    /// Reverts with "TRANSFER_FAILED" if the transfer fails.
+    /// @param token The ERC20 token contract to transfer
+    /// @param to The recipient address of the transfer
+    /// @param value The amount of tokens to transfer
     function safeTransfer(IERC20Minimal token, address to, uint256 value) internal {
         bool success;
 
@@ -40,12 +44,13 @@ library TransferHelper {
         require(success, "TRANSFER_FAILED");
     }
 
-    /// @notice Transfers tokens from from to a recipient
-    /// @dev Calls transferFrom on token contract, errors with TF if transfer fails
-    /// @param token The contract address of the token which will be transferred
-    /// @param from The origin of the transfer
-    /// @param to The recipient of the transfer
-    /// @param value The value of the transfer
+    /// @notice Transfers tokens from a sender to a recipient using the allowance mechanism
+    /// @dev Calls transferFrom on token contract. Handles tokens that don't return a boolean value.
+    /// Reverts with "STF" (Safe Transfer From) if the transfer fails.
+    /// @param token The ERC20 token contract to transfer
+    /// @param from The sender address (must have approved this contract)
+    /// @param to The recipient address of the transfer
+    /// @param value The amount of tokens to transfer
     function safeTransferFrom(IERC20Minimal token, address from, address to, uint256 value) internal {
         (bool success, bytes memory data) =
             address(token).call(abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, from, to, value));
