@@ -116,7 +116,7 @@ library Lens {
     }
 
     /// @notice Calculate LP fee and protocol fee from total volume
-    /// @dev Protocol fee is 60% of total fee, LP fee is 40%
+    /// @dev Protocol fee is 25% of total fee, LP fee is 75%
     /// @param vol The quote volume
     /// @param bps The fee in basis points
     /// @return lpFee The LP fee portion

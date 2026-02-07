@@ -124,8 +124,6 @@ library GridOrder {
         }
 
         IGridOrder.Order memory order = self.orderInfos[toGridOrderId(gridConf.gridId, orderId)];
-        // ? askOrders[orderId]
-        // : bidOrders[orderId];
 
         if (order.amount == 0 && order.revAmount == 0) {
             // not initialized
@@ -232,8 +230,6 @@ library GridOrder {
 
             IGridStrategy(param.bidStrategy).createGridStrategy(false, gridId, param.bidData);
 
-            // uint256 price0 = param.bidPrice0;
-            // uint256 gap = param.bidGap;
             for (uint128 i = 0; i < param.bidOrderCount; ++i) {
                 uint256 price = IGridStrategy(param.bidStrategy).getPrice(false, gridId, uint128(i));
                 uint128 amt = Lens.calcQuoteAmount(baseAmt, price, false);
@@ -297,13 +293,6 @@ library GridOrder {
             if (isAsk) {
                 orderInfo.amount = gridConf.baseAmt;
             } else {
-                // fixme!!!
-                // unchecked {
-                //     price =
-                //         gridConf.startBidPrice -
-                //         (orderId - gridConf.startBidOrderId) *
-                //         gridConf.bidGap;
-                // }
                 price = gridConf.bidStrategy.getPrice(false, gridId, orderId - gridConf.startBidOrderId);
                 orderInfo.amount = Lens.calcQuoteAmount(gridConf.baseAmt, price, false);
             }
@@ -313,12 +302,6 @@ library GridOrder {
         }
 
         if (isAsk) {
-            // unchecked {
-            //     price =
-            //         gridConf.startAskPrice +
-            //         (orderId - gridConf.startAskOrderId) *
-            //         gridConf.askGap;
-            // }
             price = gridConf.askStrategy.getPrice(true, gridId, orderId - gridConf.startAskOrderId);
             orderInfo.price = price;
             // price - gridConf.askGap
@@ -326,12 +309,6 @@ library GridOrder {
                 gridConf.askStrategy.getReversePrice(true, gridId, orderId - gridConf.startAskOrderId);
         } else {
             if (price == 0) {
-                // unchecked {
-                //     price =
-                //         gridConf.startBidPrice -
-                //         (orderId - gridConf.startBidOrderId) *
-                //         gridConf.bidGap;
-                // }
                 price = gridConf.bidStrategy.getPrice(false, gridId, orderId - gridConf.startBidOrderId);
             }
             orderInfo.price = price;
@@ -395,6 +372,7 @@ library GridOrder {
 
         (result.lpFee, result.protocolFee) = Lens.calculateFees(quoteVol, orderInfo.fee);
         unchecked {
+            // Safe: amt less than orderBaseAmt
             orderBaseAmt -= amt;
         }
         // calculate orderQuoteAmt and grid profit
@@ -572,8 +550,9 @@ library GridOrder {
 
                 (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
                 unchecked {
-                    baseAmt += ba; // safe
-                    quoteAmt += qa; // safe
+                    // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
+                    baseAmt += ba;
+                    quoteAmt += qa;
                 }
             }
         }
@@ -590,8 +569,9 @@ library GridOrder {
 
                 (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
                 unchecked {
-                    baseAmt += ba; // safe
-                    quoteAmt += qa; // safe
+                    // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
+                    baseAmt += ba;
+                    quoteAmt += qa;
                 }
             }
         }
@@ -642,6 +622,7 @@ library GridOrder {
 
             (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
             unchecked {
+                // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
                 baseAmt += ba;
                 quoteAmt += qa;
             }
