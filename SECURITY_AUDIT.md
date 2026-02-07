@@ -1,7 +1,7 @@
 # GridEx Security Audit Report
 
 **Project:** GridEx - Grid Trading Exchange  
-**Version:** Solidity 0.8.28  
+**Version:** Solidity 0.8.33  
 **Audit Date:** February 2026 (Re-audit)  
 **Auditor:** Security Review  
 
@@ -65,7 +65,7 @@ This re-audit reflects significant improvements from the previous audit. Several
 2. **Access Control** via Owned pattern for admin functions
 3. **Strategy Access Control** via `onlyGridEx` modifier ([`Linear.sol:18-21`](src/Linear.sol:18))
 4. **Fee Validation** with MIN_FEE/MAX_FEE bounds ([`GridOrder.sol:560-562`](src/libraries/GridOrder.sol:560))
-5. **Safe Math** via Solidity 0.8.28 built-in overflow checks
+5. **Safe Math** via Solidity 0.8.33 built-in overflow checks
 6. **SafeTransferLib** for ERC20 transfers
 
 ---
@@ -450,7 +450,7 @@ Consider gas optimization pass before mainnet deployment.
 | Check | Status |
 |-------|--------|
 | Reentrancy protection | ✅ ReentrancyGuard on all fill functions |
-| Integer overflow/underflow | ✅ Solidity 0.8.28 built-in checks |
+| Integer overflow/underflow | ✅ Solidity 0.8.33 built-in checks |
 | Access control | ✅ Owned pattern, onlyGridEx modifier |
 | Input validation | ✅ Comprehensive validation |
 | External calls at end | ⚠️ Callback pattern transfers first |
