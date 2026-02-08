@@ -144,13 +144,21 @@ contract Linear is IGridStrategy {
 
     /// @inheritdoc IGridStrategy
     function getPrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
-        LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
-        return uint256(int256(s.basePrice) + s.gap * int256(uint256(idx)));
+        uint256 key = gridIdKey(isAsk, gridId);
+        LinearStrategy storage s = strategies[key];
+        // Direct storage read is cheaper than loading full struct to memory
+        unchecked {
+            return uint256(int256(s.basePrice) + s.gap * int256(uint256(idx)));
+        }
     }
 
     /// @inheritdoc IGridStrategy
     function getReversePrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
-        LinearStrategy memory s = strategies[gridIdKey(isAsk, gridId)];
-        return uint256(int256(s.basePrice) + s.gap * (int256(uint256(idx)) - 1));
+        uint256 key = gridIdKey(isAsk, gridId);
+        LinearStrategy storage s = strategies[key];
+        // Direct storage read is cheaper than loading full struct to memory
+        unchecked {
+            return uint256(int256(s.basePrice) + s.gap * (int256(uint256(idx)) - 1));
+        }
     }
 }

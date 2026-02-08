@@ -68,10 +68,14 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 
     /// @inheritdoc IGridEx
     function getGridOrders(uint256[] calldata idList) public view override returns (IGridOrder.OrderInfo[] memory) {
-        IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](idList.length);
+        uint256 len = idList.length;
+        IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](len);
 
-        for (uint256 i = 0; i < idList.length; ++i) {
+        for (uint256 i; i < len;) {
             orderList[i] = _gridState.getOrderInfo(idList[i], false);
+            unchecked {
+                ++i;
+            }
         }
         return orderList;
     }
@@ -268,7 +272,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 
         // address taker = msg.sender;
         AccFilled memory filled;
-        for (uint256 i = 0; i < idList.length; ++i) {
+        for (uint256 i; i < idList.length;) {
             uint256 gridOrderId = idList[i];
             uint128 amt = amtList[i];
 
@@ -284,12 +288,16 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
             emit IOrderEvents.FilledOrder(
                 msg.sender, gridOrderId, result.filledAmt, result.filledVol, result.orderAmt, result.orderRevAmt, true
             );
+
             filled.amt += result.filledAmt;
             filled.vol += result.filledVol + result.lpFee + result.protocolFee;
             filled.protocolFee += result.protocolFee;
 
             if (maxAmt > 0 && filled.amt >= maxAmt) {
                 break;
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -379,17 +387,15 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
         uint128 filledVol = 0; // accumulate quote amount
         uint128 protocolFee = 0; // accumulate protocol fees
 
-        for (uint256 i = 0; i < idList.length; ++i) {
+        for (uint256 i; i < idList.length;) {
             uint256 gridOrderId = idList[i];
             uint128 amt = amtList[i];
 
             if (maxAmt > 0 && maxAmt - filledAmt < amt) {
-                amt = maxAmt - uint128(filledAmt);
+                amt = maxAmt - filledAmt;
             }
 
             IGridOrder.OrderFillResult memory result = _gridState.fillBidOrder(gridOrderId, amt);
-            // taker
-            // orderInfo
 
             if (result.pairId != pairId) {
                 revert IProtocolErrors.PairIdMismatch();
@@ -405,6 +411,9 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 
             if (maxAmt > 0 && filledAmt >= maxAmt) {
                 break;
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -497,8 +506,11 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     {
         uint256[] memory idList = new uint256[](howmany);
         (uint128 gridId,) = GridOrder.extractGridIdOrderId(startGridOrderId);
-        for (uint256 i = 0; i < howmany; ++i) {
+        for (uint256 i; i < howmany;) {
             idList[i] = startGridOrderId + i;
+            unchecked {
+                ++i;
+            }
         }
 
         cancelGridOrders(gridId, recipient, idList, flag);

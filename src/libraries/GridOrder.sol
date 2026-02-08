@@ -272,10 +272,13 @@ library GridOrder {
 
             IGridStrategy(param.bidStrategy).createGridStrategy(false, gridId, param.bidData);
 
-            for (uint128 i = 0; i < param.bidOrderCount; ++i) {
-                uint256 price = IGridStrategy(param.bidStrategy).getPrice(false, gridId, uint128(i));
+            for (uint128 i; i < param.bidOrderCount;) {
+                uint256 price = IGridStrategy(param.bidStrategy).getPrice(false, gridId, i);
                 uint128 amt = Lens.calcQuoteAmount(baseAmt, price, false);
                 quoteAmt += amt;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
@@ -304,13 +307,23 @@ library GridOrder {
         IGridOrder.Order memory order = self.orderInfos[gridOrderId];
         IGridOrder.GridConfig memory gridConf = self.gridConfigs[gridId];
 
+        // Cache order index calculation - used multiple times
+        uint128 orderIdx;
         if (isAsk) {
-            if (orderId < gridConf.startAskOrderId || orderId >= gridConf.startAskOrderId + gridConf.askOrderCount) {
+            uint128 startAskId = gridConf.startAskOrderId;
+            if (orderId < startAskId || orderId >= startAskId + gridConf.askOrderCount) {
                 revert IOrderErrors.InvalidGridId();
             }
+            unchecked {
+                orderIdx = orderId - startAskId;
+            }
         } else {
-            if (orderId < gridConf.startBidOrderId || orderId >= gridConf.startBidOrderId + gridConf.bidOrderCount) {
+            uint128 startBidId = gridConf.startBidOrderId;
+            if (orderId < startBidId || orderId >= startBidId + gridConf.bidOrderCount) {
                 revert IOrderErrors.InvalidGridId();
+            }
+            unchecked {
+                orderIdx = orderId - startBidId;
             }
         }
 
@@ -329,14 +342,15 @@ library GridOrder {
         // order prices
         uint256 price;
         // order amounts
-        orderInfo.baseAmt = gridConf.baseAmt;
+        uint128 baseAmt = gridConf.baseAmt;
+        orderInfo.baseAmt = baseAmt;
         if (order.amount == 0 && order.revAmount == 0) {
             // has not been initialized yet
             if (isAsk) {
-                orderInfo.amount = gridConf.baseAmt;
+                orderInfo.amount = baseAmt;
             } else {
-                price = gridConf.bidStrategy.getPrice(false, gridId, orderId - gridConf.startBidOrderId);
-                orderInfo.amount = Lens.calcQuoteAmount(gridConf.baseAmt, price, false);
+                price = gridConf.bidStrategy.getPrice(false, gridId, orderIdx);
+                orderInfo.amount = Lens.calcQuoteAmount(baseAmt, price, false);
             }
         } else {
             orderInfo.amount = order.amount;
@@ -344,16 +358,17 @@ library GridOrder {
         }
 
         if (isAsk) {
-            price = gridConf.askStrategy.getPrice(true, gridId, orderId - gridConf.startAskOrderId);
+            IGridStrategy askStrategy = gridConf.askStrategy;
+            price = askStrategy.getPrice(true, gridId, orderIdx);
             orderInfo.price = price;
-            // price - gridConf.askGap
-            orderInfo.revPrice = gridConf.askStrategy.getReversePrice(true, gridId, orderId - gridConf.startAskOrderId);
+            orderInfo.revPrice = askStrategy.getReversePrice(true, gridId, orderIdx);
         } else {
+            IGridStrategy bidStrategy = gridConf.bidStrategy;
             if (price == 0) {
-                price = gridConf.bidStrategy.getPrice(false, gridId, orderId - gridConf.startBidOrderId);
+                price = bidStrategy.getPrice(false, gridId, orderIdx);
             }
             orderInfo.price = price;
-            orderInfo.revPrice = gridConf.bidStrategy.getReversePrice(false, gridId, orderId - gridConf.startBidOrderId);
+            orderInfo.revPrice = bidStrategy.getReversePrice(false, gridId, orderIdx);
         }
 
         orderInfo.isAsk = isAsk;
@@ -592,14 +607,19 @@ library GridOrder {
             revert IOrderErrors.OrderCanceled();
         }
 
-        uint256 baseAmt = 0;
-        uint256 quoteAmt = 0;
+        uint256 baseAmt;
+        uint256 quoteAmt;
 
         if (gridConf.askOrderCount > 0) {
-            for (uint32 i = 0; i < gridConf.askOrderCount; ++i) {
-                uint128 orderId = gridConf.startAskOrderId + i;
+            uint32 askCount = gridConf.askOrderCount;
+            uint128 startAskId = gridConf.startAskOrderId;
+            for (uint32 i; i < askCount;) {
+                uint128 orderId = startAskId + i;
                 uint256 gridOrderId = toGridOrderId(gridId, orderId);
                 if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
+                    unchecked {
+                        ++i;
+                    }
                     continue;
                 }
 
@@ -611,15 +631,21 @@ library GridOrder {
                     // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
                     baseAmt += ba;
                     quoteAmt += qa;
+                    ++i;
                 }
             }
         }
 
         if (gridConf.bidOrderCount > 0) {
-            for (uint32 i = 0; i < gridConf.bidOrderCount; ++i) {
-                uint128 orderId = gridConf.startBidOrderId + i;
+            uint32 bidCount = gridConf.bidOrderCount;
+            uint128 startBidId = gridConf.startBidOrderId;
+            for (uint32 i; i < bidCount;) {
+                uint128 orderId = startBidId + i;
                 uint256 gridOrderId = toGridOrderId(gridId, orderId);
                 if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
+                    unchecked {
+                        ++i;
+                    }
                     continue;
                 }
                 // do not set orderStatus to save gas
@@ -630,6 +656,7 @@ library GridOrder {
                     // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
                     baseAmt += ba;
                     quoteAmt += qa;
+                    ++i;
                 }
             }
         }
@@ -669,7 +696,8 @@ library GridOrder {
 
         uint256 baseAmt;
         uint256 quoteAmt;
-        for (uint256 i = 0; i < idList.length; ++i) {
+        uint256 len = idList.length;
+        for (uint256 i; i < len;) {
             uint256 gridOrderId = idList[i];
             (uint128 gid, uint128 orderId) = extractGridIdOrderId(gridOrderId);
             if (gid != gridId) {
@@ -688,6 +716,9 @@ library GridOrder {
             }
             self.orderStatus[gridOrderId] = GRID_STATUS_CANCELED;
             emit IOrderEvents.CancelGridOrder(msg.sender, orderId, gridId);
+            unchecked {
+                ++i;
+            }
         }
 
         return (gridConf.pairId, baseAmt, quoteAmt);
