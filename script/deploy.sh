@@ -208,9 +208,24 @@ cmd_preview() {
     
     print_header "Preview Deployment - $chain"
     
+    # Check if PRIVATE_KEY is set for sender derivation
+    if [ -z "$PRIVATE_KEY" ]; then
+        print_error "PRIVATE_KEY environment variable is required"
+        echo "Set it with: export PRIVATE_KEY=your_private_key"
+        exit 1
+    fi
+    
+    # Derive sender address from private key
+    local sender=$(cast wallet address --private-key "$PRIVATE_KEY" 2>/dev/null)
+    if [ -z "$sender" ]; then
+        print_error "Failed to derive sender address from PRIVATE_KEY"
+        exit 1
+    fi
+    
     forge script "$DEPLOY_SCRIPT" \
         --sig "preview()" \
         --rpc-url "$rpc_url" \
+        --sender "$sender" \
         -vvv
 }
 
@@ -221,6 +236,13 @@ cmd_deploy() {
     if [ -z "$chain" ]; then
         print_error "Please specify a chain"
         echo "Available chains: $ALL_CHAINS"
+        exit 1
+    fi
+    
+    # Check if PRIVATE_KEY is set
+    if [ -z "$PRIVATE_KEY" ]; then
+        print_error "PRIVATE_KEY environment variable is required"
+        echo "Set it with: export PRIVATE_KEY=your_private_key"
         exit 1
     fi
     
@@ -242,6 +264,7 @@ cmd_deploy() {
     forge script "$DEPLOY_SCRIPT" \
         --rpc-url "$rpc_url" \
         --broadcast \
+        --private-key "$PRIVATE_KEY" \
         $verify_flag \
         -vvvv
     

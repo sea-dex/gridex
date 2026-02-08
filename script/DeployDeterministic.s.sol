@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.33;
 
-import {Script, console} from "forge-std/Script.sol";
+import {Script, console2 as console} from "forge-std/Script.sol";
 
 import {GridEx} from "../src/GridEx.sol";
 import {Vault} from "../src/Vault.sol";
