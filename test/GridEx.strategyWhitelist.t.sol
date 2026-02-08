@@ -31,7 +31,8 @@ contract GridExStrategyWhitelistTest is Test {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
-        exchange = new GridEx(address(weth), address(usdc), vault);
+        exchange = new GridEx(address(this), vault);
+        exchange.initialize(address(weth), address(usdc));
         linear = new Linear(address(exchange));
         linear2 = new Linear(address(exchange));
 

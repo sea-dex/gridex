@@ -32,6 +32,9 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @notice The vault address that receives protocol fees
     address public vault;
 
+    /// @notice Flag to track if the contract has been initialized
+    bool public initialized;
+
     /// @dev Internal state for managing grid orders
     GridOrder.GridState internal _gridState;
 
@@ -40,22 +43,33 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     mapping(address => bool) public whitelistedStrategies;
 
     /// @notice Creates a new GridEx contract
-    /// @param weth_ The WETH contract address
-    /// @param usd_ The USD stablecoin address (highest priority quote token)
+    /// @dev For CREATE2 deterministic deployment, owner and vault are passed in constructor
+    /// @param _owner The address that will own this contract
     /// @param _vault The vault address for protocol fees
-    constructor(address weth_, address usd_, address _vault) Owned(msg.sender) {
-        require(weth_ != address(0), "invaid weth");
-        require(usd_ != address(0), "invalid usd");
+    constructor(address _owner, address _vault) Owned(_owner) {
+        require(_owner != address(0), "invalid owner");
         require(_vault != address(0), "invalid vault");
 
-        // usd is the most priority quote token
-        quotableTokens[Currency.wrap(usd_)] = ProtocolConstants.QUOTE_PRIORITY_USD;
-        // quotableTokens[Currency.wrap(address(0))] = ProtocolConstants.QUOTE_PRIORITY_WETH;
-        quotableTokens[Currency.wrap(weth_)] = ProtocolConstants.QUOTE_PRIORITY_WETH;
-        WETH = weth_;
         vault = _vault;
-
         _gridState.initialize();
+    }
+
+    /// @notice Initialize the contract with WETH and USD addresses
+    /// @dev This function can only be called once by the owner
+    /// @param _weth The WETH contract address
+    /// @param _usd The USD stablecoin address (highest priority quote token)
+    function initialize(address _weth, address _usd) external onlyOwner {
+        require(!initialized, "already initialized");
+        require(_weth != address(0), "invalid weth");
+        require(_usd != address(0), "invalid usd");
+
+        initialized = true;
+
+        // usd is the most priority quote token
+        quotableTokens[Currency.wrap(_usd)] = ProtocolConstants.QUOTE_PRIORITY_USD;
+        // quotableTokens[Currency.wrap(address(0))] = ProtocolConstants.QUOTE_PRIORITY_WETH;
+        quotableTokens[Currency.wrap(_weth)] = ProtocolConstants.QUOTE_PRIORITY_WETH;
+        WETH = _weth;
     }
 
     /// @notice Allows the contract to receive ETH

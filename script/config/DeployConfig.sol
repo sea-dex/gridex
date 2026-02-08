@@ -17,7 +17,7 @@ library DeployConfig {
     }
 
     // ============ Mainnet Chains ============
-    
+
     /// @notice Ethereum Mainnet configuration
     function ethereum() internal pure returns (ChainConfig memory) {
         return ChainConfig({
@@ -76,7 +76,7 @@ library DeployConfig {
             chainId: 56,
             name: "BSC",
             weth: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, // WBNB
-            usd: 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, // USDC
+            usd: 0x55d398326f99059fF775485246999027B3197955, // USDT
             rpcEnvVar: "BSC_RPC",
             explorerApiKeyEnvVar: "BSCSCAN_API_KEY",
             explorerUrl: "https://bscscan.com"
@@ -173,13 +173,13 @@ library DeployConfig {
         if (chainId == 56) return bsc();
         if (chainId == 137) return polygon();
         if (chainId == 43114) return avalanche();
-        
+
         // Testnets
         if (chainId == 11155111) return sepolia();
         if (chainId == 421614) return arbitrumSepolia();
         if (chainId == 84532) return baseSepolia();
         if (chainId == 97) return bscTestnet();
-        
+
         revert("Unsupported chain");
     }
 }

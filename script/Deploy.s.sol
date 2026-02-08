@@ -44,16 +44,16 @@ import {DeployConfig} from "./config/DeployConfig.sol";
 ///
 contract Deploy is Script {
     // ============ Constants ============
-    
+
     /// @notice The salt used for CREATE2 deployment
     /// @dev CRITICAL: This must be the same across all chains for deterministic addresses
     bytes32 public constant DEPLOYMENT_SALT = keccak256("GridEx.V1.2024.Production");
-    
+
     /// @notice Deterministic deployment proxy (same address on all EVM chains)
     /// @dev Deployed via keyless deployment, available on most chains
     /// @dev See: https://github.com/Arachnid/deterministic-deployment-proxy
     address public constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    
+
     // ============ State ============
     address public vault;
     address public gridEx;
@@ -65,10 +65,10 @@ contract Deploy is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         // Get chain config or use environment variables
         (address weth, address usd) = _getTokenAddresses();
-        
+
         console.log("========================================");
         console.log("GridEx Protocol Deployment");
         console.log("========================================");
@@ -77,46 +77,47 @@ contract Deploy is Script {
         console.log("WETH:", weth);
         console.log("USD:", usd);
         console.log("");
-        
+
         // Verify CREATE2 deployer exists
         require(CREATE2_DEPLOYER.code.length > 0, "CREATE2 deployer not available on this chain");
-        
+
         // Preview expected addresses
-        (address expectedVault, address expectedGridEx, address expectedLinear) = 
-            computeAddresses(weth, usd);
-        
+        (address expectedVault, address expectedGridEx, address expectedLinear) = computeAddresses();
+
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
         console.log("  GridEx:", expectedGridEx);
         console.log("  Linear:", expectedLinear);
         console.log("");
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
-        // Deploy Vault
+
+        // Deploy Vault (with deployer as owner)
         bytes32 vaultSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Vault"));
-        bytes memory vaultBytecode = type(Vault).creationCode;
+        bytes memory vaultBytecode = abi.encodePacked(type(Vault).creationCode, abi.encode(deployer));
         vault = _deployContract(vaultSalt, vaultBytecode, "Vault");
         require(vault == expectedVault, "Vault address mismatch!");
-        
-        // Deploy GridEx
+
+        // Deploy GridEx (with deployer as owner and vault address)
         bytes32 gridExSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridEx"));
-        bytes memory gridExBytecode = abi.encodePacked(
-            type(GridEx).creationCode, 
-            abi.encode(weth, usd, vault)
-        );
+        bytes memory gridExBytecode = abi.encodePacked(type(GridEx).creationCode, abi.encode(deployer, vault));
         gridEx = _deployContract(gridExSalt, gridExBytecode, "GridEx");
         require(gridEx == expectedGridEx, "GridEx address mismatch!");
-        
+
+        // Initialize GridEx with WETH and USD (chain-specific)
+        if (!GridEx(payable(gridEx)).initialized()) {
+            GridEx(payable(gridEx)).initialize(weth, usd);
+            console.log("[OK] GridEx initialized with WETH and USD");
+        } else {
+            console.log("[SKIP] GridEx already initialized");
+        }
+
         // Deploy Linear
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
-        bytes memory linearBytecode = abi.encodePacked(
-            type(Linear).creationCode, 
-            abi.encode(gridEx)
-        );
+        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(gridEx));
         linear = _deployContract(linearSalt, linearBytecode, "Linear");
         require(linear == expectedLinear, "Linear address mismatch!");
-        
+
         // Configure: Whitelist Linear strategy
         if (!GridEx(payable(gridEx)).whitelistedStrategies(linear)) {
             GridEx(payable(gridEx)).setStrategyWhitelist(linear, true);
@@ -124,16 +125,16 @@ contract Deploy is Script {
         } else {
             console.log("[SKIP] Linear already whitelisted");
         }
-        
+
         vm.stopBroadcast();
-        
+
         _printSummary(weth, usd);
     }
 
     /// @notice Preview deployment addresses without deploying
     function preview() public view {
         (address weth, address usd) = _getTokenAddresses();
-        
+
         console.log("========================================");
         console.log("Deployment Preview");
         console.log("========================================");
@@ -142,16 +143,15 @@ contract Deploy is Script {
         console.log("USD:", usd);
         console.log("Salt:", vm.toString(DEPLOYMENT_SALT));
         console.log("");
-        
-        (address expectedVault, address expectedGridEx, address expectedLinear) = 
-            computeAddresses(weth, usd);
-        
+
+        (address expectedVault, address expectedGridEx, address expectedLinear) = computeAddresses();
+
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
         console.log("  GridEx:", expectedGridEx);
         console.log("  Linear:", expectedLinear);
         console.log("");
-        
+
         // Check if already deployed
         console.log("Deployment Status:");
         console.log("  Vault:", expectedVault.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
@@ -159,31 +159,46 @@ contract Deploy is Script {
         console.log("  Linear:", expectedLinear.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
     }
 
-    /// @notice Compute expected addresses for given WETH/USD
-    function computeAddresses(address weth, address usd) public pure returns (
-        address expectedVault,
-        address expectedGridEx,
-        address expectedLinear
-    ) {
-        // Vault (no constructor args - same on all chains)
+    /// @notice Compute expected addresses for given owner
+    /// @dev WETH/USD are no longer part of constructor args, so addresses are deterministic across chains
+    function computeAddresses()
+        public
+        view
+        returns (address expectedVault, address expectedGridEx, address expectedLinear)
+    {
+        // Get deployer address for computing addresses
+        address deployer = vm.envOr("DEPLOYER_ADDRESS", address(0));
+        if (deployer == address(0)) {
+            try vm.envUint("PRIVATE_KEY") returns (uint256 pk) {
+                deployer = vm.addr(pk);
+            } catch {
+                revert("DEPLOYER_ADDRESS or PRIVATE_KEY required");
+            }
+        }
+
+        return computeAddressesWithOwner(deployer);
+    }
+
+    /// @notice Compute expected addresses for given owner
+    /// @dev WETH/USD are set via initialize(), so constructor only takes owner and vault
+    function computeAddressesWithOwner(address _owner)
+        public
+        pure
+        returns (address expectedVault, address expectedGridEx, address expectedLinear)
+    {
+        // Vault (takes owner as constructor arg - same on all chains if same owner)
         bytes32 vaultSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Vault"));
-        bytes memory vaultBytecode = type(Vault).creationCode;
+        bytes memory vaultBytecode = abi.encodePacked(type(Vault).creationCode, abi.encode(_owner));
         expectedVault = _computeAddress(vaultSalt, vaultBytecode);
-        
-        // GridEx (depends on weth, usd, vault)
+
+        // GridEx (takes owner and vault - same on all chains if same owner)
         bytes32 gridExSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridEx"));
-        bytes memory gridExBytecode = abi.encodePacked(
-            type(GridEx).creationCode, 
-            abi.encode(weth, usd, expectedVault)
-        );
+        bytes memory gridExBytecode = abi.encodePacked(type(GridEx).creationCode, abi.encode(_owner, expectedVault));
         expectedGridEx = _computeAddress(gridExSalt, gridExBytecode);
-        
+
         // Linear (depends on gridEx)
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
-        bytes memory linearBytecode = abi.encodePacked(
-            type(Linear).creationCode, 
-            abi.encode(expectedGridEx)
-        );
+        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedGridEx));
         expectedLinear = _computeAddress(linearSalt, linearBytecode);
     }
 
@@ -199,52 +214,53 @@ contract Deploy is Script {
             DeployConfig.ChainConfig memory config = DeployConfig.getConfig(block.chainid);
             weth = config.weth;
         }
-        
+
         try vm.envAddress("USD_ADDRESS") returns (address _usd) {
             usd = _usd;
         } catch {
             DeployConfig.ChainConfig memory config = DeployConfig.getConfig(block.chainid);
             usd = config.usd;
         }
-        
+
         require(weth != address(0), "WETH address not configured");
         require(usd != address(0), "USD address not configured");
     }
 
     /// @notice Deploy a contract using CREATE2
-    function _deployContract(
-        bytes32 salt,
-        bytes memory bytecode,
-        string memory name
-    ) internal returns (address deployed) {
+    function _deployContract(bytes32 salt, bytes memory bytecode, string memory name)
+        internal
+        returns (address deployed)
+    {
         address expected = _computeAddress(salt, bytecode);
-        
+
         // Check if already deployed
         if (expected.code.length > 0) {
             console.log(string.concat("[SKIP] ", name, " already deployed at:"), expected);
             return expected;
         }
-        
+
         // Deploy using CREATE2 deployer
         bytes memory deployData = abi.encodePacked(salt, bytecode);
         (bool success, bytes memory result) = CREATE2_DEPLOYER.call(deployData);
         require(success, string.concat(name, " deployment failed"));
-        
-        deployed = address(bytes20(result));
+
+        // The deterministic deployment proxy returns exactly 20 bytes (the address)
+        require(result.length == 20, string.concat(name, " unexpected return length"));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assembly {
+            deployed := mload(add(result, 20))
+        }
         require(deployed == expected, string.concat(name, " address mismatch"));
         require(deployed.code.length > 0, string.concat(name, " deployment failed - no code"));
-        
+
         console.log(string.concat("[OK] ", name, " deployed at:"), deployed);
     }
 
     /// @notice Compute CREATE2 address
     function _computeAddress(bytes32 salt, bytes memory bytecode) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encodePacked(
-            bytes1(0xff),
-            CREATE2_DEPLOYER,
-            salt,
-            keccak256(bytecode)
-        )))));
+        return address(
+            uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, salt, keccak256(bytecode)))))
+        );
     }
 
     /// @notice Print deployment summary
@@ -270,25 +286,51 @@ contract Deploy is Script {
     }
 
     /// @notice Print verification commands
-    function _printVerifyCommands(address weth, address usd) internal view {
+    function _printVerifyCommands(address, address) internal view {
+        address _owner = GridEx(payable(gridEx)).owner();
+        string memory chainId = vm.toString(block.chainid);
+
         console.log("# Verify Vault");
-        console.log("forge verify-contract --chain-id <CHAIN_ID> \\");
-        console.log("  -e $ETHERSCAN_API_KEY \\");
-        console.log("  %s src/Vault.sol:Vault", vault);
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(vault),
+                " src/Vault.sol:Vault --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
+                vm.toString(_owner),
+                ")"
+            )
+        );
         console.log("");
-        
+
         console.log("# Verify GridEx");
-        console.log("forge verify-contract --chain-id <CHAIN_ID> \\");
-        console.log("  -e $ETHERSCAN_API_KEY \\");
-        console.log("  %s src/GridEx.sol:GridEx \\", gridEx);
-        console.log("  --constructor-args $(cast abi-encode 'constructor(address,address,address)' \\");
-        console.log("    %s %s %s)", weth, usd, vault);
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(gridEx),
+                " src/GridEx.sol:GridEx --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address,address)' ",
+                vm.toString(_owner),
+                " ",
+                vm.toString(vault),
+                ")"
+            )
+        );
         console.log("");
-        
+
         console.log("# Verify Linear");
-        console.log("forge verify-contract --chain-id <CHAIN_ID> \\");
-        console.log("  -e $ETHERSCAN_API_KEY \\");
-        console.log("  %s src/strategy/Linear.sol:Linear \\", linear);
-        console.log("  --constructor-args $(cast abi-encode 'constructor(address)' %s)", gridEx);
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(linear),
+                " src/strategy/Linear.sol:Linear --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
+                vm.toString(gridEx),
+                ")"
+            )
+        );
     }
 }

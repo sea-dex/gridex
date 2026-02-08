@@ -25,7 +25,8 @@ contract LinearTest is Test {
         weth = new WETH();
         usdc = new USDC();
         sea = new SEA();
-        exchange = new GridEx(address(weth), address(usdc), vault);
+        exchange = new GridEx(address(this), vault);
+        exchange.initialize(address(weth), address(usdc));
         linear = new Linear(address(exchange));
     }
 

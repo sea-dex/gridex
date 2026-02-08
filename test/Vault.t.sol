@@ -23,7 +23,7 @@ contract VaultTest is Test {
 
     function setUp() public {
         owner = address(this);
-        vault = new Vault();
+        vault = new Vault(owner);
         sea = new SEA();
         usdc = new USDC();
 

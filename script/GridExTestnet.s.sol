@@ -14,13 +14,14 @@ contract GridExScript is Script {
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
         WETH weth = new WETH();
         USDC usdc = new USDC();
-        Vault vault = new Vault();
-        GridEx gridEx = new GridEx(address(weth), address(usdc), address(vault));
-        gridEx;
+        Vault vault = new Vault(deployer);
+        GridEx gridEx = new GridEx(deployer, address(vault));
+        gridEx.initialize(address(weth), address(usdc));
         vm.stopBroadcast();
     }
 }

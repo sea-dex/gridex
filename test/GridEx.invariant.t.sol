@@ -47,8 +47,9 @@ contract GridExInvariantTest is StdInvariant, Test {
         usdc = new USDC();
 
         // Deploy contracts
-        vault = new Vault();
-        gridEx = new GridEx(address(weth), address(usdc), address(vault));
+        vault = new Vault(owner);
+        gridEx = new GridEx(owner, address(vault));
+        gridEx.initialize(address(weth), address(usdc));
         linear = new Linear(address(gridEx));
 
         // Track initial supplies

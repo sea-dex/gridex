@@ -12,8 +12,9 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 contract Vault is Owned {
     using SafeTransferLib for ERC20;
 
-    /// @notice Creates a new Vault with the deployer as owner
-    constructor() Owned(msg.sender) {}
+    /// @notice Creates a new Vault with the specified owner
+    /// @param _owner The address that will own this vault
+    constructor(address _owner) Owned(_owner) {}
 
     /// @notice Withdraw ERC20 tokens from the vault
     /// @dev Only callable by the owner

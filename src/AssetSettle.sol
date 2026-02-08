@@ -15,7 +15,9 @@ contract AssetSettle {
     using SafeTransferLib for ERC20;
 
     /// @notice The WETH contract address
-    address public immutable WETH;
+    /// @dev Not immutable to allow initialization after CREATE2 deployment for deterministic addresses
+    // forge-lint: disable-next-line
+    address public WETH;
 
     /// @notice Emitted when an ETH refund attempt fails (refund remains in the contract)
     /// @dev Allows off-chain reconciliation / manual refunding when recipients cannot accept ETH.
