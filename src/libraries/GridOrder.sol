@@ -71,6 +71,16 @@ library GridOrder {
         mapping(uint256 gridId => IGridOrder.GridConfig) gridConfigs;
     }
 
+    /// @notice Initialize the grid state
+    /// @dev Sets initial values for grid ID and order ID counters
+    /// @param self The grid state storage to initialize
+    function initialize(GridState storage self) internal {
+        self.nextGridId = ProtocolConstants.GRID_ID_START;
+        self.nextBidOrderId = ProtocolConstants.BID_ORDER_START_ID;
+        self.nextAskOrderId = ProtocolConstants.ASK_ORDER_START_ID;
+        self.oneshotProtocolFeeBps = 500; // default oneshot fee bps 0.05%
+    }
+
     /// @notice Validate grid order parameters
     /// @dev Checks fee range and validates strategy parameters. For oneshot orders, fee validation is skipped
     ///      as the fee will be overridden with oneshotProtocolFeeBps
@@ -183,16 +193,6 @@ library GridOrder {
                 return (order.revAmount, order.amount);
             }
         }
-    }
-
-    /// @notice Initialize the grid state
-    /// @dev Sets initial values for grid ID and order ID counters
-    /// @param self The grid state storage to initialize
-    function initialize(GridState storage self) internal {
-        self.nextGridId = ProtocolConstants.GRID_ID_START;
-        self.nextBidOrderId = ProtocolConstants.BID_ORDER_START_ID;
-        self.nextAskOrderId = ProtocolConstants.ASK_ORDER_START_ID;
-        self.oneshotProtocolFeeBps = 500; // default oneshot fee bps 0.05%
     }
 
     /// @notice Create a new grid configuration

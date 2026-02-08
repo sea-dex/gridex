@@ -23,3 +23,4 @@ typechain/
 address.json
 broadcast/
 deploy.sh
+script/.env
