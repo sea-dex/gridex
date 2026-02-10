@@ -428,10 +428,9 @@ library GridOrder {
         // quote volume taker will pay: quoteVol = filled * price
         uint128 quoteVol = Lens.calcQuoteAmount(amt, sellPrice, true);
 
-        // For oneshot orders, all fee goes to protocol (lpFee = 0)
+        // For oneshot orders, 75% protocol fee, 25% maker fee
         if (orderInfo.oneshot) {
-            result.lpFee = 0;
-            result.protocolFee = Lens.calculateOneshotFee(quoteVol, orderInfo.fee);
+            (result.lpFee, result.protocolFee) = Lens.calculateOneshotFee(quoteVol, orderInfo.fee);
         } else {
             (result.lpFee, result.protocolFee) = Lens.calculateFees(quoteVol, orderInfo.fee);
         }
@@ -540,10 +539,9 @@ library GridOrder {
             revert IOrderErrors.ZeroBaseAmt();
         }
 
-        // For oneshot orders, all fee goes to protocol (lpFee = 0)
+        // For oneshot orders, 75% protocol fee, 25% maker fee
         if (orderInfo.oneshot) {
-            result.lpFee = 0;
-            result.protocolFee = Lens.calculateOneshotFee(filledVol, orderInfo.fee);
+            (result.lpFee, result.protocolFee) = Lens.calculateOneshotFee(filledVol, orderInfo.fee);
         } else {
             (result.lpFee, result.protocolFee) = Lens.calculateFees(filledVol, orderInfo.fee);
         }
@@ -553,7 +551,7 @@ library GridOrder {
         if (orderInfo.compound) {
             orderQuoteAmt -= filledVol - result.lpFee; // all quote reverse
         } else {
-            // lpFee into profit (for oneshot, lpFee is 0 so no profit from fee)
+            // lpFee into profit (for oneshot, lpFee is 25% of fee going to maker as profit)
             result.profit = uint128(result.lpFee);
             orderQuoteAmt -= filledVol;
         }

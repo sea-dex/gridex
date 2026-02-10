@@ -648,7 +648,7 @@ contract GridExEdgeTest is GridExBaseTest {
     }
 
     /// @notice Test oneshot ask order partial fill - verify protocol fee
-    /// @dev For oneshot orders, all fee goes to protocol (lpFee = 0)
+    /// @dev For oneshot orders, 75% fee goes to protocol, 25% to maker
     function test_oneshotOrders_partialFill_askOrder_protocolFee() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12); // 0.002
         uint256 gap = askPrice0 / 20;
@@ -672,10 +672,12 @@ contract GridExEdgeTest is GridExBaseTest {
         vm.stopPrank();
 
         // Calculate expected fee
-        // For oneshot: all fee goes to protocol, no LP fee
+        // For oneshot: 75% fee goes to protocol, 25% to maker
         uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
         uint128 quoteVol = Lens.calcQuoteAmount(fillAmt, askPrice0, true);
-        uint128 expectedProtocolFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 totalFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 makerFee = totalFee >> 2; // 25% to maker
+        uint128 expectedProtocolFee = totalFee - makerFee; // 75% to protocol
 
         // Verify protocol fee was collected in vault
         uint256 vaultBalanceAfter = usdc.balanceOf(vault);
@@ -708,10 +710,12 @@ contract GridExEdgeTest is GridExBaseTest {
         exchange.fillAskOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
 
-        // Calculate expected fee
+        // Calculate expected fee (75% protocol, 25% maker)
         uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
         uint128 quoteVol = Lens.calcQuoteAmount(amt, askPrice0, true);
-        uint128 expectedProtocolFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 totalFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 makerFee = totalFee >> 2; // 25% to maker
+        uint128 expectedProtocolFee = totalFee - makerFee; // 75% to protocol
 
         // Verify protocol fee was collected in vault
         uint256 vaultBalanceAfter = usdc.balanceOf(vault);
@@ -747,10 +751,12 @@ contract GridExEdgeTest is GridExBaseTest {
         exchange.fillBidOrder(gridOrderId, fillAmt, 0, new bytes(0), 0);
         vm.stopPrank();
 
-        // Calculate expected fee
+        // Calculate expected fee (75% protocol, 25% maker)
         uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
         uint128 filledVol = Lens.calcQuoteAmount(fillAmt, bidPrice0, false);
-        uint128 expectedProtocolFee = uint128((uint256(filledVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 totalFee = uint128((uint256(filledVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 makerFee = totalFee >> 2; // 25% to maker
+        uint128 expectedProtocolFee = totalFee - makerFee; // 75% to protocol
 
         // Verify protocol fee was collected in vault
         uint256 vaultBalanceAfter = usdc.balanceOf(vault);
@@ -784,10 +790,12 @@ contract GridExEdgeTest is GridExBaseTest {
         exchange.fillBidOrder(gridOrderId, amt, 0, new bytes(0), 0);
         vm.stopPrank();
 
-        // Calculate expected fee
+        // Calculate expected fee (75% protocol, 25% maker)
         uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
         uint128 filledVol = Lens.calcQuoteAmount(amt, bidPrice0, false);
-        uint128 expectedProtocolFee = uint128((uint256(filledVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 totalFee = uint128((uint256(filledVol) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 makerFee = totalFee >> 2; // 25% to maker
+        uint128 expectedProtocolFee = totalFee - makerFee; // 75% to protocol
 
         // Verify protocol fee was collected in vault
         uint256 vaultBalanceAfter = usdc.balanceOf(vault);
@@ -903,8 +911,8 @@ contract GridExEdgeTest is GridExBaseTest {
         vm.stopPrank();
     }
 
-    /// @notice Test oneshot order LP fee is always 0
-    function test_oneshotOrders_lpFeeIsZero() public {
+    /// @notice Test oneshot order fee split: 75% protocol, 25% maker
+    function test_oneshotOrders_feeSplit() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
@@ -929,11 +937,17 @@ contract GridExEdgeTest is GridExBaseTest {
         uint128 quoteVol = Lens.calcQuoteAmount(amt, askPrice0, true);
         uint128 totalFee = uint128((uint256(quoteVol) * uint256(oneshotFeeBps)) / 1000000);
         // For normal orders: lpFee = totalFee - protocolFee = totalFee - (totalFee >> 2) = 75% of totalFee
-        // For oneshot: lpFee = 0, protocolFee = 100% of totalFee
+        // For oneshot: protocolFee = 75% of totalFee, lpFee (maker) = 25% of totalFee
+        uint128 makerFee = totalFee >> 2; // 25% to maker
+        uint128 expectedProtocolFee = totalFee - makerFee; // 75% to protocol
 
-        // Verify protocol got all the fee (sent to vault)
+        // Verify protocol got 75% of the fee (sent to vault)
         uint256 vaultBalanceAfter = usdc.balanceOf(vault);
-        assertEq(vaultBalanceAfter - vaultBalanceBefore, totalFee, "Protocol should receive all fee for oneshot orders");
+        assertEq(
+            vaultBalanceAfter - vaultBalanceBefore,
+            expectedProtocolFee,
+            "Protocol should receive 75% fee for oneshot orders"
+        );
     }
 
     /// @notice Test setOneshotProtocolFeeBps and getOneshotProtocolFeeBps
@@ -996,7 +1010,7 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
 
         uint32 oneshotFeeBps = exchange.getOneshotProtocolFeeBps();
-        uint128 totalExpectedFee = 0;
+        uint128 totalExpectedProtocolFee = 0;
 
         // First partial fill - 25%
         uint128 fillAmt1 = amt / 4;
@@ -1005,7 +1019,8 @@ contract GridExEdgeTest is GridExBaseTest {
         vm.stopPrank();
 
         uint128 quoteVol1 = Lens.calcQuoteAmount(fillAmt1, askPrice0, true);
-        totalExpectedFee += uint128((uint256(quoteVol1) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 fee1 = uint128((uint256(quoteVol1) * uint256(oneshotFeeBps)) / 1000000);
+        totalExpectedProtocolFee += fee1 - (fee1 >> 2); // 75% to protocol
 
         // Second partial fill - 25%
         uint128 fillAmt2 = amt / 4;
@@ -1014,7 +1029,8 @@ contract GridExEdgeTest is GridExBaseTest {
         vm.stopPrank();
 
         uint128 quoteVol2 = Lens.calcQuoteAmount(fillAmt2, askPrice0, true);
-        totalExpectedFee += uint128((uint256(quoteVol2) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 fee2 = uint128((uint256(quoteVol2) * uint256(oneshotFeeBps)) / 1000000);
+        totalExpectedProtocolFee += fee2 - (fee2 >> 2); // 75% to protocol
 
         // Third partial fill - remaining 50%
         uint128 fillAmt3 = amt / 2;
@@ -1023,13 +1039,14 @@ contract GridExEdgeTest is GridExBaseTest {
         vm.stopPrank();
 
         uint128 quoteVol3 = Lens.calcQuoteAmount(fillAmt3, askPrice0, true);
-        totalExpectedFee += uint128((uint256(quoteVol3) * uint256(oneshotFeeBps)) / 1000000);
+        uint128 fee3 = uint128((uint256(quoteVol3) * uint256(oneshotFeeBps)) / 1000000);
+        totalExpectedProtocolFee += fee3 - (fee3 >> 2); // 75% to protocol
 
         // Verify total protocol fee (sent to vault)
         uint256 vaultBalanceAfter = usdc.balanceOf(vault);
         assertEq(
             vaultBalanceAfter - vaultBalanceBefore,
-            totalExpectedFee,
+            totalExpectedProtocolFee,
             "Total protocol fee mismatch for multiple partial fills"
         );
 

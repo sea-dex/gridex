@@ -95,7 +95,7 @@ This re-audit confirms that the codebase maintains strong security practices. Th
 - **Pausable**: Emergency pause mechanism for order placement and filling
 - **Strategy Whitelist**: Only whitelisted strategies can be used for grid orders
 - **Protocol Fees**: 75% LP / 25% protocol fee split (using bit shift `>> 2`)
-- **Oneshot Orders**: Single-fill orders where 100% of fee goes to protocol
+- **Oneshot Orders**: Single-fill orders with 75% protocol / 25% maker fee split (using bit shift `>> 2`)
 - **Checks-Effects-Interactions**: Properly followed in all functions
 
 ### Security Features Implemented
@@ -187,7 +187,7 @@ if (param.bidOrderCount > 0) {
 **Description:**
 Oneshot orders are a feature where:
 - Orders can only be filled once (from original side)
-- 100% of the fee goes to protocol (no LP fee)
+- 75% of the fee goes to protocol, 25% goes to maker (using bit shift `>> 2`)
 - Fee is set by `oneshotProtocolFeeBps` (default 500 bps = 0.05%)
 - User-specified fee is ignored for oneshot orders
 - Attempting to fill from reverse side reverts with `FillReversedOneShotOrder`

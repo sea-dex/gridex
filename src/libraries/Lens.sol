@@ -129,14 +129,17 @@ library Lens {
         }
     }
 
-    /// @notice Calculate protocol fee for oneshot orders (all fee goes to protocol, no LP fee)
-    /// @dev For oneshot orders, the entire fee is protocol fee
+    /// @notice Calculate fees for oneshot orders (75% protocol, 25% maker)
+    /// @dev For oneshot orders, protocol gets 75% and maker gets 25% of the fee
     /// @param vol The quote volume
     /// @param bps The fee in basis points
-    /// @return protocolFee The protocol fee (entire fee amount)
-    function calculateOneshotFee(uint128 vol, uint32 bps) public pure returns (uint128 protocolFee) {
+    /// @return lpFee The maker fee portion (25%)
+    /// @return protocolFee The protocol fee portion (75%)
+    function calculateOneshotFee(uint128 vol, uint32 bps) public pure returns (uint128 lpFee, uint128 protocolFee) {
         unchecked {
-            protocolFee = uint128((uint256(vol) * uint256(bps)) / 1000000);
+            uint128 fee = uint128((uint256(vol) * uint256(bps)) / 1000000);
+            lpFee = fee >> 2;
+            protocolFee = fee - lpFee;
         }
     }
 }
