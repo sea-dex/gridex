@@ -30,11 +30,4 @@ library ProtocolConstants {
 
     /// @dev Grid IDs start at 1.
     uint128 internal constant GRID_ID_START = 1;
-
-    // ---------------------------------------------------------------------
-    // Misc
-    // ---------------------------------------------------------------------
-
-    /// @dev Common uint128 upper bound.
-    uint256 internal constant UINT128_EXCLUSIVE_UPPER_BOUND = 1 << 128;
 }

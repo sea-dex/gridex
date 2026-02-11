@@ -225,7 +225,7 @@ abstract contract StdChains {
         );
         setChainWithDefaultRpcUrl(
             "bnb_smart_chain_testnet",
-            ChainData("BNB Smart Chain Testnet", 97, "https://rpc.ankr.com/bsc_testnet_chapel")
+            ChainData("BNB Smart Chain Testnet", 97, "https://bsc-testnet-rpc.publicnode.com")
         );
         setChainWithDefaultRpcUrl("gnosis_chain", ChainData("Gnosis Chain", 100, "https://rpc.gnosischain.com"));
         setChainWithDefaultRpcUrl("moonbeam", ChainData("Moonbeam", 1284, "https://rpc.api.moonbeam.network"));

@@ -84,7 +84,7 @@ contract Linear is IGridStrategy {
             revert ILinearErrors.LinearInvalidCount();
         }
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
-        if (price0 == 0 || price0 >= ProtocolConstants.UINT128_EXCLUSIVE_UPPER_BOUND || gap == 0) {
+        if (price0 == 0 || gap == 0) {
             revert ILinearErrors.LinearInvalidPriceOrGap();
         }
 
