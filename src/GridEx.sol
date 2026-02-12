@@ -453,7 +453,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     }
 
     /// @inheritdoc IGridEx
-    function withdrawGridProfits(uint128 gridId, uint256 amt, address to, uint32 flag) public override {
+    function withdrawGridProfits(uint128 gridId, uint256 amt, address to, uint32 flag) public override nonReentrant {
         IGridOrder.GridConfig memory conf = _gridState.gridConfigs[gridId];
         if (conf.owner != msg.sender) {
             revert IOrderErrors.NotGridOwer();
@@ -517,7 +517,6 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     function cancelGridOrders(address recipient, uint256 startGridOrderId, uint32 howmany, uint32 flag)
         public
         override
-        nonReentrant
     {
         uint256[] memory idList = new uint256[](howmany);
         (uint128 gridId,) = GridOrder.extractGridIdOrderId(startGridOrderId);
