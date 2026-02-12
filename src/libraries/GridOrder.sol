@@ -6,6 +6,7 @@ import {IGridStrategy} from "../interfaces/IGridStrategy.sol";
 import {IOrderErrors} from "../interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "../interfaces/IOrderEvents.sol";
 
+import {FullMath} from "./FullMath.sol";
 import {Lens} from "./Lens.sol";
 import {ProtocolConstants} from "./ProtocolConstants.sol";
 
@@ -528,11 +529,18 @@ library GridOrder {
             buyPrice = orderInfo.price;
         }
 
-        // quote volume maker pays
-        uint128 filledVol = Lens.calcQuoteAmount(amt, buyPrice, false);
+        // quote volume maker pays (use FullMath directly to avoid revert on zero)
+        uint256 rawQuote = FullMath.mulDiv(uint256(amt), buyPrice, Lens.PRICE_MULTIPLIER);
+        if (rawQuote == 0) {
+            // Dust amount too small to produce any quote — return zero-filled result so caller can skip
+            result.pairId = orderInfo.pairId;
+            return result;
+        }
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint128 filledVol = uint128(rawQuote); // safe: amt is uint128, price < 2^128, so rawQuote < 2^128
         if (filledVol > orderQuoteAmt) {
             amt = uint128(Lens.calcBaseAmount(orderQuoteAmt, buyPrice, true));
-            filledVol = orderQuoteAmt; // calcQuoteAmount(amt, buyPrice);
+            filledVol = orderQuoteAmt;
         }
 
         if (amt == 0) {

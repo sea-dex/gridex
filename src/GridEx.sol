@@ -415,12 +415,20 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
                 revert IProtocolErrors.PairIdMismatch();
             }
 
+            // Skip dust fills that produced zero quote amount
+            if (result.filledAmt == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
             emit IOrderEvents.FilledOrder(
                 msg.sender, gridOrderId, result.filledAmt, result.filledVol, result.orderAmt, result.orderRevAmt, false
             );
 
-            filledAmt += result.filledAmt; // filledBaseAmt;
-            filledVol += result.filledVol - result.lpFee - result.protocolFee; // filledQuoteAmtSubFee;
+            filledAmt += result.filledAmt;
+            filledVol += result.filledVol - result.lpFee - result.protocolFee;
             protocolFee += result.protocolFee;
 
             if (maxAmt > 0 && filledAmt >= maxAmt) {
