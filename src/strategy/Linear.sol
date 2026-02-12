@@ -84,12 +84,12 @@ contract Linear is IGridStrategy {
             revert ILinearErrors.LinearInvalidCount();
         }
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
-        if (price0 == 0 || gap == 0) {
+        if (price0 == 0 || (count > 1 && gap == 0)) {
             revert ILinearErrors.LinearInvalidPriceOrGap();
         }
 
         if (isAsk) {
-            if (gap <= 0) {
+            if (count > 1 && gap <= 0) {
                 revert ILinearErrors.LinearAskGapNonPositive();
             }
             // casting to 'uint256' is safe because gap > 0
@@ -115,7 +115,7 @@ contract Linear is IGridStrategy {
                 revert ILinearErrors.LinearAskZeroQuote();
             }
         } else {
-            if (gap >= 0) {
+            if (count > 1 && gap >= 0) {
                 revert ILinearErrors.LinearBidGapNonNegative();
             }
             // casting to 'uint256' is safe because gap < 0
