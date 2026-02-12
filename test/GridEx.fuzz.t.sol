@@ -10,7 +10,7 @@ import {GridOrder} from "../src/libraries/GridOrder.sol";
 /// @notice Fuzz tests for arithmetic operations in Lens and FullMath libraries
 contract GridExFuzzTest is Test {
     uint256 constant PRICE_MULTIPLIER = 10 ** 36;
-    uint32 constant MIN_FEE = 100;
+    uint32 constant MIN_FEE = 10;
     uint32 constant MAX_FEE = 100000;
 
     // ============ Lens.calcQuoteAmount Fuzz Tests ============

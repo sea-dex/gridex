@@ -969,7 +969,7 @@ contract GridExEdgeTest is GridExBaseTest {
     function test_oneshotProtocolFeeBps_revertInvalidFee() public {
         // Try to set fee below MIN_FEE
         vm.expectRevert(IOrderErrors.InvalidGridFee.selector);
-        exchange.setOneshotProtocolFeeBps(99); // MIN_FEE is 100
+        exchange.setOneshotProtocolFeeBps(9); // MIN_FEE is 10
 
         // Try to set fee above MAX_FEE
         vm.expectRevert(IOrderErrors.InvalidGridFee.selector);

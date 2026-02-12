@@ -20,10 +20,10 @@ import {ProtocolConstants} from "./ProtocolConstants.sol";
 ///      - Grid and order cancellation with proper refund calculations
 ///      - Compound and oneshot order modes
 library GridOrder {
-    /// @notice Minimum fee in basis points (0.01%)
+    /// @notice Minimum fee in basis points (0.001%)
     /// @dev Fee is represented as basis points where 1 = 0.0001% (1e-6)
-    ///      MIN_FEE of 100 = 0.01%
-    uint32 public constant MIN_FEE = 100;
+    ///      MIN_FEE of 10 = 0.001%
+    uint32 public constant MIN_FEE = 10;
 
     /// @notice Maximum fee in basis points (10%)
     /// @dev MAX_FEE of 100000 = 10%

@@ -105,7 +105,7 @@ This re-audit confirms that the codebase maintains strong security practices. Th
 3. **Access Control** via Owned pattern for admin functions
 4. **Strategy Whitelist** for controlling which strategies can be used ([`GridEx.sol:40`](src/GridEx.sol:40), [`GridEx.sol:567-571`](src/GridEx.sol:567))
 5. **Strategy Access Control** via `onlyGridEx` modifier ([`Linear.sol:27-30`](src/strategy/Linear.sol:27))
-6. **Fee Validation** with MIN_FEE (100 bps = 0.01%) / MAX_FEE (100000 bps = 10%) bounds ([`GridOrder.sol:26-30`](src/libraries/GridOrder.sol:26))
+6. **Fee Validation** with MIN_FEE (10 bps = 0.001%) / MAX_FEE (100000 bps = 10%) bounds ([`GridOrder.sol:26-30`](src/libraries/GridOrder.sol:26))
 7. **Safe Math** via Solidity 0.8.33 built-in overflow checks
 8. **SafeTransferLib** for ERC20 transfers
 9. **512-bit Math** via FullMath library for precision in price calculations
