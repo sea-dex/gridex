@@ -532,7 +532,11 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     }
 
     /// @inheritdoc IGridEx
-    function cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag) public override nonReentrant {
+    function cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag)
+        public
+        override
+        nonReentrant
+    {
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState.cancelGridOrders(msg.sender, gridId, idList);
 
         Pair memory pair = getPairById[pairId];
