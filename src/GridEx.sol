@@ -492,7 +492,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     }
 
     /// @inheritdoc IGridEx
-    function cancelGrid(address recipient, uint128 gridId, uint32 flag) public override {
+    function cancelGrid(address recipient, uint128 gridId, uint32 flag) public override nonReentrant {
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState.cancelGrid(msg.sender, gridId);
         Pair memory pair = getPairById[pairId];
         if (baseAmt > 0) {
@@ -517,6 +517,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     function cancelGridOrders(address recipient, uint256 startGridOrderId, uint32 howmany, uint32 flag)
         public
         override
+        nonReentrant
     {
         uint256[] memory idList = new uint256[](howmany);
         (uint128 gridId,) = GridOrder.extractGridIdOrderId(startGridOrderId);
@@ -531,7 +532,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     }
 
     /// @inheritdoc IGridEx
-    function cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag) public override {
+    function cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag) public override nonReentrant {
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = _gridState.cancelGridOrders(msg.sender, gridId, idList);
 
         Pair memory pair = getPairById[pairId];
