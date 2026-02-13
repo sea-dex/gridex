@@ -13,4 +13,16 @@ interface IProtocolErrors {
 
     /// @notice Thrown when a token ordering tie-breaker check fails.
     error TokenOrderInvalid();
+
+    /// @notice Thrown when a zero address is provided where a valid address is required.
+    error InvalidAddress();
+
+    /// @notice Thrown when the contract has already been initialized.
+    error AlreadyInitialized();
+
+    /// @notice Thrown when insufficient ETH is sent for an operation.
+    error InsufficientETH();
+
+    /// @notice Thrown when an ETH transfer fails.
+    error ETHTransferFailed();
 }

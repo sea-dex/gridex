@@ -26,6 +26,12 @@ contract AssetSettle {
     /// @notice Thrown when the paid amount is not enough
     error NotEnough();
 
+    /// @notice Thrown when ETH transfer fails
+    error ETHTransferFailed();
+
+    /// @notice Thrown when token is not WETH but ETH flag is set
+    error NotWETH();
+
     /// @notice Transfer token between pool and user. More refund, less supplement
     /// @dev Handles both ETH and ERC20 token settlements
     /// @param token The currency to settle
@@ -51,7 +57,7 @@ contract AssetSettle {
     // forge-lint: disable-next-line(mixed-case-function)
     function safeTransferETH(address to, uint256 value) internal {
         (bool success,) = to.call{value: value}(new bytes(0));
-        require(success, "safeTransferETH: failed");
+        if (!success) revert ETHTransferFailed();
     }
 
     /// @notice Try to pay back ETH to an address, ignoring failures
@@ -91,7 +97,7 @@ contract AssetSettle {
         } else {
             // in token
             if (flag & 0x01 > 0) {
-                require(Currency.unwrap(inToken) == WETH, "Not WETH");
+                if (Currency.unwrap(inToken) != WETH) revert NotWETH();
                 IWETH(WETH).deposit{value: inAmt}();
                 if (paid > inAmt) {
                     tryPaybackETH(addr, paid - inAmt);
@@ -102,7 +108,7 @@ contract AssetSettle {
 
             // out token
             if (flag & 0x02 > 0) {
-                require(Currency.unwrap(outToken) == WETH, "Not WETH");
+                if (Currency.unwrap(outToken) != WETH) revert NotWETH();
                 IWETH(WETH).withdraw(outAmt);
                 safeTransferETH(addr, outAmt);
             } else {
@@ -121,7 +127,7 @@ contract AssetSettle {
         if (flag == 0) {
             token.transfer(addr, amount);
         } else {
-            require(Currency.unwrap(token) == WETH, "Not WETH");
+            if (Currency.unwrap(token) != WETH) revert NotWETH();
             IWETH(WETH).withdraw(amount);
             safeTransferETH(addr, amount);
         }

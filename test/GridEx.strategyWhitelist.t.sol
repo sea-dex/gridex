@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IOrderErrors} from "../src/interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
+import {IProtocolErrors} from "../src/interfaces/IProtocolErrors.sol";
 import {GridEx} from "../src/GridEx.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Currency} from "../src/libraries/Currency.sol";
@@ -80,7 +81,7 @@ contract GridExStrategyWhitelistTest is Test {
     }
 
     function test_setStrategyWhitelist_revertZeroAddress() public {
-        vm.expectRevert("Invalid strategy address");
+        vm.expectRevert(IProtocolErrors.InvalidAddress.selector);
         exchange.setStrategyWhitelist(address(0), true);
     }
 

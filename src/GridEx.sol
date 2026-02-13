@@ -47,8 +47,8 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @param _owner The address that will own this contract
     /// @param _vault The vault address for protocol fees
     constructor(address _owner, address _vault) Owned(_owner) {
-        require(_owner != address(0), "invalid owner");
-        require(_vault != address(0), "invalid vault");
+        if (_owner == address(0)) revert IProtocolErrors.InvalidAddress();
+        if (_vault == address(0)) revert IProtocolErrors.InvalidAddress();
 
         vault = _vault;
         _gridState.initialize();
@@ -59,9 +59,9 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @param _weth The WETH contract address
     /// @param _usd The USD stablecoin address (highest priority quote token)
     function initialize(address _weth, address _usd) external onlyOwner {
-        require(!initialized, "already initialized");
-        require(_weth != address(0), "invalid weth");
-        require(_usd != address(0), "invalid usd");
+        if (initialized) revert IProtocolErrors.AlreadyInitialized();
+        if (_weth == address(0)) revert IProtocolErrors.InvalidAddress();
+        if (_usd == address(0)) revert IProtocolErrors.InvalidAddress();
 
         initialized = true;
 
@@ -81,7 +81,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     }
 
     /// @inheritdoc IGridEx
-    function getGridOrders(uint256[] calldata idList) public view override returns (IGridOrder.OrderInfo[] memory) {
+    function getGridOrders(uint256[] calldata idList) external view override returns (IGridOrder.OrderInfo[] memory) {
         uint256 len = idList.length;
         IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](len);
 
@@ -129,11 +129,11 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
         (, uint128 baseAmt, uint128 quoteAmt) = _placeGridOrders(msg.sender, base, quote, param);
 
         if (baseIsETH) {
-            require(msg.value >= baseAmt, "GridEx: Insufficient ETH sent");
+            if (msg.value < baseAmt) revert IProtocolErrors.InsufficientETH();
             AssetSettle.transferETHFrom(msg.sender, baseAmt, uint128(msg.value));
             AssetSettle.transferTokenFrom(quote, msg.sender, quoteAmt);
         } else {
-            require(msg.value >= quoteAmt, "GridEx: Insufficient ETH sent");
+            if (msg.value < quoteAmt) revert IProtocolErrors.InsufficientETH();
             AssetSettle.transferETHFrom(msg.sender, quoteAmt, uint128(msg.value));
             AssetSettle.transferTokenFrom(base, msg.sender, baseAmt);
         }
@@ -574,7 +574,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @param amount The amount of ETH to withdraw
     function rescueEth(address to, uint256 amount) external onlyOwner {
         (bool success,) = to.call{value: amount}("");
-        require(success, "ETH transfer failed");
+        if (!success) revert IProtocolErrors.ETHTransferFailed();
     }
 
     /// @notice Set the protocol fee for oneshot orders
@@ -607,7 +607,7 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
 
     /// @inheritdoc IGridEx
     function setStrategyWhitelist(address strategy, bool whitelisted) external override onlyOwner {
-        require(strategy != address(0), "Invalid strategy address");
+        if (strategy == address(0)) revert IProtocolErrors.InvalidAddress();
         whitelistedStrategies[strategy] = whitelisted;
         emit IOrderEvents.StrategyWhitelistUpdated(msg.sender, strategy, whitelisted);
     }

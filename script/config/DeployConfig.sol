@@ -156,7 +156,7 @@ library DeployConfig {
             chainId: 97,
             name: "BSC Testnet",
             weth: 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd, // WBNB
-            usd: 0x337610d27c682E347C9cD60BD4b3b107C9d34dDd, // USDT
+            usd: 0x64544969ed7EBf5f083679233325356EbE738930, // USDC
             rpcEnvVar: "BSC_TESTNET_RPC",
             explorerApiKeyEnvVar: "BSCSCAN_API_KEY",
             explorerUrl: "https://testnet.bscscan.com"
