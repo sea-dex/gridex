@@ -110,6 +110,15 @@ get_explorer_var_name() {
     esac
 }
 
+# Get gas price flags for chains that require a minimum gas price
+get_gas_price_flags() {
+    local chain=$1
+    case "$chain" in
+        "bsc"|"bsc-testnet")  echo "--with-gas-price 3000000000" ;;  # 3 Gwei
+        *)                    echo "" ;;
+    esac
+}
+
 # List of all available chains
 ALL_CHAINS="ethereum arbitrum optimism base bsc polygon avalanche sepolia arbitrum-sepolia base-sepolia bsc-testnet"
 
