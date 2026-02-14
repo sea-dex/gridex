@@ -6,6 +6,9 @@ import {Script, console} from "forge-std/Script.sol";
 import {GridEx} from "../src/GridEx.sol";
 import {Vault} from "../src/Vault.sol";
 import {Linear} from "../src/strategy/Linear.sol";
+import {Currency} from "../src/libraries/Currency.sol";
+import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DeployConfig} from "./config/DeployConfig.sol";
 
 /// @title Deploy
@@ -22,14 +25,12 @@ import {DeployConfig} from "./config/DeployConfig.sol";
 /// 2. Same salt (using DEPLOYMENT_SALT)
 /// 3. Same bytecode INCLUDING constructor arguments
 ///
-/// Since GridEx constructor takes WETH/USD addresses which differ per chain,
-/// we have two options:
-///
-/// Option A: Deploy canonical WETH/USD first using CREATE2 (same addresses everywhere)
-/// Option B: Use a proxy pattern where the implementation has no constructor args
-///
-/// This script implements Option A - it can deploy canonical tokens first,
-/// then deploy GridEx with those canonical addresses.
+/// GridEx uses UUPS proxy pattern:
+/// - Implementation: No constructor args, same address everywhere
+/// - Proxy: Constructor args include (impl, initData), where initData contains
+///   only (owner, vault). Chain-specific config (WETH, quote tokens) is set via
+///   setWETH() and setQuoteToken() after deployment, so the proxy address is
+///   identical across all chains.
 ///
 /// ## Usage:
 ///
@@ -56,7 +57,8 @@ contract Deploy is Script {
 
     // ============ State ============
     address public vault;
-    address public gridEx;
+    address public gridExImpl;
+    address public gridEx; // proxy address
     address public linear;
 
     // ============ Main Entry Points ============
@@ -70,7 +72,7 @@ contract Deploy is Script {
         (address weth, address usd) = _getTokenAddresses();
 
         console.log("========================================");
-        console.log("GridEx Protocol Deployment");
+        console.log("GridEx Protocol Deployment (UUPS Proxy)");
         console.log("========================================");
         console.log("Chain ID:", block.chainid);
         console.log("Deployer:", deployer);
@@ -81,12 +83,14 @@ contract Deploy is Script {
         // Verify CREATE2 deployer exists
         require(CREATE2_DEPLOYER.code.length > 0, "CREATE2 deployer not available on this chain");
 
-        // Preview expected addresses
-        (address expectedVault, address expectedGridEx, address expectedLinear) = computeAddresses();
+        // Preview expected addresses (same on all chains)
+        (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear) =
+            computeAddressesWithOwner(deployer);
 
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
-        console.log("  GridEx:", expectedGridEx);
+        console.log("  GridEx Impl:", expectedImpl);
+        console.log("  GridEx Proxy:", expectedProxy);
         console.log("  Linear:", expectedLinear);
         console.log("");
 
@@ -98,19 +102,27 @@ contract Deploy is Script {
         vault = _deployContract(vaultSalt, vaultBytecode, "Vault");
         require(vault == expectedVault, "Vault address mismatch!");
 
-        // Deploy GridEx (with deployer as owner and vault address)
-        bytes32 gridExSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridEx"));
-        bytes memory gridExBytecode = abi.encodePacked(type(GridEx).creationCode, abi.encode(deployer, vault));
-        gridEx = _deployContract(gridExSalt, gridExBytecode, "GridEx");
-        require(gridEx == expectedGridEx, "GridEx address mismatch!");
+        // Deploy GridEx implementation (no constructor args - _disableInitializers in constructor)
+        bytes32 implSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExImpl"));
+        bytes memory implBytecode = type(GridEx).creationCode;
+        gridExImpl = _deployContract(implSalt, implBytecode, "GridEx Implementation");
+        require(gridExImpl == expectedImpl, "GridEx impl address mismatch!");
 
-        // Initialize GridEx with WETH and USD (chain-specific)
-        if (!GridEx(payable(gridEx)).initialized()) {
-            GridEx(payable(gridEx)).initialize(weth, usd);
-            console.log("[OK] GridEx initialized with WETH and USD");
-        } else {
-            console.log("[SKIP] GridEx already initialized");
-        }
+        // Deploy ERC1967Proxy pointing to GridEx implementation
+        // The proxy constructor calls initialize() atomically (chain-agnostic)
+        bytes memory initData = abi.encodeCall(GridEx.initialize, (deployer, vault));
+        bytes32 proxySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExProxy"));
+        bytes memory proxyBytecode = abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(gridExImpl, initData));
+        gridEx = _deployContract(proxySalt, proxyBytecode, "GridEx Proxy");
+        require(gridEx == expectedProxy, "GridEx proxy address mismatch!");
+
+        console.log("[OK] GridEx initialized via proxy constructor");
+
+        // Configure chain-specific WETH and quote tokens
+        GridEx(payable(gridEx)).setWETH(weth);
+        GridEx(payable(gridEx)).setQuoteToken(Currency.wrap(usd), ProtocolConstants.QUOTE_PRIORITY_USD);
+        GridEx(payable(gridEx)).setQuoteToken(Currency.wrap(weth), ProtocolConstants.QUOTE_PRIORITY_WETH);
+        console.log("[OK] WETH and quote tokens configured");
 
         // Deploy Linear
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
@@ -136,7 +148,7 @@ contract Deploy is Script {
         (address weth, address usd) = _getTokenAddresses();
 
         console.log("========================================");
-        console.log("Deployment Preview");
+        console.log("Deployment Preview (UUPS Proxy)");
         console.log("========================================");
         console.log("Chain ID:", block.chainid);
         console.log("WETH:", weth);
@@ -144,27 +156,31 @@ contract Deploy is Script {
         console.log("Salt:", vm.toString(DEPLOYMENT_SALT));
         console.log("");
 
-        (address expectedVault, address expectedGridEx, address expectedLinear) = computeAddresses();
+        (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear) =
+            computeAddresses(weth, usd);
 
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
-        console.log("  GridEx:", expectedGridEx);
+        console.log("  GridEx Impl:", expectedImpl);
+        console.log("  GridEx Proxy:", expectedProxy);
         console.log("  Linear:", expectedLinear);
         console.log("");
 
         // Check if already deployed
         console.log("Deployment Status:");
         console.log("  Vault:", expectedVault.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
-        console.log("  GridEx:", expectedGridEx.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  GridEx Impl:", expectedImpl.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  GridEx Proxy:", expectedProxy.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  Linear:", expectedLinear.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
     }
 
-    /// @notice Compute expected addresses for given owner
-    /// @dev WETH/USD are no longer part of constructor args, so addresses are deterministic across chains
-    function computeAddresses()
+    /// @notice Compute expected addresses for current deployer
+    /// @param weth WETH address (only used for logging, not for address computation)
+    /// @param usd USD address (only used for logging, not for address computation)
+    function computeAddresses(address weth, address usd)
         public
         view
-        returns (address expectedVault, address expectedGridEx, address expectedLinear)
+        returns (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear)
     {
         // Get deployer address for computing addresses
         address deployer = vm.envOr("DEPLOYER_ADDRESS", address(0));
@@ -180,25 +196,33 @@ contract Deploy is Script {
     }
 
     /// @notice Compute expected addresses for given owner
-    /// @dev WETH/USD are set via initialize(), so constructor only takes owner and vault
+    /// @dev With UUPS proxy, initData only encodes (owner, vault) — no chain-specific args.
+    ///      Proxy address is now the same across all chains.
     function computeAddressesWithOwner(address _owner)
         public
         pure
-        returns (address expectedVault, address expectedGridEx, address expectedLinear)
+        returns (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear)
     {
         // Vault (takes owner as constructor arg - same on all chains if same owner)
         bytes32 vaultSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Vault"));
         bytes memory vaultBytecode = abi.encodePacked(type(Vault).creationCode, abi.encode(_owner));
         expectedVault = _computeAddress(vaultSalt, vaultBytecode);
 
-        // GridEx (takes owner and vault - same on all chains if same owner)
-        bytes32 gridExSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridEx"));
-        bytes memory gridExBytecode = abi.encodePacked(type(GridEx).creationCode, abi.encode(_owner, expectedVault));
-        expectedGridEx = _computeAddress(gridExSalt, gridExBytecode);
+        // GridEx implementation (no constructor args - same address everywhere)
+        bytes32 implSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExImpl"));
+        bytes memory implBytecode = type(GridEx).creationCode;
+        expectedImpl = _computeAddress(implSalt, implBytecode);
 
-        // Linear (depends on gridEx)
+        // GridEx proxy (depends only on impl, owner, vault — same across all chains)
+        bytes memory initData = abi.encodeCall(GridEx.initialize, (_owner, expectedVault));
+        bytes32 proxySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExProxy"));
+        bytes memory proxyBytecode =
+            abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(expectedImpl, initData));
+        expectedProxy = _computeAddress(proxySalt, proxyBytecode);
+
+        // Linear (depends on proxy address)
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
-        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedGridEx));
+        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedProxy));
         expectedLinear = _computeAddress(linearSalt, linearBytecode);
     }
 
@@ -272,7 +296,8 @@ contract Deploy is Script {
         console.log("");
         console.log("Deployed Contracts:");
         console.log("  Vault:", vault);
-        console.log("  GridEx:", gridEx);
+        console.log("  GridEx Impl:", gridExImpl);
+        console.log("  GridEx Proxy:", gridEx);
         console.log("  Linear:", linear);
         console.log("");
         console.log("Configuration:");
@@ -287,7 +312,6 @@ contract Deploy is Script {
 
     /// @notice Print verification commands
     function _printVerifyCommands(address, address) internal view {
-        address _owner = GridEx(payable(gridEx)).owner();
         string memory chainId = vm.toString(block.chainid);
 
         console.log("# Verify Vault");
@@ -298,24 +322,34 @@ contract Deploy is Script {
                 " src/Vault.sol:Vault --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
-                vm.toString(_owner),
+                vm.toString(GridEx(payable(gridEx)).owner()),
                 ")"
             )
         );
         console.log("");
 
-        console.log("# Verify GridEx");
+        console.log("# Verify GridEx Implementation (no constructor args)");
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(gridExImpl),
+                " src/GridEx.sol:GridEx --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+            )
+        );
+        console.log("");
+
+        console.log("# Verify GridEx Proxy");
         console.log(
             string.concat(
                 "forge verify-contract ",
                 vm.toString(gridEx),
-                " src/GridEx.sol:GridEx --chain ",
+                " lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy --chain ",
                 chainId,
-                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address,address)' ",
-                vm.toString(_owner),
-                " ",
-                vm.toString(vault),
-                ")"
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address,bytes)' ",
+                vm.toString(gridExImpl),
+                " <initData>)"
             )
         );
         console.log("");

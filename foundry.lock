@@ -1,4 +1,10 @@
 {
+  "lib/openzeppelin-contracts-upgradeable": {
+    "tag": {
+      "name": "v5.5.0",
+      "rev": "aa677e9d28ed78fc427ec47ba2baef2030c58e7c"
+    }
+  },
   "lib/solmate": {
     "rev": "c93f7716c9909175d45f6ef80a34a650e2d24e56"
   }

@@ -14,26 +14,25 @@ import {AssetSettle} from "./AssetSettle.sol";
 import {SafeCast} from "./libraries/SafeCast.sol";
 import {Currency, CurrencyLibrary} from "./libraries/Currency.sol";
 import {GridOrder} from "./libraries/GridOrder.sol";
-import {ProtocolConstants} from "./libraries/ProtocolConstants.sol";
 
-import {Owned} from "solmate/auth/Owned.sol";
-import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {Pausable} from "./utils/Pausable.sol";
 
 /// @title GridEx
 /// @author GridEx Protocol
 /// @notice Main contract for the GridEx decentralized grid trading protocol
-/// @dev Implements grid order placement, filling, and cancellation with support for ETH and ERC20 tokens
-contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable {
+/// @dev UUPS upgradeable proxy pattern. Implements grid order placement, filling, and cancellation
+///      with support for ETH and ERC20 tokens.
+///      Uses OpenZeppelin's UUPSUpgradeable, OwnableUpgradeable, and ReentrancyGuardTransient.
+contract GridEx is IGridEx, AssetSettle, Pair, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardTransient, Pausable {
     using SafeCast for *;
     using CurrencyLibrary for Currency;
     using GridOrder for GridOrder.GridState;
 
     /// @notice The vault address that receives protocol fees
     address public vault;
-
-    /// @notice Flag to track if the contract has been initialized
-    bool public initialized;
 
     /// @dev Internal state for managing grid orders
     GridOrder.GridState internal _gridState;
@@ -42,38 +41,43 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     /// @dev Only whitelisted strategies can be used for grid orders
     mapping(address => bool) public whitelistedStrategies;
 
-    /// @notice Creates a new GridEx contract
-    /// @dev For CREATE2 deterministic deployment, owner and vault are passed in constructor
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @dev Disables initializers in the implementation contract to prevent misuse
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initialize the proxy contract
+    /// @dev This replaces the constructor. Can only be called once via the proxy.
+    ///      Chain-specific configuration (WETH, quote tokens) should be set via
+    ///      setWETH() and setQuoteToken() after deployment to keep initData identical
+    ///      across chains for deterministic CREATE2 proxy addresses.
     /// @param _owner The address that will own this contract
     /// @param _vault The vault address for protocol fees
-    constructor(address _owner, address _vault) Owned(_owner) {
+    function initialize(address _owner, address _vault) external initializer {
         if (_owner == address(0)) revert IProtocolErrors.InvalidAddress();
         if (_vault == address(0)) revert IProtocolErrors.InvalidAddress();
 
+        // Initialize OwnableUpgradeable
+        __Ownable_init(_owner);
+
+        // Initialize vault
         vault = _vault;
+
+        // Initialize grid state
         _gridState.initialize();
-    }
 
-    /// @notice Initialize the contract with WETH and USD addresses
-    /// @dev This function can only be called once by the owner
-    /// @param _weth The WETH contract address
-    /// @param _usd The USD stablecoin address (highest priority quote token)
-    function initialize(address _weth, address _usd) external onlyOwner {
-        if (initialized) revert IProtocolErrors.AlreadyInitialized();
-        if (_weth == address(0)) revert IProtocolErrors.InvalidAddress();
-        if (_usd == address(0)) revert IProtocolErrors.InvalidAddress();
-
-        initialized = true;
-
-        // usd is the most priority quote token
-        quotableTokens[Currency.wrap(_usd)] = ProtocolConstants.QUOTE_PRIORITY_USD;
-        // quotableTokens[Currency.wrap(address(0))] = ProtocolConstants.QUOTE_PRIORITY_WETH;
-        quotableTokens[Currency.wrap(_weth)] = ProtocolConstants.QUOTE_PRIORITY_WETH;
-        WETH = _weth;
+        // Initialize Pair.nextPairId
+        nextPairId = 1;
     }
 
     /// @notice Allows the contract to receive ETH
     receive() external payable {}
+
+    /// @notice Authorize an upgrade to a new implementation
+    /// @dev Only the owner can authorize upgrades (UUPS pattern)
+    /// @param newImplementation The new implementation address
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// @inheritdoc IGridEx
     function getGridOrder(uint256 id) public view override returns (IGridOrder.OrderInfo memory) {
@@ -505,12 +509,10 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
         Pair memory pair = getPairById[pairId];
         if (baseAmt > 0) {
             // transfer base
-            // pair.base.transfer(recipient, baseAmt);
             AssetSettle.transferAssetTo(pair.base, recipient, baseAmt, flag & 0x1);
         }
         if (quoteAmt > 0) {
             // transfer
-            // pair.quote.transfer(recipient, quoteAmt);
             AssetSettle.transferAssetTo(pair.quote, recipient, quoteAmt, flag & 0x2);
         }
 
@@ -560,6 +562,12 @@ contract GridEx is IGridEx, AssetSettle, Pair, Owned, ReentrancyGuard, Pausable 
     //-------------------------------
     //------- Admin functions -------
     //-------------------------------
+
+    /// @inheritdoc IGridEx
+    function setWETH(address _weth) external override onlyOwner {
+        if (_weth == address(0)) revert IProtocolErrors.InvalidAddress();
+        WETH = _weth;
+    }
 
     /// @inheritdoc IGridEx
     function setQuoteToken(Currency token, uint256 priority) external override onlyOwner {

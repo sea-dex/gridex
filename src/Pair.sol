@@ -12,7 +12,8 @@ import {Currency} from "./libraries/Currency.sol";
 /// @dev Abstract contract that handles pair creation and lookup
 abstract contract Pair is IPair {
     /// @notice The next pair ID to be assigned
-    uint64 public nextPairId = 1;
+    /// @dev Initialized to 1 in __Pair_init() for proxy compatibility
+    uint64 public nextPairId;
 
     /// @notice Mapping from base token to quote token to pair info
     mapping(Currency => mapping(Currency => Pair)) public getPair;

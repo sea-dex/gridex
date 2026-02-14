@@ -132,6 +132,12 @@ interface IGridEx {
     /// @param flag Bit flags: 1 = base to ETH, 2 = quote to ETH
     function cancelGridOrders(address recipient, uint256 startGridOrderId, uint32 howmany, uint32 flag) external;
 
+    /// @notice Set the WETH address
+    /// @dev Only callable by the contract owner. Called after deployment to configure
+    ///      chain-specific WETH address without affecting deterministic proxy addresses.
+    /// @param _weth The WETH contract address on this chain
+    function setWETH(address _weth) external;
+
     /// @notice Set or update a token's quote priority
     /// @dev Only callable by the contract owner
     /// @param token The token address to configure

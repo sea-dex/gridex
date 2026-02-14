@@ -10,6 +10,9 @@ import {IProtocolErrors} from "../src/interfaces/IProtocolErrors.sol";
 import {GridEx} from "../src/GridEx.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Currency} from "../src/libraries/Currency.sol";
+import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -32,8 +35,18 @@ contract GridExStrategyWhitelistTest is Test {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
-        exchange = new GridEx(address(this), vault);
-        exchange.initialize(address(weth), address(usdc));
+
+        // Deploy GridEx via UUPS proxy (chain-agnostic initialization)
+        GridEx impl = new GridEx();
+        bytes memory initData = abi.encodeCall(GridEx.initialize, (address(this), vault));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        exchange = GridEx(payable(address(proxy)));
+
+        // Configure chain-specific settings
+        exchange.setWETH(address(weth));
+        exchange.setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
+        exchange.setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
+
         linear = new Linear(address(exchange));
         linear2 = new Linear(address(exchange));
 
@@ -55,7 +68,7 @@ contract GridExStrategyWhitelistTest is Test {
     function test_setStrategyWhitelist_onlyOwner() public {
         // Non-owner should not be able to whitelist
         vm.startPrank(nonOwner);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, nonOwner));
         exchange.setStrategyWhitelist(address(linear), true);
         vm.stopPrank();
 

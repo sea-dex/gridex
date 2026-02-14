@@ -6,8 +6,10 @@ import {Test} from "forge-std/Test.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {GridEx} from "../src/GridEx.sol";
 import {Currency} from "../src/libraries/Currency.sol";
+import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Lens} from "../src/libraries/Lens.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -35,8 +37,18 @@ contract GridExBaseTest is Test {
         weth = new WETH();
         sea = new SEA();
         usdc = new USDC();
-        exchange = new GridEx(address(this), vault);
-        exchange.initialize(address(weth), address(usdc));
+
+        // Deploy GridEx via UUPS proxy (chain-agnostic initialization)
+        GridEx impl = new GridEx();
+        bytes memory initData = abi.encodeCall(GridEx.initialize, (address(this), vault));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        exchange = GridEx(payable(address(proxy)));
+
+        // Configure chain-specific settings
+        exchange.setWETH(address(weth));
+        exchange.setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
+        exchange.setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
+
         linear = new Linear(address(exchange));
 
         // Whitelist the linear strategy

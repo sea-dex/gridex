@@ -9,6 +9,8 @@ import {Vault} from "../src/Vault.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../src/interfaces/IGridStrategy.sol";
 import {Currency} from "../src/libraries/Currency.sol";
+import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
 import {WETH} from "./utils/WETH.sol";
@@ -48,8 +50,18 @@ contract GridExInvariantTest is StdInvariant, Test {
 
         // Deploy contracts
         vault = new Vault(owner);
-        gridEx = new GridEx(owner, address(vault));
-        gridEx.initialize(address(weth), address(usdc));
+
+        // Deploy GridEx via UUPS proxy (chain-agnostic initialization)
+        GridEx impl = new GridEx();
+        bytes memory initData = abi.encodeCall(GridEx.initialize, (owner, address(vault)));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        gridEx = GridEx(payable(address(proxy)));
+
+        // Configure chain-specific settings
+        gridEx.setWETH(address(weth));
+        gridEx.setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
+        gridEx.setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
+
         linear = new Linear(address(gridEx));
 
         // Track initial supplies

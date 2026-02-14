@@ -5,6 +5,7 @@ import {GridExBaseTest} from "./GridExBase.t.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {Pausable} from "../src/utils/Pausable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /// @title GridEx Pause Tests
 /// @notice Tests for pause/unpause functionality
@@ -72,7 +73,7 @@ contract GridExPauseTest is GridExBaseTest {
     /// @notice Test non-owner cannot pause
     function test_NonOwnerCannotPause() public {
         vm.prank(maker);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, maker));
         exchange.pause();
     }
 
@@ -81,7 +82,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         vm.prank(maker);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, maker));
         exchange.unpause();
     }
 
