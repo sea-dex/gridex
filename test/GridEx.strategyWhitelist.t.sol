@@ -7,12 +7,14 @@ import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IOrderErrors} from "../src/interfaces/IOrderErrors.sol";
 import {IOrderEvents} from "../src/interfaces/IOrderEvents.sol";
 import {IProtocolErrors} from "../src/interfaces/IProtocolErrors.sol";
-import {GridEx} from "../src/GridEx.sol";
+import {GridExRouter} from "../src/GridExRouter.sol";
+import {TradeFacet} from "../src/facets/TradeFacet.sol";
+import {CancelFacet} from "../src/facets/CancelFacet.sol";
+import {AdminFacet} from "../src/facets/AdminFacet.sol";
+import {ViewFacet} from "../src/facets/ViewFacet.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
@@ -20,12 +22,19 @@ import {WETH} from "./utils/WETH.sol";
 
 contract GridExStrategyWhitelistTest is Test {
     WETH public weth;
-    GridEx public exchange;
+    GridExRouter public router;
+    TradeFacet public tradeFacet;
+    CancelFacet public cancelFacet;
+    AdminFacet public adminFacet;
+    ViewFacet public viewFacet;
     Linear public linear;
     Linear public linear2;
     SEA public sea;
     USDC public usdc;
     address public vault = address(0x0888880);
+
+    /// @dev `exchange` is the router address cast to payable for compatibility
+    address payable public exchange;
 
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     address maker = address(0x100);
@@ -36,22 +45,30 @@ contract GridExStrategyWhitelistTest is Test {
         sea = new SEA();
         usdc = new USDC();
 
-        // Deploy GridEx via UUPS proxy (chain-agnostic initialization)
-        GridEx impl = new GridEx();
-        bytes memory initData = abi.encodeCall(GridEx.initialize, (address(this), vault));
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        exchange = GridEx(payable(address(proxy)));
+        // Deploy facets
+        tradeFacet = new TradeFacet();
+        cancelFacet = new CancelFacet();
+        adminFacet = new AdminFacet();
+        viewFacet = new ViewFacet();
+
+        // Deploy Router (with admin facet address for bootstrapping)
+        router = new GridExRouter(address(this), vault, address(adminFacet));
+        exchange = payable(address(router));
+
+        // Register all selectors
+        _registerAllSelectors();
 
         // Configure chain-specific settings
-        exchange.setWETH(address(weth));
-        exchange.setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
-        exchange.setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
+        AdminFacet(exchange).setWETH(address(weth));
+        AdminFacet(exchange).setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
+        AdminFacet(exchange).setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
 
-        linear = new Linear(address(exchange));
-        linear2 = new Linear(address(exchange));
+        // Deploy and whitelist strategy
+        linear = new Linear(exchange);
+        linear2 = new Linear(exchange);
 
         // Set oneshot protocol fee
-        exchange.setOneshotProtocolFeeBps(500);
+        AdminFacet(exchange).setOneshotProtocolFeeBps(500);
 
         // Give maker some tokens
         // forge-lint: disable-next-line
@@ -60,42 +77,138 @@ contract GridExStrategyWhitelistTest is Test {
         usdc.transfer(maker, 10000_000_000);
 
         vm.startPrank(maker);
-        sea.approve(address(exchange), type(uint128).max);
-        usdc.approve(address(exchange), type(uint128).max);
+        sea.approve(exchange, type(uint128).max);
+        usdc.approve(exchange, type(uint128).max);
         vm.stopPrank();
+    }
+
+    function _registerAllSelectors() internal {
+        // TradeFacet selectors
+        bytes4[] memory selectors = new bytes4[](6);
+        address[] memory facets = new address[](6);
+
+        selectors[0] = TradeFacet.placeGridOrders.selector;
+        facets[0] = address(tradeFacet);
+        selectors[1] = TradeFacet.placeETHGridOrders.selector;
+        facets[1] = address(tradeFacet);
+        selectors[2] = TradeFacet.fillAskOrder.selector;
+        facets[2] = address(tradeFacet);
+        selectors[3] = TradeFacet.fillAskOrders.selector;
+        facets[3] = address(tradeFacet);
+        selectors[4] = TradeFacet.fillBidOrder.selector;
+        facets[4] = address(tradeFacet);
+        selectors[5] = TradeFacet.fillBidOrders.selector;
+        facets[5] = address(tradeFacet);
+
+        AdminFacet(exchange).batchSetFacet(selectors, facets);
+
+        // CancelFacet selectors
+        bytes4[] memory cancelSel = new bytes4[](5);
+        address[] memory cancelFac = new address[](5);
+
+        cancelSel[0] = CancelFacet.cancelGrid.selector;
+        cancelFac[0] = address(cancelFacet);
+        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelFac[1] = address(cancelFacet);
+        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelFac[2] = address(cancelFacet);
+        cancelSel[3] = CancelFacet.withdrawGridProfits.selector;
+        cancelFac[3] = address(cancelFacet);
+        cancelSel[4] = CancelFacet.modifyGridFee.selector;
+        cancelFac[4] = address(cancelFacet);
+
+        AdminFacet(exchange).batchSetFacet(cancelSel, cancelFac);
+
+        // AdminFacet selectors (beyond bootstrap)
+        bytes4[] memory adminSel = new bytes4[](10);
+        address[] memory adminFac = new address[](10);
+
+        adminSel[0] = AdminFacet.setWETH.selector;
+        adminFac[0] = address(adminFacet);
+        adminSel[1] = AdminFacet.setQuoteToken.selector;
+        adminFac[1] = address(adminFacet);
+        adminSel[2] = AdminFacet.setStrategyWhitelist.selector;
+        adminFac[2] = address(adminFacet);
+        adminSel[3] = AdminFacet.setOneshotProtocolFeeBps.selector;
+        adminFac[3] = address(adminFacet);
+        adminSel[4] = AdminFacet.pause.selector;
+        adminFac[4] = address(adminFacet);
+        adminSel[5] = AdminFacet.unpause.selector;
+        adminFac[5] = address(adminFacet);
+        adminSel[6] = AdminFacet.rescueEth.selector;
+        adminFac[6] = address(adminFacet);
+        adminSel[7] = AdminFacet.transferOwnership.selector;
+        adminFac[7] = address(adminFacet);
+        adminSel[8] = AdminFacet.setFacetAllowlist.selector;
+        adminFac[8] = address(adminFacet);
+        adminSel[9] = AdminFacet.setFacet.selector;
+        adminFac[9] = address(adminFacet);
+
+        AdminFacet(exchange).batchSetFacet(adminSel, adminFac);
+
+        // ViewFacet selectors
+        bytes4[] memory viewSel = new bytes4[](12);
+        address[] memory viewFac = new address[](12);
+
+        viewSel[0] = ViewFacet.getGridOrder.selector;
+        viewFac[0] = address(viewFacet);
+        viewSel[1] = ViewFacet.getGridOrders.selector;
+        viewFac[1] = address(viewFacet);
+        viewSel[2] = ViewFacet.getGridProfits.selector;
+        viewFac[2] = address(viewFacet);
+        viewSel[3] = ViewFacet.getGridConfig.selector;
+        viewFac[3] = address(viewFacet);
+        viewSel[4] = ViewFacet.getOneshotProtocolFeeBps.selector;
+        viewFac[4] = address(viewFacet);
+        viewSel[5] = ViewFacet.isStrategyWhitelisted.selector;
+        viewFac[5] = address(viewFacet);
+        viewSel[6] = ViewFacet.getPairTokens.selector;
+        viewFac[6] = address(viewFacet);
+        viewSel[7] = ViewFacet.getPairIdByTokens.selector;
+        viewFac[7] = address(viewFacet);
+        viewSel[8] = ViewFacet.paused.selector;
+        viewFac[8] = address(viewFacet);
+        viewSel[9] = ViewFacet.owner.selector;
+        viewFac[9] = address(viewFacet);
+        viewSel[10] = ViewFacet.vault.selector;
+        viewFac[10] = address(viewFacet);
+        viewSel[11] = ViewFacet.WETH.selector;
+        viewFac[11] = address(viewFacet);
+
+        AdminFacet(exchange).batchSetFacet(viewSel, viewFac);
     }
 
     function test_setStrategyWhitelist_onlyOwner() public {
         // Non-owner should not be able to whitelist
         vm.startPrank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, nonOwner));
-        exchange.setStrategyWhitelist(address(linear), true);
+        vm.expectRevert(AdminFacet.NotOwner.selector);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
         vm.stopPrank();
 
         // Owner should be able to whitelist
-        exchange.setStrategyWhitelist(address(linear), true);
-        assertTrue(exchange.isStrategyWhitelisted(address(linear)));
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
+        assertTrue(ViewFacet(exchange).isStrategyWhitelisted(address(linear)));
     }
 
     function test_setStrategyWhitelist_emitsEvent() public {
         vm.expectEmit(true, true, false, true);
         emit IOrderEvents.StrategyWhitelistUpdated(address(this), address(linear), true);
-        exchange.setStrategyWhitelist(address(linear), true);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
     }
 
     function test_setStrategyWhitelist_canRemove() public {
         // Whitelist first
-        exchange.setStrategyWhitelist(address(linear), true);
-        assertTrue(exchange.isStrategyWhitelisted(address(linear)));
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
+        assertTrue(ViewFacet(exchange).isStrategyWhitelisted(address(linear)));
 
         // Remove from whitelist
-        exchange.setStrategyWhitelist(address(linear), false);
-        assertFalse(exchange.isStrategyWhitelisted(address(linear)));
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), false);
+        assertFalse(ViewFacet(exchange).isStrategyWhitelisted(address(linear)));
     }
 
     function test_setStrategyWhitelist_revertZeroAddress() public {
         vm.expectRevert(IProtocolErrors.InvalidAddress.selector);
-        exchange.setStrategyWhitelist(address(0), true);
+        AdminFacet(exchange).setStrategyWhitelist(address(0), true);
     }
 
     function test_placeGridOrders_revertNonWhitelistedAskStrategy() public {
@@ -121,13 +234,13 @@ contract GridExStrategyWhitelistTest is Test {
 
         vm.startPrank(maker);
         vm.expectRevert(IOrderErrors.StrategyNotWhitelisted.selector);
-        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
+        TradeFacet(exchange).placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
     }
 
     function test_placeGridOrders_revertNonWhitelistedBidStrategy() public {
         // Whitelist only linear, not linear2
-        exchange.setStrategyWhitelist(address(linear), true);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
 
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 bidPrice0 = uint256((48 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
@@ -150,13 +263,13 @@ contract GridExStrategyWhitelistTest is Test {
 
         vm.startPrank(maker);
         vm.expectRevert(IOrderErrors.StrategyNotWhitelisted.selector);
-        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
+        TradeFacet(exchange).placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
     }
 
     function test_placeGridOrders_successWithWhitelistedStrategy() public {
         // Whitelist the strategy
-        exchange.setStrategyWhitelist(address(linear), true);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
 
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 askPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
@@ -179,11 +292,11 @@ contract GridExStrategyWhitelistTest is Test {
         });
 
         vm.startPrank(maker);
-        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
+        TradeFacet(exchange).placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         // Verify grid was created
-        IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
+        IGridOrder.GridConfig memory config = ViewFacet(exchange).getGridConfig(1);
         assertEq(config.owner, maker);
         assertEq(config.askOrderCount, 5);
         assertEq(config.bidOrderCount, 5);
@@ -213,17 +326,19 @@ contract GridExStrategyWhitelistTest is Test {
         vm.deal(maker, 10 ether);
         vm.startPrank(maker);
         vm.expectRevert(IOrderErrors.StrategyNotWhitelisted.selector);
-        exchange.placeETHGridOrders{value: 5 ether}(Currency.wrap(address(0)), Currency.wrap(address(usdc)), param);
+        TradeFacet(exchange).placeETHGridOrders{value: 5 ether}(
+            Currency.wrap(address(0)), Currency.wrap(address(usdc)), param
+        );
         vm.stopPrank();
     }
 
     function test_multipleStrategiesCanBeWhitelisted() public {
         // Whitelist both strategies
-        exchange.setStrategyWhitelist(address(linear), true);
-        exchange.setStrategyWhitelist(address(linear2), true);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear2), true);
 
-        assertTrue(exchange.isStrategyWhitelisted(address(linear)));
-        assertTrue(exchange.isStrategyWhitelisted(address(linear2)));
+        assertTrue(ViewFacet(exchange).isStrategyWhitelisted(address(linear)));
+        assertTrue(ViewFacet(exchange).isStrategyWhitelisted(address(linear2)));
 
         uint128 perBaseAmt = 100 * 10 ** 18;
         uint256 askPrice0 = uint256((49 * PRICE_MULTIPLIER) / 10 / (10 ** 12));
@@ -247,11 +362,11 @@ contract GridExStrategyWhitelistTest is Test {
         });
 
         vm.startPrank(maker);
-        exchange.placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
+        TradeFacet(exchange).placeGridOrders(Currency.wrap(address(sea)), Currency.wrap(address(usdc)), param);
         vm.stopPrank();
 
         // Verify grid was created with different strategies
-        IGridOrder.GridConfig memory config = exchange.getGridConfig(1);
+        IGridOrder.GridConfig memory config = ViewFacet(exchange).getGridConfig(1);
         assertEq(address(config.askStrategy), address(linear));
         assertEq(address(config.bidStrategy), address(linear2));
     }

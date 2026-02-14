@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {Test} from "forge-std/Test.sol";
 
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-import {IGridEx} from "../src/interfaces/IGridEx.sol";
 import {GridExRouter} from "../src/GridExRouter.sol";
 import {TradeFacet} from "../src/facets/TradeFacet.sol";
 import {CancelFacet} from "../src/facets/CancelFacet.sol";
@@ -19,11 +18,11 @@ import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
 import {WETH} from "./utils/WETH.sol";
 
-/// @title GridExBaseTest
-/// @notice Base test harness for GridExRouter (diamond architecture)
-/// @dev Provides the same interface as before but backed by Router + Facets.
-///      The `exchange` variable is the router address, typed as IGridEx for direct method calls.
-contract GridExBaseTest is Test {
+/// @title GridExDiamondBaseTest
+/// @notice Base test harness for diamond (Router + Facets) architecture
+/// @dev Provides the same interface as GridExBaseTest but backed by diamond contracts.
+///      The `exchange` variable is the router address, and we cast to facet interfaces as needed.
+contract GridExDiamondBaseTest is Test {
     WETH public weth;
     GridExRouter public router;
     TradeFacet public tradeFacet;
@@ -35,8 +34,8 @@ contract GridExBaseTest is Test {
     USDC public usdc;
     address public vault = address(0x0888880);
 
-    /// @dev `exchange` is the router address typed as IGridEx for direct method calls
-    IGridEx public exchange;
+    /// @dev `exchange` is the router address cast to payable for compatibility with old tests
+    address payable public exchange;
 
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     address maker = address(0x100);
@@ -61,22 +60,22 @@ contract GridExBaseTest is Test {
 
         // Deploy Router (with admin facet address for bootstrapping)
         router = new GridExRouter(address(this), vault, address(adminFacet));
-        exchange = IGridEx(address(router));
+        exchange = payable(address(router));
 
         // Register all selectors (admin facet selectors already bootstrapped in constructor)
         _registerAllSelectors();
 
         // Configure chain-specific settings
-        AdminFacet(address(exchange)).setWETH(address(weth));
-        AdminFacet(address(exchange)).setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
-        AdminFacet(address(exchange)).setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
+        AdminFacet(exchange).setWETH(address(weth));
+        AdminFacet(exchange).setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
+        AdminFacet(exchange).setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
 
         // Deploy and whitelist strategy
-        linear = new Linear(address(exchange));
-        AdminFacet(address(exchange)).setStrategyWhitelist(address(linear), true);
+        linear = new Linear(exchange);
+        AdminFacet(exchange).setStrategyWhitelist(address(linear), true);
 
-        // Set oneshot protocol fee (500 bps = 0.05%)
-        AdminFacet(address(exchange)).setOneshotProtocolFeeBps(500);
+        // Set oneshot protocol fee
+        AdminFacet(exchange).setOneshotProtocolFeeBps(500);
 
         // Fund maker and taker
         vm.deal(maker, initialETHAmt);
@@ -92,15 +91,15 @@ contract GridExBaseTest is Test {
         usdc.transfer(taker, initialUSDCAmt);
 
         vm.startPrank(maker);
-        weth.approve(address(exchange), type(uint128).max);
-        sea.approve(address(exchange), type(uint128).max);
-        usdc.approve(address(exchange), type(uint128).max);
+        weth.approve(exchange, type(uint128).max);
+        sea.approve(exchange, type(uint128).max);
+        usdc.approve(exchange, type(uint128).max);
         vm.stopPrank();
 
         vm.startPrank(taker);
-        weth.approve(address(exchange), type(uint128).max);
-        sea.approve(address(exchange), type(uint128).max);
-        usdc.approve(address(exchange), type(uint128).max);
+        weth.approve(exchange, type(uint128).max);
+        sea.approve(exchange, type(uint128).max);
+        usdc.approve(exchange, type(uint128).max);
         vm.stopPrank();
     }
 
@@ -122,7 +121,7 @@ contract GridExBaseTest is Test {
         selectors[5] = TradeFacet.fillBidOrders.selector;
         facets[5] = address(tradeFacet);
 
-        AdminFacet(address(exchange)).batchSetFacet(selectors, facets);
+        AdminFacet(exchange).batchSetFacet(selectors, facets);
 
         // CancelFacet selectors
         bytes4[] memory cancelSel = new bytes4[](5);
@@ -139,7 +138,7 @@ contract GridExBaseTest is Test {
         cancelSel[4] = CancelFacet.modifyGridFee.selector;
         cancelFac[4] = address(cancelFacet);
 
-        AdminFacet(address(exchange)).batchSetFacet(cancelSel, cancelFac);
+        AdminFacet(exchange).batchSetFacet(cancelSel, cancelFac);
 
         // AdminFacet selectors (beyond bootstrap)
         bytes4[] memory adminSel = new bytes4[](10);
@@ -166,11 +165,11 @@ contract GridExBaseTest is Test {
         adminSel[9] = AdminFacet.setFacet.selector;
         adminFac[9] = address(adminFacet);
 
-        AdminFacet(address(exchange)).batchSetFacet(adminSel, adminFac);
+        AdminFacet(exchange).batchSetFacet(adminSel, adminFac);
 
         // ViewFacet selectors
-        bytes4[] memory viewSel = new bytes4[](13);
-        address[] memory viewFac = new address[](13);
+        bytes4[] memory viewSel = new bytes4[](12);
+        address[] memory viewFac = new address[](12);
 
         viewSel[0] = ViewFacet.getGridOrder.selector;
         viewFac[0] = address(viewFacet);
@@ -188,18 +187,16 @@ contract GridExBaseTest is Test {
         viewFac[6] = address(viewFacet);
         viewSel[7] = ViewFacet.getPairIdByTokens.selector;
         viewFac[7] = address(viewFacet);
-        viewSel[8] = ViewFacet.getPairById.selector;
+        viewSel[8] = ViewFacet.paused.selector;
         viewFac[8] = address(viewFacet);
-        viewSel[9] = ViewFacet.paused.selector;
+        viewSel[9] = ViewFacet.owner.selector;
         viewFac[9] = address(viewFacet);
-        viewSel[10] = ViewFacet.owner.selector;
+        viewSel[10] = ViewFacet.vault.selector;
         viewFac[10] = address(viewFacet);
-        viewSel[11] = ViewFacet.vault.selector;
+        viewSel[11] = ViewFacet.WETH.selector;
         viewFac[11] = address(viewFacet);
-        viewSel[12] = ViewFacet.WETH.selector;
-        viewFac[12] = address(viewFacet);
 
-        AdminFacet(address(exchange)).batchSetFacet(viewSel, viewFac);
+        AdminFacet(exchange).batchSetFacet(viewSel, viewFac);
     }
 
     function toGridOrderId(uint128 gridId, uint128 orderId) internal pure returns (uint256) {
@@ -237,12 +234,9 @@ contract GridExBaseTest is Test {
         vm.startPrank(who);
         if (base == address(0) || quote == address(0)) {
             uint256 val = (base == address(0)) ? perBaseAmt * asks : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
-
-            TradeFacet(address(exchange)).placeETHGridOrders{value: val}(
-                Currency.wrap(base), Currency.wrap(quote), param
-            );
+            TradeFacet(exchange).placeETHGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
         } else {
-            TradeFacet(address(exchange)).placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
+            TradeFacet(exchange).placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
         }
         vm.stopPrank();
     }
@@ -277,12 +271,9 @@ contract GridExBaseTest is Test {
         vm.startPrank(maker);
         if (base == address(0) || quote == address(0)) {
             uint256 val = (base == address(0)) ? perBaseAmt * asks : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
-
-            TradeFacet(address(exchange)).placeETHGridOrders{value: val}(
-                Currency.wrap(base), Currency.wrap(quote), param
-            );
+            TradeFacet(exchange).placeETHGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
         } else {
-            TradeFacet(address(exchange)).placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
+            TradeFacet(exchange).placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
         }
         vm.stopPrank();
     }
@@ -317,18 +308,14 @@ contract GridExBaseTest is Test {
         vm.startPrank(maker);
         if (base == address(0) || quote == address(0)) {
             uint256 val = (base == address(0)) ? perBaseAmt * asks : (perBaseAmt * bids * bidPrice0) / PRICE_MULTIPLIER;
-
-            TradeFacet(address(exchange)).placeETHGridOrders{value: val}(
-                Currency.wrap(base), Currency.wrap(quote), param
-            );
+            TradeFacet(exchange).placeETHGridOrders{value: val}(Currency.wrap(base), Currency.wrap(quote), param);
         } else {
-            TradeFacet(address(exchange)).placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
+            TradeFacet(exchange).placeGridOrders(Currency.wrap(base), Currency.wrap(quote), param);
         }
         vm.stopPrank();
     }
 
     // just for ask order
-    // return: fillVol, reverse order quote amount, grid profit, fee
     function calcQuoteVolReversed(
         uint256 price,
         uint256 gap,
@@ -349,8 +336,6 @@ contract GridExBaseTest is Test {
         return (quoteVol, quoteVol + lpfee, 0, fee);
     }
 
-    // just for ask order
-    // return: fillVol, reverse order quote amount, fee
     function calcQuoteVolReversedCompound(uint256 price, uint128 fillAmt, uint32 feebps)
         internal
         pure
@@ -362,12 +347,10 @@ contract GridExBaseTest is Test {
     }
 
     function calcProtocolFee(uint128 fee) internal pure returns (uint128) {
-        // here if change to fee >> 2, will cause stack too deep problem
         return fee / 4;
     }
 
     function calcMakerFee(uint128 fee) internal pure returns (uint128) {
         return fee - (fee / 4);
-        // return fee - (fee >> 1);
     }
 }

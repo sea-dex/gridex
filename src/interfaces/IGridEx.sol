@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "./IGridOrder.sol";
 // forge-lint: disable-next-line(unaliased-plain-import)
+import "./IPair.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "../libraries/Currency.sol";
 
 /// @title IGridEx
@@ -136,6 +138,7 @@ interface IGridEx {
     /// @dev Only callable by the contract owner. Called after deployment to configure
     ///      chain-specific WETH address without affecting deterministic proxy addresses.
     /// @param _weth The WETH contract address on this chain
+    // forge-lint: disable-next-line
     function setWETH(address _weth) external;
 
     /// @notice Set or update a token's quote priority
@@ -196,4 +199,45 @@ interface IGridEx {
     /// @param strategy The strategy contract address to check
     /// @return True if the strategy is whitelisted
     function isStrategyWhitelisted(address strategy) external view returns (bool);
+
+    /// @notice Get the contract owner
+    /// @return The owner address
+    function owner() external view returns (address);
+
+    /// @notice Pause the contract
+    function pause() external;
+
+    /// @notice Unpause the contract
+    function unpause() external;
+
+    /// @notice Get the pair ID for a token pair
+    /// @param base The base token
+    /// @param quote The quote token
+    /// @return The pair ID (0 if not exists)
+    function getPairIdByTokens(Currency base, Currency quote) external view returns (uint64);
+
+    /// @notice Get the tokens for a pair ID
+    /// @param pairId The pair ID
+    /// @return base The base token
+    /// @return quote The quote token
+    function getPairTokens(uint64 pairId) external view returns (Currency base, Currency quote);
+
+    /// @notice Check if the contract is paused
+    /// @return True if paused
+    function paused() external view returns (bool);
+
+    /// @notice Get the vault address
+    /// @return The vault address
+    function vault() external view returns (address);
+
+    /// @notice Get the WETH address
+    /// @return The WETH address
+    function WETH() external view returns (address);
+
+    /// @notice Get pair info by pair ID
+    /// @param pairId The pair ID
+    /// @return base The base token
+    /// @return quote The quote token
+    /// @return id The pair ID
+    function getPairById(uint64 pairId) external view returns (Currency base, Currency quote, uint64 id);
 }

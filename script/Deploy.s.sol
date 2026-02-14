@@ -3,16 +3,19 @@ pragma solidity ^0.8.33;
 
 import {Script, console} from "forge-std/Script.sol";
 
-import {GridEx} from "../src/GridEx.sol";
+import {GridExRouter} from "../src/GridExRouter.sol";
+import {TradeFacet} from "../src/facets/TradeFacet.sol";
+import {CancelFacet} from "../src/facets/CancelFacet.sol";
+import {AdminFacet} from "../src/facets/AdminFacet.sol";
+import {ViewFacet} from "../src/facets/ViewFacet.sol";
 import {Vault} from "../src/Vault.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DeployConfig} from "./config/DeployConfig.sol";
 
 /// @title Deploy
-/// @notice Production deployment script for GridEx protocol with deterministic addresses
+/// @notice Production deployment script for GridEx protocol with diamond architecture
 /// @dev Uses CREATE2 via the deterministic deployment proxy for same addresses across chains
 ///
 /// ## How to achieve same contract addresses across all chains:
@@ -25,12 +28,11 @@ import {DeployConfig} from "./config/DeployConfig.sol";
 /// 2. Same salt (using DEPLOYMENT_SALT)
 /// 3. Same bytecode INCLUDING constructor arguments
 ///
-/// GridEx uses UUPS proxy pattern:
-/// - Implementation: No constructor args, same address everywhere
-/// - Proxy: Constructor args include (impl, initData), where initData contains
-///   only (owner, vault). Chain-specific config (WETH, quote tokens) is set via
-///   setWETH() and setQuoteToken() after deployment, so the proxy address is
-///   identical across all chains.
+/// GridExRouter uses diamond pattern:
+/// - Router: Constructor args include (owner, vault, adminFacet)
+/// - Facets: No constructor args, same address everywhere
+/// - Chain-specific config (WETH, quote tokens) is set via
+///   setWETH() and setQuoteToken() after deployment
 ///
 /// ## Usage:
 ///
@@ -48,7 +50,7 @@ contract Deploy is Script {
 
     /// @notice The salt used for CREATE2 deployment
     /// @dev CRITICAL: This must be the same across all chains for deterministic addresses
-    bytes32 public constant DEPLOYMENT_SALT = keccak256("GridEx.V1.2024.Production");
+    bytes32 public constant DEPLOYMENT_SALT = keccak256("GridEx.V1.2024.Production.Diamond");
 
     /// @notice Deterministic deployment proxy (same address on all EVM chains)
     /// @dev Deployed via keyless deployment, available on most chains
@@ -57,8 +59,11 @@ contract Deploy is Script {
 
     // ============ State ============
     address public vault;
-    address public gridExImpl;
-    address public gridEx; // proxy address
+    address public adminFacet;
+    address public tradeFacet;
+    address public cancelFacet;
+    address public viewFacet;
+    address public router;
     address public linear;
 
     // ============ Main Entry Points ============
@@ -72,7 +77,7 @@ contract Deploy is Script {
         (address weth, address usd) = _getTokenAddresses();
 
         console.log("========================================");
-        console.log("GridEx Protocol Deployment (UUPS Proxy)");
+        console.log("GridEx Protocol Deployment (Diamond)");
         console.log("========================================");
         console.log("Chain ID:", block.chainid);
         console.log("Deployer:", deployer);
@@ -84,13 +89,23 @@ contract Deploy is Script {
         require(CREATE2_DEPLOYER.code.length > 0, "CREATE2 deployer not available on this chain");
 
         // Preview expected addresses (same on all chains)
-        (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear) =
-            computeAddressesWithOwner(deployer);
+        (
+            address expectedVault,
+            address expectedAdminFacet,
+            address expectedTradeFacet,
+            address expectedCancelFacet,
+            address expectedViewFacet,
+            address expectedRouter,
+            address expectedLinear
+        ) = computeAddressesWithOwner(deployer);
 
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
-        console.log("  GridEx Impl:", expectedImpl);
-        console.log("  GridEx Proxy:", expectedProxy);
+        console.log("  AdminFacet:", expectedAdminFacet);
+        console.log("  TradeFacet:", expectedTradeFacet);
+        console.log("  CancelFacet:", expectedCancelFacet);
+        console.log("  ViewFacet:", expectedViewFacet);
+        console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
         console.log("");
 
@@ -102,37 +117,57 @@ contract Deploy is Script {
         vault = _deployContract(vaultSalt, vaultBytecode, "Vault");
         require(vault == expectedVault, "Vault address mismatch!");
 
-        // Deploy GridEx implementation (no constructor args - _disableInitializers in constructor)
-        bytes32 implSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExImpl"));
-        bytes memory implBytecode = type(GridEx).creationCode;
-        gridExImpl = _deployContract(implSalt, implBytecode, "GridEx Implementation");
-        require(gridExImpl == expectedImpl, "GridEx impl address mismatch!");
+        // Deploy AdminFacet (no constructor args)
+        bytes32 adminFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "AdminFacet"));
+        bytes memory adminFacetBytecode = type(AdminFacet).creationCode;
+        adminFacet = _deployContract(adminFacetSalt, adminFacetBytecode, "AdminFacet");
+        require(adminFacet == expectedAdminFacet, "AdminFacet address mismatch!");
 
-        // Deploy ERC1967Proxy pointing to GridEx implementation
-        // The proxy constructor calls initialize() atomically (chain-agnostic)
-        bytes memory initData = abi.encodeCall(GridEx.initialize, (deployer, vault));
-        bytes32 proxySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExProxy"));
-        bytes memory proxyBytecode = abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(gridExImpl, initData));
-        gridEx = _deployContract(proxySalt, proxyBytecode, "GridEx Proxy");
-        require(gridEx == expectedProxy, "GridEx proxy address mismatch!");
+        // Deploy TradeFacet (no constructor args)
+        bytes32 tradeFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "TradeFacet"));
+        bytes memory tradeFacetBytecode = type(TradeFacet).creationCode;
+        tradeFacet = _deployContract(tradeFacetSalt, tradeFacetBytecode, "TradeFacet");
+        require(tradeFacet == expectedTradeFacet, "TradeFacet address mismatch!");
 
-        console.log("[OK] GridEx initialized via proxy constructor");
+        // Deploy CancelFacet (no constructor args)
+        bytes32 cancelFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "CancelFacet"));
+        bytes memory cancelFacetBytecode = type(CancelFacet).creationCode;
+        cancelFacet = _deployContract(cancelFacetSalt, cancelFacetBytecode, "CancelFacet");
+        require(cancelFacet == expectedCancelFacet, "CancelFacet address mismatch!");
+
+        // Deploy ViewFacet (no constructor args)
+        bytes32 viewFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "ViewFacet"));
+        bytes memory viewFacetBytecode = type(ViewFacet).creationCode;
+        viewFacet = _deployContract(viewFacetSalt, viewFacetBytecode, "ViewFacet");
+        require(viewFacet == expectedViewFacet, "ViewFacet address mismatch!");
+
+        // Deploy Router (with admin facet for bootstrapping)
+        bytes32 routerSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Router"));
+        bytes memory routerBytecode =
+            abi.encodePacked(type(GridExRouter).creationCode, abi.encode(deployer, vault, adminFacet));
+        router = _deployContract(routerSalt, routerBytecode, "GridExRouter");
+        require(router == expectedRouter, "Router address mismatch!");
+
+        console.log("[OK] GridExRouter initialized");
+
+        // Register all facet selectors
+        _registerAllSelectors();
 
         // Configure chain-specific WETH and quote tokens
-        GridEx(payable(gridEx)).setWETH(weth);
-        GridEx(payable(gridEx)).setQuoteToken(Currency.wrap(usd), ProtocolConstants.QUOTE_PRIORITY_USD);
-        GridEx(payable(gridEx)).setQuoteToken(Currency.wrap(weth), ProtocolConstants.QUOTE_PRIORITY_WETH);
+        AdminFacet(router).setWETH(weth);
+        AdminFacet(router).setQuoteToken(Currency.wrap(usd), ProtocolConstants.QUOTE_PRIORITY_USD);
+        AdminFacet(router).setQuoteToken(Currency.wrap(weth), ProtocolConstants.QUOTE_PRIORITY_WETH);
         console.log("[OK] WETH and quote tokens configured");
 
         // Deploy Linear
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
-        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(gridEx));
+        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(router));
         linear = _deployContract(linearSalt, linearBytecode, "Linear");
         require(linear == expectedLinear, "Linear address mismatch!");
 
         // Configure: Whitelist Linear strategy
-        if (!GridEx(payable(gridEx)).whitelistedStrategies(linear)) {
-            GridEx(payable(gridEx)).setStrategyWhitelist(linear, true);
+        if (!ViewFacet(router).isStrategyWhitelisted(linear)) {
+            AdminFacet(router).setStrategyWhitelist(linear, true);
             console.log("[OK] Linear strategy whitelisted");
         } else {
             console.log("[SKIP] Linear already whitelisted");
@@ -143,12 +178,113 @@ contract Deploy is Script {
         _printSummary(weth, usd);
     }
 
+    /// @notice Register all facet selectors to the router
+    function _registerAllSelectors() internal {
+        // TradeFacet selectors
+        bytes4[] memory tradeSelectors = new bytes4[](6);
+        address[] memory tradeFacets = new address[](6);
+
+        tradeSelectors[0] = TradeFacet.placeGridOrders.selector;
+        tradeFacets[0] = tradeFacet;
+        tradeSelectors[1] = TradeFacet.placeETHGridOrders.selector;
+        tradeFacets[1] = tradeFacet;
+        tradeSelectors[2] = TradeFacet.fillAskOrder.selector;
+        tradeFacets[2] = tradeFacet;
+        tradeSelectors[3] = TradeFacet.fillAskOrders.selector;
+        tradeFacets[3] = tradeFacet;
+        tradeSelectors[4] = TradeFacet.fillBidOrder.selector;
+        tradeFacets[4] = tradeFacet;
+        tradeSelectors[5] = TradeFacet.fillBidOrders.selector;
+        tradeFacets[5] = tradeFacet;
+
+        AdminFacet(router).batchSetFacet(tradeSelectors, tradeFacets);
+        console.log("[OK] TradeFacet selectors registered");
+
+        // CancelFacet selectors
+        bytes4[] memory cancelSelectors = new bytes4[](5);
+        address[] memory cancelFacets = new address[](5);
+
+        cancelSelectors[0] = CancelFacet.cancelGrid.selector;
+        cancelFacets[0] = cancelFacet;
+        cancelSelectors[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelFacets[1] = cancelFacet;
+        cancelSelectors[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelFacets[2] = cancelFacet;
+        cancelSelectors[3] = CancelFacet.withdrawGridProfits.selector;
+        cancelFacets[3] = cancelFacet;
+        cancelSelectors[4] = CancelFacet.modifyGridFee.selector;
+        cancelFacets[4] = cancelFacet;
+
+        AdminFacet(router).batchSetFacet(cancelSelectors, cancelFacets);
+        console.log("[OK] CancelFacet selectors registered");
+
+        // AdminFacet selectors (beyond bootstrap)
+        bytes4[] memory adminSelectors = new bytes4[](10);
+        address[] memory adminFacets = new address[](10);
+
+        adminSelectors[0] = AdminFacet.setWETH.selector;
+        adminFacets[0] = adminFacet;
+        adminSelectors[1] = AdminFacet.setQuoteToken.selector;
+        adminFacets[1] = adminFacet;
+        adminSelectors[2] = AdminFacet.setStrategyWhitelist.selector;
+        adminFacets[2] = adminFacet;
+        adminSelectors[3] = AdminFacet.setOneshotProtocolFeeBps.selector;
+        adminFacets[3] = adminFacet;
+        adminSelectors[4] = AdminFacet.pause.selector;
+        adminFacets[4] = adminFacet;
+        adminSelectors[5] = AdminFacet.unpause.selector;
+        adminFacets[5] = adminFacet;
+        adminSelectors[6] = AdminFacet.rescueEth.selector;
+        adminFacets[6] = adminFacet;
+        adminSelectors[7] = AdminFacet.transferOwnership.selector;
+        adminFacets[7] = adminFacet;
+        adminSelectors[8] = AdminFacet.setFacetAllowlist.selector;
+        adminFacets[8] = adminFacet;
+        adminSelectors[9] = AdminFacet.setFacet.selector;
+        adminFacets[9] = adminFacet;
+
+        AdminFacet(router).batchSetFacet(adminSelectors, adminFacets);
+        console.log("[OK] AdminFacet selectors registered");
+
+        // ViewFacet selectors
+        bytes4[] memory viewSelectors = new bytes4[](12);
+        address[] memory viewFacets = new address[](12);
+
+        viewSelectors[0] = ViewFacet.getGridOrder.selector;
+        viewFacets[0] = viewFacet;
+        viewSelectors[1] = ViewFacet.getGridOrders.selector;
+        viewFacets[1] = viewFacet;
+        viewSelectors[2] = ViewFacet.getGridProfits.selector;
+        viewFacets[2] = viewFacet;
+        viewSelectors[3] = ViewFacet.getGridConfig.selector;
+        viewFacets[3] = viewFacet;
+        viewSelectors[4] = ViewFacet.getOneshotProtocolFeeBps.selector;
+        viewFacets[4] = viewFacet;
+        viewSelectors[5] = ViewFacet.isStrategyWhitelisted.selector;
+        viewFacets[5] = viewFacet;
+        viewSelectors[6] = ViewFacet.getPairTokens.selector;
+        viewFacets[6] = viewFacet;
+        viewSelectors[7] = ViewFacet.getPairIdByTokens.selector;
+        viewFacets[7] = viewFacet;
+        viewSelectors[8] = ViewFacet.paused.selector;
+        viewFacets[8] = viewFacet;
+        viewSelectors[9] = ViewFacet.owner.selector;
+        viewFacets[9] = viewFacet;
+        viewSelectors[10] = ViewFacet.vault.selector;
+        viewFacets[10] = viewFacet;
+        viewSelectors[11] = ViewFacet.WETH.selector;
+        viewFacets[11] = viewFacet;
+
+        AdminFacet(router).batchSetFacet(viewSelectors, viewFacets);
+        console.log("[OK] ViewFacet selectors registered");
+    }
+
     /// @notice Preview deployment addresses without deploying
     function preview() public view {
         (address weth, address usd) = _getTokenAddresses();
 
         console.log("========================================");
-        console.log("Deployment Preview (UUPS Proxy)");
+        console.log("Deployment Preview (Diamond)");
         console.log("========================================");
         console.log("Chain ID:", block.chainid);
         console.log("WETH:", weth);
@@ -156,31 +292,50 @@ contract Deploy is Script {
         console.log("Salt:", vm.toString(DEPLOYMENT_SALT));
         console.log("");
 
-        (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear) =
-            computeAddresses(weth, usd);
+        (
+            address expectedVault,
+            address expectedAdminFacet,
+            address expectedTradeFacet,
+            address expectedCancelFacet,
+            address expectedViewFacet,
+            address expectedRouter,
+            address expectedLinear
+        ) = computeAddresses(weth, usd);
 
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
-        console.log("  GridEx Impl:", expectedImpl);
-        console.log("  GridEx Proxy:", expectedProxy);
+        console.log("  AdminFacet:", expectedAdminFacet);
+        console.log("  TradeFacet:", expectedTradeFacet);
+        console.log("  CancelFacet:", expectedCancelFacet);
+        console.log("  ViewFacet:", expectedViewFacet);
+        console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
         console.log("");
 
         // Check if already deployed
         console.log("Deployment Status:");
         console.log("  Vault:", expectedVault.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
-        console.log("  GridEx Impl:", expectedImpl.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
-        console.log("  GridEx Proxy:", expectedProxy.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  AdminFacet:", expectedAdminFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  TradeFacet:", expectedTradeFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  CancelFacet:", expectedCancelFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  ViewFacet:", expectedViewFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  Router:", expectedRouter.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  Linear:", expectedLinear.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
     }
 
     /// @notice Compute expected addresses for current deployer
-    /// @param weth WETH address (only used for logging, not for address computation)
-    /// @param usd USD address (only used for logging, not for address computation)
-    function computeAddresses(address weth, address usd)
+    function computeAddresses(address, address)
         public
         view
-        returns (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear)
+        returns (
+            address expectedVault,
+            address expectedAdminFacet,
+            address expectedTradeFacet,
+            address expectedCancelFacet,
+            address expectedViewFacet,
+            address expectedRouter,
+            address expectedLinear
+        )
     {
         // Get deployer address for computing addresses
         address deployer = vm.envOr("DEPLOYER_ADDRESS", address(0));
@@ -196,33 +351,55 @@ contract Deploy is Script {
     }
 
     /// @notice Compute expected addresses for given owner
-    /// @dev With UUPS proxy, initData only encodes (owner, vault) — no chain-specific args.
-    ///      Proxy address is now the same across all chains.
+    /// @dev With diamond pattern, all facets have no constructor args.
+    ///      Router constructor takes (owner, vault, adminFacet).
     function computeAddressesWithOwner(address _owner)
         public
         pure
-        returns (address expectedVault, address expectedImpl, address expectedProxy, address expectedLinear)
+        returns (
+            address expectedVault,
+            address expectedAdminFacet,
+            address expectedTradeFacet,
+            address expectedCancelFacet,
+            address expectedViewFacet,
+            address expectedRouter,
+            address expectedLinear
+        )
     {
         // Vault (takes owner as constructor arg - same on all chains if same owner)
         bytes32 vaultSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Vault"));
         bytes memory vaultBytecode = abi.encodePacked(type(Vault).creationCode, abi.encode(_owner));
         expectedVault = _computeAddress(vaultSalt, vaultBytecode);
 
-        // GridEx implementation (no constructor args - same address everywhere)
-        bytes32 implSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExImpl"));
-        bytes memory implBytecode = type(GridEx).creationCode;
-        expectedImpl = _computeAddress(implSalt, implBytecode);
+        // AdminFacet (no constructor args - same address everywhere)
+        bytes32 adminFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "AdminFacet"));
+        bytes memory adminFacetBytecode = type(AdminFacet).creationCode;
+        expectedAdminFacet = _computeAddress(adminFacetSalt, adminFacetBytecode);
 
-        // GridEx proxy (depends only on impl, owner, vault — same across all chains)
-        bytes memory initData = abi.encodeCall(GridEx.initialize, (_owner, expectedVault));
-        bytes32 proxySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "GridExProxy"));
-        bytes memory proxyBytecode =
-            abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(expectedImpl, initData));
-        expectedProxy = _computeAddress(proxySalt, proxyBytecode);
+        // TradeFacet (no constructor args - same address everywhere)
+        bytes32 tradeFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "TradeFacet"));
+        bytes memory tradeFacetBytecode = type(TradeFacet).creationCode;
+        expectedTradeFacet = _computeAddress(tradeFacetSalt, tradeFacetBytecode);
 
-        // Linear (depends on proxy address)
+        // CancelFacet (no constructor args - same address everywhere)
+        bytes32 cancelFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "CancelFacet"));
+        bytes memory cancelFacetBytecode = type(CancelFacet).creationCode;
+        expectedCancelFacet = _computeAddress(cancelFacetSalt, cancelFacetBytecode);
+
+        // ViewFacet (no constructor args - same address everywhere)
+        bytes32 viewFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "ViewFacet"));
+        bytes memory viewFacetBytecode = type(ViewFacet).creationCode;
+        expectedViewFacet = _computeAddress(viewFacetSalt, viewFacetBytecode);
+
+        // Router (depends on owner, vault, adminFacet)
+        bytes32 routerSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Router"));
+        bytes memory routerBytecode =
+            abi.encodePacked(type(GridExRouter).creationCode, abi.encode(_owner, expectedVault, expectedAdminFacet));
+        expectedRouter = _computeAddress(routerSalt, routerBytecode);
+
+        // Linear (depends on router address)
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
-        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedProxy));
+        bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedRouter));
         expectedLinear = _computeAddress(linearSalt, linearBytecode);
     }
 
@@ -296,22 +473,25 @@ contract Deploy is Script {
         console.log("");
         console.log("Deployed Contracts:");
         console.log("  Vault:", vault);
-        console.log("  GridEx Impl:", gridExImpl);
-        console.log("  GridEx Proxy:", gridEx);
+        console.log("  AdminFacet:", adminFacet);
+        console.log("  TradeFacet:", tradeFacet);
+        console.log("  CancelFacet:", cancelFacet);
+        console.log("  ViewFacet:", viewFacet);
+        console.log("  Router:", router);
         console.log("  Linear:", linear);
         console.log("");
         console.log("Configuration:");
         console.log("  WETH:", weth);
         console.log("  USD:", usd);
-        console.log("  Owner:", GridEx(payable(gridEx)).owner());
+        console.log("  Owner:", ViewFacet(router).owner());
         console.log("");
         console.log("Verification Commands:");
         console.log("----------------------------------------");
-        _printVerifyCommands(weth, usd);
+        _printVerifyCommands();
     }
 
     /// @notice Print verification commands
-    function _printVerifyCommands(address, address) internal view {
+    function _printVerifyCommands() internal view {
         string memory chainId = vm.toString(block.chainid);
 
         console.log("# Verify Vault");
@@ -322,34 +502,74 @@ contract Deploy is Script {
                 " src/Vault.sol:Vault --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
-                vm.toString(GridEx(payable(gridEx)).owner()),
+                vm.toString(ViewFacet(router).owner()),
                 ")"
             )
         );
         console.log("");
 
-        console.log("# Verify GridEx Implementation (no constructor args)");
+        console.log("# Verify AdminFacet (no constructor args)");
         console.log(
             string.concat(
                 "forge verify-contract ",
-                vm.toString(gridExImpl),
-                " src/GridEx.sol:GridEx --chain ",
+                vm.toString(adminFacet),
+                " src/facets/AdminFacet.sol:AdminFacet --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
             )
         );
         console.log("");
 
-        console.log("# Verify GridEx Proxy");
+        console.log("# Verify TradeFacet (no constructor args)");
         console.log(
             string.concat(
                 "forge verify-contract ",
-                vm.toString(gridEx),
-                " lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy --chain ",
+                vm.toString(tradeFacet),
+                " src/facets/TradeFacet.sol:TradeFacet --chain ",
                 chainId,
-                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address,bytes)' ",
-                vm.toString(gridExImpl),
-                " <initData>)"
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+            )
+        );
+        console.log("");
+
+        console.log("# Verify CancelFacet (no constructor args)");
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(cancelFacet),
+                " src/facets/CancelFacet.sol:CancelFacet --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+            )
+        );
+        console.log("");
+
+        console.log("# Verify ViewFacet (no constructor args)");
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(viewFacet),
+                " src/facets/ViewFacet.sol:ViewFacet --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+            )
+        );
+        console.log("");
+
+        console.log("# Verify Router");
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(router),
+                " src/GridExRouter.sol:GridExRouter --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address,address,address)' ",
+                vm.toString(ViewFacet(router).owner()),
+                " ",
+                vm.toString(vault),
+                " ",
+                vm.toString(adminFacet),
+                ")"
             )
         );
         console.log("");
@@ -362,7 +582,7 @@ contract Deploy is Script {
                 " src/strategy/Linear.sol:Linear --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
-                vm.toString(gridEx),
+                vm.toString(router),
                 ")"
             )
         );

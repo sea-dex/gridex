@@ -3,14 +3,17 @@ pragma solidity ^0.8.33;
 
 import {Test} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {GridEx} from "../src/GridEx.sol";
+import {GridExRouter} from "../src/GridExRouter.sol";
+import {TradeFacet} from "../src/facets/TradeFacet.sol";
+import {CancelFacet} from "../src/facets/CancelFacet.sol";
+import {AdminFacet} from "../src/facets/AdminFacet.sol";
+import {ViewFacet} from "../src/facets/ViewFacet.sol";
 import {Linear} from "../src/strategy/Linear.sol";
 import {Vault} from "../src/Vault.sol";
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {IGridStrategy} from "../src/interfaces/IGridStrategy.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {SEA} from "./utils/SEA.sol";
 import {USDC} from "./utils/USDC.sol";
 import {WETH} from "./utils/WETH.sol";
@@ -18,12 +21,19 @@ import {WETH} from "./utils/WETH.sol";
 /// @title GridExInvariantTest
 /// @notice Invariant tests for token conservation in GridEx
 contract GridExInvariantTest is StdInvariant, Test {
-    GridEx public gridEx;
+    GridExRouter public router;
+    TradeFacet public tradeFacet;
+    CancelFacet public cancelFacet;
+    AdminFacet public adminFacet;
+    ViewFacet public viewFacet;
     Linear public linear;
     Vault public vault;
     WETH public weth;
     SEA public sea;
     USDC public usdc;
+
+    /// @dev `gridEx` is the router address cast to payable for compatibility
+    address payable public gridEx;
 
     address public owner;
     address public maker;
@@ -51,25 +61,32 @@ contract GridExInvariantTest is StdInvariant, Test {
         // Deploy contracts
         vault = new Vault(owner);
 
-        // Deploy GridEx via UUPS proxy (chain-agnostic initialization)
-        GridEx impl = new GridEx();
-        bytes memory initData = abi.encodeCall(GridEx.initialize, (owner, address(vault)));
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        gridEx = GridEx(payable(address(proxy)));
+        // Deploy facets
+        tradeFacet = new TradeFacet();
+        cancelFacet = new CancelFacet();
+        adminFacet = new AdminFacet();
+        viewFacet = new ViewFacet();
+
+        // Deploy Router (with admin facet address for bootstrapping)
+        router = new GridExRouter(owner, address(vault), address(adminFacet));
+        gridEx = payable(address(router));
+
+        // Register all selectors
+        _registerAllSelectors();
 
         // Configure chain-specific settings
-        gridEx.setWETH(address(weth));
-        gridEx.setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
-        gridEx.setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
+        AdminFacet(gridEx).setWETH(address(weth));
+        AdminFacet(gridEx).setQuoteToken(Currency.wrap(address(usdc)), ProtocolConstants.QUOTE_PRIORITY_USD);
+        AdminFacet(gridEx).setQuoteToken(Currency.wrap(address(weth)), ProtocolConstants.QUOTE_PRIORITY_WETH);
 
-        linear = new Linear(address(gridEx));
+        linear = new Linear(gridEx);
 
         // Track initial supplies
         initialSeaSupply = sea.totalSupply();
         initialUsdcSupply = usdc.totalSupply();
 
         // Setup handler
-        handler = new GridExHandler(gridEx, linear, sea, usdc, maker, taker);
+        handler = new GridExHandler(router, tradeFacet, viewFacet, linear, sea, usdc, maker, taker);
 
         // Fund handler
         // forge-lint: disable-next-line
@@ -90,11 +107,107 @@ contract GridExInvariantTest is StdInvariant, Test {
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
     }
 
+    function _registerAllSelectors() internal {
+        // TradeFacet selectors
+        bytes4[] memory selectors = new bytes4[](6);
+        address[] memory facets = new address[](6);
+
+        selectors[0] = TradeFacet.placeGridOrders.selector;
+        facets[0] = address(tradeFacet);
+        selectors[1] = TradeFacet.placeETHGridOrders.selector;
+        facets[1] = address(tradeFacet);
+        selectors[2] = TradeFacet.fillAskOrder.selector;
+        facets[2] = address(tradeFacet);
+        selectors[3] = TradeFacet.fillAskOrders.selector;
+        facets[3] = address(tradeFacet);
+        selectors[4] = TradeFacet.fillBidOrder.selector;
+        facets[4] = address(tradeFacet);
+        selectors[5] = TradeFacet.fillBidOrders.selector;
+        facets[5] = address(tradeFacet);
+
+        AdminFacet(gridEx).batchSetFacet(selectors, facets);
+
+        // CancelFacet selectors
+        bytes4[] memory cancelSel = new bytes4[](5);
+        address[] memory cancelFac = new address[](5);
+
+        cancelSel[0] = CancelFacet.cancelGrid.selector;
+        cancelFac[0] = address(cancelFacet);
+        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelFac[1] = address(cancelFacet);
+        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelFac[2] = address(cancelFacet);
+        cancelSel[3] = CancelFacet.withdrawGridProfits.selector;
+        cancelFac[3] = address(cancelFacet);
+        cancelSel[4] = CancelFacet.modifyGridFee.selector;
+        cancelFac[4] = address(cancelFacet);
+
+        AdminFacet(gridEx).batchSetFacet(cancelSel, cancelFac);
+
+        // AdminFacet selectors (beyond bootstrap)
+        bytes4[] memory adminSel = new bytes4[](10);
+        address[] memory adminFac = new address[](10);
+
+        adminSel[0] = AdminFacet.setWETH.selector;
+        adminFac[0] = address(adminFacet);
+        adminSel[1] = AdminFacet.setQuoteToken.selector;
+        adminFac[1] = address(adminFacet);
+        adminSel[2] = AdminFacet.setStrategyWhitelist.selector;
+        adminFac[2] = address(adminFacet);
+        adminSel[3] = AdminFacet.setOneshotProtocolFeeBps.selector;
+        adminFac[3] = address(adminFacet);
+        adminSel[4] = AdminFacet.pause.selector;
+        adminFac[4] = address(adminFacet);
+        adminSel[5] = AdminFacet.unpause.selector;
+        adminFac[5] = address(adminFacet);
+        adminSel[6] = AdminFacet.rescueEth.selector;
+        adminFac[6] = address(adminFacet);
+        adminSel[7] = AdminFacet.transferOwnership.selector;
+        adminFac[7] = address(adminFacet);
+        adminSel[8] = AdminFacet.setFacetAllowlist.selector;
+        adminFac[8] = address(adminFacet);
+        adminSel[9] = AdminFacet.setFacet.selector;
+        adminFac[9] = address(adminFacet);
+
+        AdminFacet(gridEx).batchSetFacet(adminSel, adminFac);
+
+        // ViewFacet selectors
+        bytes4[] memory viewSel = new bytes4[](12);
+        address[] memory viewFac = new address[](12);
+
+        viewSel[0] = ViewFacet.getGridOrder.selector;
+        viewFac[0] = address(viewFacet);
+        viewSel[1] = ViewFacet.getGridOrders.selector;
+        viewFac[1] = address(viewFacet);
+        viewSel[2] = ViewFacet.getGridProfits.selector;
+        viewFac[2] = address(viewFacet);
+        viewSel[3] = ViewFacet.getGridConfig.selector;
+        viewFac[3] = address(viewFacet);
+        viewSel[4] = ViewFacet.getOneshotProtocolFeeBps.selector;
+        viewFac[4] = address(viewFacet);
+        viewSel[5] = ViewFacet.isStrategyWhitelisted.selector;
+        viewFac[5] = address(viewFacet);
+        viewSel[6] = ViewFacet.getPairTokens.selector;
+        viewFac[6] = address(viewFacet);
+        viewSel[7] = ViewFacet.getPairIdByTokens.selector;
+        viewFac[7] = address(viewFacet);
+        viewSel[8] = ViewFacet.paused.selector;
+        viewFac[8] = address(viewFacet);
+        viewSel[9] = ViewFacet.owner.selector;
+        viewFac[9] = address(viewFacet);
+        viewSel[10] = ViewFacet.vault.selector;
+        viewFac[10] = address(viewFacet);
+        viewSel[11] = ViewFacet.WETH.selector;
+        viewFac[11] = address(viewFacet);
+
+        AdminFacet(gridEx).batchSetFacet(viewSel, viewFac);
+    }
+
     /// @notice Invariant: Total tokens in system should be conserved
     /// @dev Sum of: GridEx balance + Vault balance + User balances = Initial supply
     function invariant_tokenConservation() public view {
         // SEA token conservation
-        uint256 seaInGridEx = sea.balanceOf(address(gridEx));
+        uint256 seaInGridEx = sea.balanceOf(gridEx);
         uint256 seaInVault = sea.balanceOf(address(vault));
         uint256 seaInHandler = sea.balanceOf(address(handler));
         uint256 seaInMaker = sea.balanceOf(maker);
@@ -107,7 +220,7 @@ contract GridExInvariantTest is StdInvariant, Test {
         assertEq(totalSea, initialSeaSupply, "SEA token conservation violated");
 
         // USDC token conservation
-        uint256 usdcInGridEx = usdc.balanceOf(address(gridEx));
+        uint256 usdcInGridEx = usdc.balanceOf(gridEx);
         uint256 usdcInVault = usdc.balanceOf(address(vault));
         uint256 usdcInHandler = usdc.balanceOf(address(handler));
         uint256 usdcInMaker = usdc.balanceOf(maker);
@@ -134,8 +247,8 @@ contract GridExInvariantTest is StdInvariant, Test {
     /// @notice Invariant: GridEx should not hold more tokens than deposited
     function invariant_gridExBalanceConsistent() public view {
         // GridEx balance should be consistent with tracked deposits
-        uint256 seaInGridEx = sea.balanceOf(address(gridEx));
-        uint256 usdcInGridEx = usdc.balanceOf(address(gridEx));
+        uint256 seaInGridEx = sea.balanceOf(gridEx);
+        uint256 usdcInGridEx = usdc.balanceOf(gridEx);
 
         // These should match the sum of all active orders + profits
         // For now, just verify they're non-negative
@@ -149,7 +262,7 @@ contract GridExInvariantTest is StdInvariant, Test {
         uint96 gridId = handler.gridId();
         if (gridId == 0) return; // No grid created yet
 
-        uint256 profits = gridEx.getGridProfits(gridId);
+        uint256 profits = ViewFacet(gridEx).getGridProfits(gridId);
 
         // Profits should be non-negative (always true for uint)
         assertTrue(profits >= 0, "Profits negative");
@@ -159,7 +272,9 @@ contract GridExInvariantTest is StdInvariant, Test {
 /// @title GridExHandler
 /// @notice Handler contract for invariant testing
 contract GridExHandler is Test {
-    GridEx public gridEx;
+    GridExRouter public router;
+    TradeFacet public tradeFacet;
+    ViewFacet public viewFacet;
     Linear public linear;
     SEA public baseToken;
     USDC public quoteToken;
@@ -172,8 +287,19 @@ contract GridExHandler is Test {
     uint256 constant PRICE_MULTIPLIER = 10 ** 36;
     uint32 constant DEFAULT_FEE = 3000;
 
-    constructor(GridEx _gridEx, Linear _linear, SEA _baseToken, USDC _quoteToken, address _maker, address _taker) {
-        gridEx = _gridEx;
+    constructor(
+        GridExRouter _router,
+        TradeFacet _tradeFacet,
+        ViewFacet _viewFacet,
+        Linear _linear,
+        SEA _baseToken,
+        USDC _quoteToken,
+        address _maker,
+        address _taker
+    ) {
+        router = _router;
+        tradeFacet = _tradeFacet;
+        viewFacet = _viewFacet;
         linear = _linear;
         baseToken = _baseToken;
         quoteToken = _quoteToken;
@@ -181,8 +307,8 @@ contract GridExHandler is Test {
         taker = _taker;
 
         // Approve tokens
-        baseToken.approve(address(gridEx), type(uint256).max);
-        quoteToken.approve(address(gridEx), type(uint256).max);
+        baseToken.approve(address(router), type(uint256).max);
+        quoteToken.approve(address(router), type(uint256).max);
     }
 
     /// @notice Place ask orders
@@ -214,14 +340,14 @@ contract GridExHandler is Test {
         });
 
         vm.prank(maker);
-        baseToken.approve(address(gridEx), type(uint256).max);
+        baseToken.approve(address(router), type(uint256).max);
 
         // Transfer tokens to maker
         // forge-lint: disable-next-line
         baseToken.transfer(maker, totalBase);
 
         vm.prank(maker);
-        try gridEx.placeGridOrders(Currency.wrap(address(baseToken)), Currency.wrap(address(quoteToken)), param) {
+        try tradeFacet.placeGridOrders(Currency.wrap(address(baseToken)), Currency.wrap(address(quoteToken)), param) {
             // Get the grid ID from the event or state
             // For simplicity, increment gridId
             gridId++;
@@ -270,14 +396,14 @@ contract GridExHandler is Test {
         });
 
         vm.prank(maker);
-        quoteToken.approve(address(gridEx), type(uint256).max);
+        quoteToken.approve(address(router), type(uint256).max);
 
         // Transfer tokens to maker
         // forge-lint: disable-next-line
         quoteToken.transfer(maker, totalQuote);
 
         vm.prank(maker);
-        try gridEx.placeGridOrders(Currency.wrap(address(baseToken)), Currency.wrap(address(quoteToken)), param) {
+        try tradeFacet.placeGridOrders(Currency.wrap(address(baseToken)), Currency.wrap(address(quoteToken)), param) {
             gridId++;
         } catch {
             // Order placement failed, return tokens
@@ -303,7 +429,7 @@ contract GridExHandler is Test {
         fillAmt = uint128(bound(uint256(fillAmt), 1e12, 1e20));
 
         // Get order info to calculate required quote
-        try gridEx.getGridOrder(orderId) returns (IGridOrder.OrderInfo memory info) {
+        try viewFacet.getGridOrder(orderId) returns (IGridOrder.OrderInfo memory info) {
             if (info.baseAmt == 0) return; // Order already filled
 
             // Calculate quote needed
@@ -319,10 +445,10 @@ contract GridExHandler is Test {
             quoteToken.transfer(taker, quoteNeeded);
 
             vm.prank(taker);
-            quoteToken.approve(address(gridEx), type(uint256).max);
+            quoteToken.approve(address(router), type(uint256).max);
 
             vm.prank(taker);
-            try gridEx.fillAskOrder(orderId, fillAmt, 0, "", 0) {
+            try tradeFacet.fillAskOrder(orderId, fillAmt, 0, "", 0) {
             // Success
             }
             catch {
@@ -352,7 +478,7 @@ contract GridExHandler is Test {
         fillAmt = uint128(bound(uint256(fillAmt), 1e12, 1e20));
 
         // Get order info
-        try gridEx.getGridOrder(orderId) returns (IGridOrder.OrderInfo memory info) {
+        try viewFacet.getGridOrder(orderId) returns (IGridOrder.OrderInfo memory info) {
             if (info.amount == 0) return; // Order already filled
 
             // Calculate base needed
@@ -367,10 +493,10 @@ contract GridExHandler is Test {
             baseToken.transfer(taker, baseNeeded);
 
             vm.prank(taker);
-            baseToken.approve(address(gridEx), type(uint256).max);
+            baseToken.approve(address(router), type(uint256).max);
 
             vm.prank(taker);
-            try gridEx.fillBidOrder(orderId, fillAmt, 0, "", 0) {
+            try tradeFacet.fillBidOrder(orderId, fillAmt, 0, "", 0) {
             // Success
             }
             catch {

@@ -25,3 +25,4 @@ broadcast/
 deploy.sh
 script/.env
 plans/
+.claude/
