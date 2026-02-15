@@ -118,7 +118,7 @@ contract CancelFacet is IOrderEvents {
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.GridConfig memory conf = l.gridState.gridConfigs[gridId];
         if (conf.owner != msg.sender) {
-            revert IOrderErrors.NotGridOwer();
+            revert IOrderErrors.NotGridOwner();
         }
 
         if (amt == 0) {

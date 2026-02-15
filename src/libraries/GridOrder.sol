@@ -606,7 +606,7 @@ library GridOrder {
     {
         IGridOrder.GridConfig memory gridConf = self.gridConfigs[gridId];
         if (sender != gridConf.owner) {
-            revert IOrderErrors.NotGridOwer();
+            revert IOrderErrors.NotGridOwner();
         }
 
         if (gridConf.status != GRID_STATUS_NORMAL) {
@@ -693,7 +693,7 @@ library GridOrder {
     {
         IGridOrder.GridConfig memory gridConf = self.gridConfigs[gridId];
         if (sender != gridConf.owner) {
-            revert IOrderErrors.NotGridOwer();
+            revert IOrderErrors.NotGridOwner();
         }
 
         if (gridConf.status != GRID_STATUS_NORMAL) {
@@ -739,7 +739,7 @@ library GridOrder {
     function modifyGridFee(GridState storage self, address sender, uint256 gridId, uint32 fee) internal {
         IGridOrder.GridConfig storage gridConf = self.gridConfigs[gridId];
         if (sender != gridConf.owner) {
-            revert IOrderErrors.NotGridOwer();
+            revert IOrderErrors.NotGridOwner();
         }
 
         // Oneshot grids cannot have their fee modified - fee is fixed by protocol

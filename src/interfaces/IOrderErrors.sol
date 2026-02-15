@@ -42,7 +42,7 @@ interface IOrderErrors {
     error NotEnoughToFill();
 
     /// @notice Thrown when msg.sender is not the grid owner
-    error NotGridOwer();
+    error NotGridOwner();
 
     /// @notice Thrown when the order is not a limit order
     error NotLimitOrder();

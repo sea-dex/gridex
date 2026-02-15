@@ -61,17 +61,19 @@ contract GridExRouter {
 
     /// @notice Place grid orders with ERC20 tokens, delegated to TradeFacet
     function placeGridOrders(Currency, Currency, IGridOrder.GridOrderParam calldata) external {
+        ReentrancyLib._enter();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacet(l);
+        _delegateToFacetGuarded(l);
     }
 
     /// @notice Place grid orders with ETH as either base or quote token
     // forge-lint: disable-next-line(mixed-case-function)
     function placeETHGridOrders(Currency, Currency, IGridOrder.GridOrderParam calldata) external payable {
+        ReentrancyLib._enter();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacet(l);
+        _delegateToFacetGuarded(l);
     }
 
     // ═══════════════════════════════════════════════════════════════════

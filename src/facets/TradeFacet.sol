@@ -50,6 +50,10 @@ contract TradeFacet is IOrderEvents {
             return pair;
         }
 
+        if (base == quote) {
+            revert IProtocolErrors.TokenOrderInvalid();
+        }
+
         if (l.quotableTokens[quote] == 0) {
             revert IPair.InvalidQuote();
         }
