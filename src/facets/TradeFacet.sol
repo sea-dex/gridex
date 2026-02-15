@@ -159,6 +159,7 @@ contract TradeFacet is IOrderEvents {
         external
         payable
     {
+        if (msg.value > type(uint128).max) revert IProtocolErrors.InsufficientETH();
         GridExStorage.Layout storage l = GridExStorage.layout();
         // forge-lint: disable-next-line(mixed-case-variable)
         bool baseIsETH = false;
