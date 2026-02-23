@@ -457,7 +457,9 @@ contract GridExCallbackTest is GridExBaseTest {
         assertTrue(arbCallback.arbitrageExecuted(), "Arbitrage should have been executed");
 
         // Log the net position change for debugging
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit log_named_int("SEA change", int256(seaAfter) - int256(seaBefore));
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit log_named_int("USDC change", int256(usdcAfter) - int256(usdcBefore));
     }
 
@@ -900,7 +902,9 @@ contract PlaceDuringCallback is IGridCallback {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: IGridStrategy(strategy),
             bidStrategy: IGridStrategy(strategy),
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(gap)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(gap)),
             askOrderCount: 1,
             bidOrderCount: 1,
