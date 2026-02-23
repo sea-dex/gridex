@@ -86,8 +86,7 @@ library GridOrder {
     /// @dev Checks fee range and validates strategy parameters. For oneshot orders, fee validation is skipped
     ///      as the fee will be overridden with oneshotProtocolFeeBps
     /// @param param The grid order parameters to validate
-    /// @param oneshotFeeBps The oneshot protocol fee in basis points (used to validate oneshot orders)
-    function validateGridOrderParam(IGridOrder.GridOrderParam calldata param, uint32 oneshotFeeBps) private pure {
+    function validateGridOrderParam(IGridOrder.GridOrderParam calldata param) private pure {
         // Require at least one order (ask or bid)
         if (param.askOrderCount == 0 && param.bidOrderCount == 0) {
             revert IOrderErrors.ZeroGridOrderCount();
@@ -98,12 +97,13 @@ library GridOrder {
             if (param.fee > MAX_FEE || param.fee < MIN_FEE) {
                 revert IOrderErrors.InvalidGridFee();
             }
-        } else {
-            // For oneshot, validate that oneshotFeeBps is set
-            if (oneshotFeeBps > MAX_FEE || oneshotFeeBps < MIN_FEE) {
-                revert IOrderErrors.InvalidGridFee();
-            }
         }
+        // else {
+        // For oneshot, validate that oneshotFeeBps is set
+        // if (oneshotFeeBps > MAX_FEE || oneshotFeeBps < MIN_FEE) {
+        //     revert IOrderErrors.InvalidGridFee();
+        // }
+        // }
 
         unchecked {
             uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.askOrderCount);
@@ -251,7 +251,7 @@ library GridOrder {
         address maker,
         IGridOrder.GridOrderParam calldata param
     ) internal returns (uint128, uint256, uint256, uint128, uint128) {
-        validateGridOrderParam(param, self.oneshotProtocolFeeBps);
+        validateGridOrderParam(param);
 
         uint128 gridId = createGridConfig(self, pairId, maker, param);
 
