@@ -463,6 +463,146 @@ contract GridExCallbackTest is GridExBaseTest {
         emit log_named_int("USDC change", int256(usdcAfter) - int256(usdcBefore));
     }
 
+    // ============ Cross-Type Fill Callback Tests ============
+
+    /// @notice Test fillAskOrder callback that calls fillBidOrder internally
+    /// @dev Scenario: Taker fills an ask order (buys SEA with USDC). In the callback,
+    ///      the taker receives SEA and immediately sells it via fillBidOrder to get USDC back.
+    ///      This is a flash-swap arbitrage: buy base cheap via ask, sell base via bid for quote.
+    ///      fillAskOrder callback: inToken=USDC, outToken=SEA, must pay USDC
+    ///      Inner fillBidOrder: pays SEA (received from outer), gets USDC
+    ///      The inner bid fill's USDC output can offset the outer ask fill's USDC cost.
+    function test_callback_fillAskCallsFillBid() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 askOrderId = 0x80000000000000000000000000000001;
+        uint128 bidOrderId = 0x0000000000000000000000000000001;
+
+        _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint256 bidGridOrderId = toGridOrderId(1, bidOrderId);
+
+        // Create the callback contract
+        AskCallsBidCallback askBidCb = new AskCallsBidCallback(address(exchange));
+        // forge-lint: disable-next-line
+        sea.transfer(address(askBidCb), 1000 ether);
+        // forge-lint: disable-next-line
+        usdc.transfer(address(askBidCb), 1000_000_000);
+
+        vm.startPrank(address(askBidCb));
+        sea.approve(address(exchange), type(uint256).max);
+        usdc.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        // Configure: outer fillAskOrder callback will call fillBidOrder
+        askBidCb.setTarget(bidGridOrderId, amt);
+
+        uint256 seaBefore = sea.balanceOf(address(askBidCb));
+        uint256 usdcBefore = usdc.balanceOf(address(askBidCb));
+
+        // Execute: fill ask order with callback
+        vm.prank(address(askBidCb));
+        exchange.fillAskOrder(askGridOrderId, amt, 0, abi.encode("ask-calls-bid"), 0);
+
+        uint256 seaAfter = sea.balanceOf(address(askBidCb));
+        uint256 usdcAfter = usdc.balanceOf(address(askBidCb));
+
+        // Verify the inner bid fill was executed
+        assertTrue(askBidCb.innerFillExecuted(), "Inner fillBidOrder should have been executed");
+
+        // The outer ask fill: received SEA, paid USDC
+        // The inner bid fill: paid SEA, received USDC
+        // Net SEA change should be 0 (received from ask, paid to bid)
+        assertEq(seaAfter, seaBefore, "SEA should be net zero (received from ask, paid to bid)");
+
+        // Net USDC change: received from bid fill minus paid for ask fill
+        // Since ask price > bid price (spread), the taker loses USDC on the spread + fees
+        assertTrue(usdcBefore > usdcAfter, "USDC should decrease due to spread + fees");
+
+        // Log the net position change
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit log_named_int("SEA net change", int256(seaAfter) - int256(seaBefore));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit log_named_int("USDC net change", int256(usdcAfter) - int256(usdcBefore));
+    }
+
+    /// @notice Test fillBidOrder callback that calls fillAskOrder internally
+    /// @dev Scenario: Taker fills a bid order (sells SEA for USDC). In the callback,
+    ///      the taker receives USDC and immediately buys SEA via fillAskOrder.
+    ///      This is a reverse flash-swap: sell base via bid for quote, buy base via ask with quote.
+    ///      fillBidOrder callback: inToken=SEA, outToken=USDC, must pay SEA
+    ///      Inner fillAskOrder: pays USDC (received from outer), gets SEA
+    ///      The inner ask fill's SEA output can offset the outer bid fill's SEA cost.
+    function test_callback_fillBidCallsFillAsk() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint128 askOrderId = 0x80000000000000000000000000000001;
+        uint128 bidOrderId = 0x0000000000000000000000000000001;
+
+        _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint256 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint256 bidGridOrderId = toGridOrderId(1, bidOrderId);
+
+        // Create the reverse arbitrage callback contract
+        BidCallsAskCallback bidAskCb = new BidCallsAskCallback(address(exchange));
+        // forge-lint: disable-next-line
+        sea.transfer(address(bidAskCb), 1000 ether);
+        // forge-lint: disable-next-line
+        usdc.transfer(address(bidAskCb), 1000_000_000);
+
+        vm.startPrank(address(bidAskCb));
+        sea.approve(address(exchange), type(uint256).max);
+        usdc.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        // Configure: outer fillBidOrder callback will call fillAskOrder
+        bidAskCb.setTarget(askGridOrderId, amt);
+
+        uint256 seaBefore = sea.balanceOf(address(bidAskCb));
+        uint256 usdcBefore = usdc.balanceOf(address(bidAskCb));
+
+        // Execute: fill bid order with callback
+        vm.prank(address(bidAskCb));
+        exchange.fillBidOrder(bidGridOrderId, amt, 0, abi.encode("bid-calls-ask"), 0);
+
+        uint256 seaAfter = sea.balanceOf(address(bidAskCb));
+        uint256 usdcAfter = usdc.balanceOf(address(bidAskCb));
+
+        // Verify the inner ask fill was executed
+        assertTrue(bidAskCb.innerFillExecuted(), "Inner fillAskOrder should have been executed");
+
+        // The outer bid fill: must pay SEA (filledAmt=1e18), receives USDC (outAmt)
+        // The inner ask fill: receives SEA (filledAmt=1e18), must pay USDC (inAmt)
+        //
+        // Due to the balance-checking compensation mechanism:
+        //   - Inner ask sends 1e18 SEA out of exchange to callback
+        //   - Outer bid checks exchange's SEA balance increased by filledAmt (1e18)
+        //   - So outer callback must pay filledAmt + innerOutAmt = 1e18 + 1e18 = 2e18 SEA
+        //   - Callback received 1e18 SEA from inner ask, paid 2e18 SEA to outer bid
+        //   - Net SEA loss = 1e18 (the outer bid's filledAmt)
+        //
+        // Net USDC: received outAmt from bid, paid inAmt for ask
+        //   bid outAmt = vol - lpFee - protocolFee (at lower bid price)
+        //   ask inAmt = vol + lpFee + protocolFee (at higher ask price)
+        //   So USDC also decreases
+        assertEq(seaBefore - seaAfter, amt, "SEA should decrease by filledAmt due to compensation mechanism");
+
+        // Net USDC: bid provides less USDC than ask costs (spread + fees on both sides)
+        assertTrue(usdcBefore > usdcAfter, "USDC should decrease due to spread + fees on both sides");
+
+        // Log the net position change
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit log_named_int("SEA net change", int256(seaAfter) - int256(seaBefore));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit log_named_int("USDC net change", int256(usdcAfter) - int256(usdcBefore));
+    }
+
     /// @notice Test insufficient payment in multi-order callback
     function test_callback_fillAskOrders_insufficientPayment() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
@@ -926,5 +1066,131 @@ contract PlaceDuringCallback is IGridCallback {
         // Still pay for the outer fill so it succeeds
         // forge-lint: disable-next-line
         IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+    }
+}
+
+/// @notice Callback for fillAskOrder that calls fillBidOrder internally
+/// @dev Outer fillAskOrder: receives SEA (base), callback must pay USDC (quote).
+///      Inner fillBidOrder: pays SEA (base), receives USDC (quote) from exchange.
+///      The inner bid fill sends USDC out of the exchange, so the outer callback
+///      must repay inAmt (for the outer ask) PLUS the inner bid's outAmt (USDC sent out).
+///      Net effect: SEA in/out cancel, taker loses USDC on spread + fees.
+contract AskCallsBidCallback is IGridCallback {
+    address public exchange;
+    uint256 public targetBidOrderId;
+    uint128 public targetBidAmt;
+    bool public innerFillExecuted;
+    bool private _isInnerCall;
+    uint128 private _innerOutAmt; // USDC sent out by inner fillBidOrder
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setTarget(uint256 _bidOrderId, uint128 _bidAmt) external {
+        targetBidOrderId = _bidOrderId;
+        targetBidAmt = _bidAmt;
+        innerFillExecuted = false;
+        _isInnerCall = false;
+        _innerOutAmt = 0;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128 outAmt, bytes calldata)
+        external
+        override
+    {
+        if (_isInnerCall) {
+            // Inner call (from fillBidOrder): inToken=SEA(base), outAmt=USDC sent to us
+            // Record the USDC outAmt so outer callback can compensate
+            _innerOutAmt = outAmt;
+            // Pay SEA to exchange for the inner bid fill
+            // forge-lint: disable-next-line
+            IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+            return;
+        }
+
+        // Outer call (from fillAskOrder): inToken=USDC(quote), we received SEA
+        // Now call fillBidOrder to sell the SEA we just received for USDC
+        _isInnerCall = true;
+        (bool success,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillBidOrder(uint256,uint128,uint128,bytes,uint32)",
+                targetBidOrderId,
+                targetBidAmt,
+                uint128(0),
+                abi.encode("inner-bid"),
+                uint32(0)
+            )
+        );
+        require(success, "Inner fillBidOrder should succeed");
+        innerFillExecuted = true;
+
+        // Pay USDC (quote) for the outer ask fill
+        // Must also cover the USDC that the inner bid fill sent out of the exchange
+        // forge-lint: disable-next-line
+        IERC20Minimal(inToken).transfer(msg.sender, inAmt + _innerOutAmt);
+    }
+}
+
+/// @notice Callback for fillBidOrder that calls fillAskOrder internally
+/// @dev Outer fillBidOrder: receives USDC (quote), callback must pay SEA (base).
+///      Inner fillAskOrder: pays USDC (quote), receives SEA (base) from exchange.
+///      The inner ask fill sends SEA out of the exchange, so the outer callback
+///      must repay filledAmt (for the outer bid) PLUS the inner ask's filledAmt (SEA sent out).
+///      Net effect: taker loses filledAmt SEA (compensation overhead) + USDC on spread + fees.
+contract BidCallsAskCallback is IGridCallback {
+    address public exchange;
+    uint256 public targetAskOrderId;
+    uint128 public targetAskAmt;
+    bool public innerFillExecuted;
+    bool private _isInnerCall;
+    uint128 private _innerOutAmt; // SEA sent out by inner fillAskOrder
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setTarget(uint256 _askOrderId, uint128 _askAmt) external {
+        targetAskOrderId = _askOrderId;
+        targetAskAmt = _askAmt;
+        innerFillExecuted = false;
+        _isInnerCall = false;
+        _innerOutAmt = 0;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128 outAmt, bytes calldata)
+        external
+        override
+    {
+        if (_isInnerCall) {
+            // Inner call (from fillAskOrder): inToken=USDC(quote), outAmt=SEA sent to us
+            // Record the SEA outAmt so outer callback can compensate
+            _innerOutAmt = outAmt;
+            // Pay USDC to exchange for the inner ask fill
+            // forge-lint: disable-next-line
+            IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+            return;
+        }
+
+        // Outer call (from fillBidOrder): inToken=SEA(base), we received USDC
+        // Now call fillAskOrder to buy SEA with the USDC we just received
+        _isInnerCall = true;
+        (bool success,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillAskOrder(uint256,uint128,uint128,bytes,uint32)",
+                targetAskOrderId,
+                targetAskAmt,
+                uint128(0),
+                abi.encode("inner-ask"),
+                uint32(0)
+            )
+        );
+        require(success, "Inner fillAskOrder should succeed");
+        innerFillExecuted = true;
+
+        // Pay SEA (base) for the outer bid fill
+        // Must also cover the SEA that the inner ask fill sent out of the exchange
+        // forge-lint: disable-next-line
+        IERC20Minimal(inToken).transfer(msg.sender, inAmt + _innerOutAmt);
     }
 }
