@@ -56,11 +56,12 @@ contract GridExRouter {
     receive() external payable {}
 
     // ═══════════════════════════════════════════════════════════════════
-    //  HOT-PATH: Place orders (pause check only)
+    //  HOT-PATH: Place orders (strict no-reentry + pause check)
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Place grid orders with ERC20 tokens, delegated to TradeFacet
     function placeGridOrders(Currency, Currency, IGridOrder.GridOrderParam calldata) external {
+        ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
@@ -70,6 +71,7 @@ contract GridExRouter {
     /// @notice Place grid orders with ETH as either base or quote token
     // forge-lint: disable-next-line(mixed-case-function)
     function placeETHGridOrders(Currency, Currency, IGridOrder.GridOrderParam calldata) external payable {
+        ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
@@ -119,29 +121,33 @@ contract GridExRouter {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //  HOT-PATH: Cancel & withdraw (reentrancy only)
+    //  HOT-PATH: Cancel & withdraw (strict no-reentry)
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Cancel an entire grid and withdraw all remaining tokens
     function cancelGrid(address, uint128, uint32) external {
+        ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
 
     /// @notice Cancel a range of consecutive grid orders
     function cancelGridOrders(address, uint256, uint32, uint32) external {
+        ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
 
     /// @notice Cancel specific orders within a grid by ID list
     function cancelGridOrders(uint128, address, uint256[] memory, uint32) external {
+        ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
 
     /// @notice Withdraw accumulated profits from a grid
     function withdrawGridProfits(uint128, uint256, address, uint32) external {
+        ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
@@ -185,7 +191,7 @@ contract GridExRouter {
         }
     }
 
-    /// @dev Delegatecall to facet with reentrancy guard cleanup on success and revert
+    /// @dev Delegatecall to facet with reentrancy depth counter decrement on completion
     function _delegateToFacetGuarded(GridExStorage.Layout storage l) internal {
         address facet = l.selectorToFacet[msg.sig];
         if (facet == address(0)) revert FacetNotFound();
@@ -199,8 +205,9 @@ contract GridExRouter {
             let result := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
             returndatacopy(0, 0, returndatasize())
 
-            // Always clear reentrancy guard (transient storage)
-            tstore(reentrancySlot, 0)
+            // Decrement reentrancy depth counter (mirrors ReentrancyLib._exit)
+            let depth := tload(reentrancySlot)
+            tstore(reentrancySlot, sub(depth, 1))
 
             switch result
             case 0 { revert(0, returndatasize()) }
