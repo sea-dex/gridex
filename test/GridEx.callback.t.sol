@@ -553,15 +553,7 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gridOrderId = toGridOrderId(1, orderId);
 
         // Configure the callback to attempt placeGridOrders during the fill callback
-        placeDuringCallback.setPlaceTarget(
-            address(sea),
-            address(usdc),
-            address(linear),
-            askPrice0,
-            bidPrice0,
-            gap,
-            amt
-        );
+        placeDuringCallback.setPlaceTarget(address(sea), address(usdc), address(linear), askPrice0, bidPrice0, gap, amt);
 
         vm.prank(address(placeDuringCallback));
         exchange.fillAskOrder(gridOrderId, amt, 0, abi.encode("place-attempt"), 0);
@@ -771,7 +763,10 @@ contract ArbitrageCallback is IGridCallback {
         _innerOutAmt = 0;
     }
 
-    function gridFillCallback(address inToken, address, uint128 inAmt, uint128 outAmt, bytes calldata) external override {
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128 outAmt, bytes calldata)
+        external
+        override
+    {
         if (_isInnerCall) {
             // Inner call (bid fill callback): pay base tokens to exchange
             _innerOutAmt = outAmt;
@@ -847,12 +842,7 @@ contract CancelDuringCallback is IGridCallback {
         } else {
             // Attempt cancelGrid — should be blocked by _guardNoReentry()
             (success,) = exchange.call(
-                abi.encodeWithSignature(
-                    "cancelGrid(address,uint128,uint32)",
-                    address(this),
-                    targetGridId,
-                    uint32(0)
-                )
+                abi.encodeWithSignature("cancelGrid(address,uint128,uint32)", address(this), targetGridId, uint32(0))
             );
         }
 
@@ -923,10 +913,7 @@ contract PlaceDuringCallback is IGridCallback {
         // Use low-level call so failure doesn't revert the outer fill
         (bool success,) = exchange.call(
             abi.encodeWithSelector(
-                TradeFacet.placeGridOrders.selector,
-                Currency.wrap(targetBase),
-                Currency.wrap(targetQuote),
-                param
+                TradeFacet.placeGridOrders.selector, Currency.wrap(targetBase), Currency.wrap(targetQuote), param
             )
         );
 
