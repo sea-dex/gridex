@@ -2,12 +2,31 @@
 pragma solidity ^0.8.33;
 
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
+import {IProtocolErrors} from "../src/interfaces/IProtocolErrors.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
 import {GridExBaseTest} from "./GridExBase.t.sol";
 
 contract GridExFillETHQuoteTest is GridExBaseTest {
     Currency eth = Currency.wrap(address(0));
+
+    function test_fillAskOrder_revertWhenUnderpayETHInput() public {
+        uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
+        uint256 gap = askPrice0 / 20; // 0.0001
+        uint128 orderId = 0x80000000000000000000000000000001;
+        uint128 amt = 20 ether;
+
+        _placeOrders(address(sea), address(0), amt, 10, 0, askPrice0, 0, gap, false, 500);
+
+        (uint128 ethVol, uint128 fee) = Lens.calcAskOrderQuoteAmount(askPrice0, amt, 500);
+        uint256 requiredIn = uint256(ethVol) + uint256(fee);
+        uint256 gridOrderId = toGridOrderId(1, orderId);
+
+        vm.startPrank(taker);
+        vm.expectRevert(IProtocolErrors.InsufficientETH.selector);
+        exchange.fillAskOrder{value: requiredIn - 1}(gridOrderId, amt, amt, new bytes(0), 1);
+        vm.stopPrank();
+    }
 
     function test_fillETHQuoteAskOrder() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
