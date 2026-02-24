@@ -87,8 +87,21 @@ contract Geometry is IGridStrategy {
             if (count > 1 && ratio <= RATIO_MULTIPLIER) {
                 revert IGeometryErrors.GeometryAskRatioTooLow();
             }
+
+            // Compute the highest ask price price0 * ratio^(count-1).
+            // _priceAt reverts via FullMath.mulDiv on overflow, which prevents
+            // creating grids whose high-order ask prices are not computable.
+            uint256 highestAskPrice = _priceAt(price0, ratio, uint128(count - 1));
+
+            // Verify reverse price for order 0 (the lowest reverse price) produces
+            // non-zero quote
             uint256 reversePrice0 = FullMath.mulDiv(price0, RATIO_MULTIPLIER, ratio);
             if (FullMath.mulDivRoundingUp(uint256(amt), reversePrice0, PRICE_MULTIPLIER) == 0) {
+                revert IGeometryErrors.GeometryAskZeroQuote();
+            }
+
+            // Verify highest ask price also produces non-zero quote
+            if (FullMath.mulDivRoundingUp(uint256(amt), highestAskPrice, PRICE_MULTIPLIER) == 0) {
                 revert IGeometryErrors.GeometryAskZeroQuote();
             }
         } else {
