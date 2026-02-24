@@ -10,6 +10,7 @@ import {AdminFacet} from "../src/facets/AdminFacet.sol";
 import {ViewFacet} from "../src/facets/ViewFacet.sol";
 import {Vault} from "../src/Vault.sol";
 import {Linear} from "../src/strategy/Linear.sol";
+import {Geometry} from "../src/strategy/Geometry.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
 
@@ -52,6 +53,7 @@ contract DeployDeterministic is Script {
     address public deployedViewFacet;
     address public deployedRouter;
     address public deployedLinear;
+    address public deployedGeometry;
 
     function setUp() public {}
 
@@ -81,7 +83,8 @@ contract DeployDeterministic is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         ) = previewAddresses(deployer);
 
         console.log("Expected Addresses (same on all chains):");
@@ -92,6 +95,7 @@ contract DeployDeterministic is Script {
         console.log("  ViewFacet:", expectedViewFacet);
         console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
+        console.log("  Geometry:", expectedGeometry);
         console.log("");
 
         vm.startBroadcast(deployerPrivateKey);
@@ -145,12 +149,23 @@ contract DeployDeterministic is Script {
         require(deployedLinear == expectedLinear, "Linear address mismatch");
         console.log("[OK] Linear deployed at:", deployedLinear);
 
-        // Step 10: Whitelist Linear strategy in Router
+        // Step 10: Deploy Geometry Strategy
+        deployedGeometry = _deployGeometry(deployedRouter);
+        require(deployedGeometry == expectedGeometry, "Geometry address mismatch");
+        console.log("[OK] Geometry deployed at:", deployedGeometry);
+
+        // Step 11: Whitelist strategies in Router
         if (!ViewFacet(deployedRouter).isStrategyWhitelisted(deployedLinear)) {
             AdminFacet(deployedRouter).setStrategyWhitelist(deployedLinear, true);
             console.log("[OK] Linear strategy whitelisted");
         } else {
             console.log("[SKIP] Linear already whitelisted");
+        }
+        if (!ViewFacet(deployedRouter).isStrategyWhitelisted(deployedGeometry)) {
+            AdminFacet(deployedRouter).setStrategyWhitelist(deployedGeometry, true);
+            console.log("[OK] Geometry strategy whitelisted");
+        } else {
+            console.log("[SKIP] Geometry already whitelisted");
         }
 
         vm.stopBroadcast();
@@ -328,6 +343,14 @@ contract DeployDeterministic is Script {
         return _create2Deploy(salt, bytecode);
     }
 
+    /// @notice Deploy Geometry strategy using CREATE2
+    function _deployGeometry(address _router) internal returns (address) {
+        bytes memory bytecode = abi.encodePacked(type(Geometry).creationCode, abi.encode(_router));
+        bytes32 salt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Geometry"));
+
+        return _create2Deploy(salt, bytecode);
+    }
+
     /// @notice Internal function to deploy using CREATE2
     /// @dev Uses the deterministic deployment proxy
     function _create2Deploy(bytes32 salt, bytes memory bytecode) internal returns (address deployed) {
@@ -381,7 +404,8 @@ contract DeployDeterministic is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         )
     {
         // Compute Vault address (depends on owner)
@@ -419,6 +443,11 @@ contract DeployDeterministic is Script {
         bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedRouter));
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
         expectedLinear = _computeAddress(linearSalt, linearBytecode);
+
+        // Compute Geometry address (depends on router)
+        bytes memory geometryBytecode = abi.encodePacked(type(Geometry).creationCode, abi.encode(expectedRouter));
+        bytes32 geometrySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Geometry"));
+        expectedGeometry = _computeAddress(geometrySalt, geometryBytecode);
     }
 
     /// @notice Preview addresses from environment
@@ -438,7 +467,8 @@ contract DeployDeterministic is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         ) = previewAddresses(deployer);
 
         console.log("Expected Addresses (same on all chains):");
@@ -449,6 +479,7 @@ contract DeployDeterministic is Script {
         console.log("  ViewFacet:", expectedViewFacet);
         console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
+        console.log("  Geometry:", expectedGeometry);
     }
 
     function _printDeploymentSummary() internal view {
@@ -460,6 +491,7 @@ contract DeployDeterministic is Script {
         console.log("  ViewFacet:", deployedViewFacet);
         console.log("  Router:", deployedRouter);
         console.log("  Linear:", deployedLinear);
+        console.log("  Geometry:", deployedGeometry);
         console.log("");
         console.log("Next Steps:");
         console.log("  1. Verify contracts on block explorer");

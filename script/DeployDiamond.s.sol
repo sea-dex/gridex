@@ -6,6 +6,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {GridExRouter} from "../src/GridExRouter.sol";
 import {Vault} from "../src/Vault.sol";
 import {Linear} from "../src/strategy/Linear.sol";
+import {Geometry} from "../src/strategy/Geometry.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
 
@@ -24,6 +25,7 @@ contract DeployDiamond is Script {
     address public adminFacet;
     address public viewFacet;
     address public linear;
+    address public geometry;
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -83,11 +85,18 @@ contract DeployDiamond is Script {
         linear = address(l);
         console.log("[OK] Linear:", linear);
 
-        // 7. Whitelist Linear strategy
+        // 7. Deploy Geometry strategy pointing to router
+        Geometry g = new Geometry(router);
+        geometry = address(g);
+        console.log("[OK] Geometry:", geometry);
+
+        // 8. Whitelist strategies
         AdminFacet(router).setStrategyWhitelist(linear, true);
         console.log("[OK] Linear strategy whitelisted");
+        AdminFacet(router).setStrategyWhitelist(geometry, true);
+        console.log("[OK] Geometry strategy whitelisted");
 
-        // 8. Set oneshot protocol fee
+        // 9. Set oneshot protocol fee
         AdminFacet(router).setOneshotProtocolFeeBps(500);
         console.log("[OK] Oneshot protocol fee set to 500 bps");
 
@@ -180,5 +189,6 @@ contract DeployDiamond is Script {
         console.log("  AdminFacet:", adminFacet);
         console.log("  ViewFacet:", viewFacet);
         console.log("  Linear:", linear);
+        console.log("  Geometry:", geometry);
     }
 }

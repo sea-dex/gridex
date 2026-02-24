@@ -10,6 +10,7 @@ import {AdminFacet} from "../src/facets/AdminFacet.sol";
 import {ViewFacet} from "../src/facets/ViewFacet.sol";
 import {Vault} from "../src/Vault.sol";
 import {Linear} from "../src/strategy/Linear.sol";
+import {Geometry} from "../src/strategy/Geometry.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
 import {DeployConfig} from "./config/DeployConfig.sol";
@@ -65,6 +66,7 @@ contract Deploy is Script {
     address public viewFacet;
     address public router;
     address public linear;
+    address public geometry;
 
     // ============ Main Entry Points ============
 
@@ -96,7 +98,8 @@ contract Deploy is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         ) = computeAddressesWithOwner(deployer);
 
         console.log("Expected Addresses:");
@@ -107,6 +110,7 @@ contract Deploy is Script {
         console.log("  ViewFacet:", expectedViewFacet);
         console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
+        console.log("  Geometry:", expectedGeometry);
         console.log("");
 
         vm.startBroadcast(deployerPrivateKey);
@@ -165,12 +169,26 @@ contract Deploy is Script {
         linear = _deployContract(linearSalt, linearBytecode, "Linear");
         require(linear == expectedLinear, "Linear address mismatch!");
 
+        // Deploy Geometry
+        bytes32 geometrySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Geometry"));
+        bytes memory geometryBytecode = abi.encodePacked(type(Geometry).creationCode, abi.encode(router));
+        geometry = _deployContract(geometrySalt, geometryBytecode, "Geometry");
+        require(geometry == expectedGeometry, "Geometry address mismatch!");
+
         // Configure: Whitelist Linear strategy
         if (!ViewFacet(router).isStrategyWhitelisted(linear)) {
             AdminFacet(router).setStrategyWhitelist(linear, true);
             console.log("[OK] Linear strategy whitelisted");
         } else {
             console.log("[SKIP] Linear already whitelisted");
+        }
+
+        // Configure: Whitelist Geometry strategy
+        if (!ViewFacet(router).isStrategyWhitelisted(geometry)) {
+            AdminFacet(router).setStrategyWhitelist(geometry, true);
+            console.log("[OK] Geometry strategy whitelisted");
+        } else {
+            console.log("[SKIP] Geometry already whitelisted");
         }
 
         vm.stopBroadcast();
@@ -297,7 +315,8 @@ contract Deploy is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         ) = computeAddresses(weth, usd);
 
         console.log("Expected Addresses:");
@@ -308,6 +327,7 @@ contract Deploy is Script {
         console.log("  ViewFacet:", expectedViewFacet);
         console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
+        console.log("  Geometry:", expectedGeometry);
         console.log("");
 
         // Check if already deployed
@@ -319,6 +339,7 @@ contract Deploy is Script {
         console.log("  ViewFacet:", expectedViewFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  Router:", expectedRouter.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  Linear:", expectedLinear.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  Geometry:", expectedGeometry.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
     }
 
     /// @notice Compute expected addresses for current deployer
@@ -332,7 +353,8 @@ contract Deploy is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         )
     {
         // Get deployer address for computing addresses
@@ -361,7 +383,8 @@ contract Deploy is Script {
             address expectedCancelFacet,
             address expectedViewFacet,
             address expectedRouter,
-            address expectedLinear
+            address expectedLinear,
+            address expectedGeometry
         )
     {
         // Vault (takes owner as constructor arg - same on all chains if same owner)
@@ -399,6 +422,11 @@ contract Deploy is Script {
         bytes32 linearSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Linear"));
         bytes memory linearBytecode = abi.encodePacked(type(Linear).creationCode, abi.encode(expectedRouter));
         expectedLinear = _computeAddress(linearSalt, linearBytecode);
+
+        // Geometry (depends on router address)
+        bytes32 geometrySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Geometry"));
+        bytes memory geometryBytecode = abi.encodePacked(type(Geometry).creationCode, abi.encode(expectedRouter));
+        expectedGeometry = _computeAddress(geometrySalt, geometryBytecode);
     }
 
     // ============ Internal Functions ============
@@ -477,6 +505,7 @@ contract Deploy is Script {
         console.log("  ViewFacet:", viewFacet);
         console.log("  Router:", router);
         console.log("  Linear:", linear);
+        console.log("  Geometry:", geometry);
         console.log("");
         console.log("Configuration:");
         console.log("  WETH:", weth);
@@ -578,6 +607,20 @@ contract Deploy is Script {
                 "forge verify-contract ",
                 vm.toString(linear),
                 " src/strategy/Linear.sol:Linear --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
+                vm.toString(router),
+                ")"
+            )
+        );
+        console.log("");
+
+        console.log("# Verify Geometry");
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(geometry),
+                " src/strategy/Geometry.sol:Geometry --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
                 vm.toString(router),
