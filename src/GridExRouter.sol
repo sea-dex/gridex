@@ -27,6 +27,7 @@ contract GridExRouter {
     constructor(address _owner, address _vault, address _adminFacet) {
         if (_owner == address(0)) revert IProtocolErrors.InvalidAddress();
         if (_vault == address(0)) revert IProtocolErrors.InvalidAddress();
+        if (_adminFacet == address(0)) revert IProtocolErrors.InvalidAddress();
 
         GridExStorage.Layout storage l = GridExStorage.layout();
         l.owner = _owner;
