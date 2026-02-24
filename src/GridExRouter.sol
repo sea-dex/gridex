@@ -27,7 +27,9 @@ contract GridExRouter {
     constructor(address _owner, address _vault, address _adminFacet) {
         if (_owner == address(0)) revert IProtocolErrors.InvalidAddress();
         if (_vault == address(0)) revert IProtocolErrors.InvalidAddress();
-        if (_adminFacet == address(0)) revert IProtocolErrors.InvalidAddress();
+        if (_adminFacet == address(0) || _adminFacet.code.length == 0) {
+            revert IProtocolErrors.InvalidAddress();
+        }
 
         GridExStorage.Layout storage l = GridExStorage.layout();
         l.owner = _owner;
@@ -49,7 +51,6 @@ contract GridExRouter {
         l.selectorToFacet[bytes4(keccak256("pause()"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("unpause()"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("rescueEth(address,uint256)"))] = _adminFacet;
-        l.selectorToFacet[bytes4(keccak256("setFacetAllowlist(address,bool)"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("transferOwnership(address)"))] = _adminFacet;
     }
 

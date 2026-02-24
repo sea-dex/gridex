@@ -219,8 +219,8 @@ contract Deploy is Script {
         console.log("[OK] CancelFacet selectors registered");
 
         // AdminFacet selectors (beyond bootstrap)
-        bytes4[] memory adminSelectors = new bytes4[](10);
-        address[] memory adminFacets = new address[](10);
+        bytes4[] memory adminSelectors = new bytes4[](9);
+        address[] memory adminFacets = new address[](9);
 
         adminSelectors[0] = AdminFacet.setWETH.selector;
         adminFacets[0] = adminFacet;
@@ -238,10 +238,8 @@ contract Deploy is Script {
         adminFacets[6] = adminFacet;
         adminSelectors[7] = AdminFacet.transferOwnership.selector;
         adminFacets[7] = adminFacet;
-        adminSelectors[8] = AdminFacet.setFacetAllowlist.selector;
+        adminSelectors[8] = AdminFacet.setFacet.selector;
         adminFacets[8] = adminFacet;
-        adminSelectors[9] = AdminFacet.setFacet.selector;
-        adminFacets[9] = adminFacet;
 
         AdminFacet(router).batchSetFacet(adminSelectors, adminFacets);
         console.log("[OK] AdminFacet selectors registered");

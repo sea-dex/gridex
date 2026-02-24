@@ -199,8 +199,8 @@ contract DeployDeterministic is Script {
         AdminFacet(deployedRouter).batchSetFacet(cancelSelectors, cancelFacets);
 
         // AdminFacet selectors (beyond bootstrap)
-        bytes4[] memory adminSelectors = new bytes4[](10);
-        address[] memory adminFacets = new address[](10);
+        bytes4[] memory adminSelectors = new bytes4[](9);
+        address[] memory adminFacets = new address[](9);
 
         adminSelectors[0] = AdminFacet.setWETH.selector;
         adminFacets[0] = deployedAdminFacet;
@@ -218,10 +218,8 @@ contract DeployDeterministic is Script {
         adminFacets[6] = deployedAdminFacet;
         adminSelectors[7] = AdminFacet.transferOwnership.selector;
         adminFacets[7] = deployedAdminFacet;
-        adminSelectors[8] = AdminFacet.setFacetAllowlist.selector;
+        adminSelectors[8] = AdminFacet.setFacet.selector;
         adminFacets[8] = deployedAdminFacet;
-        adminSelectors[9] = AdminFacet.setFacet.selector;
-        adminFacets[9] = deployedAdminFacet;
 
         AdminFacet(deployedRouter).batchSetFacet(adminSelectors, adminFacets);
 

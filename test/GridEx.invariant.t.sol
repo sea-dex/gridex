@@ -145,8 +145,8 @@ contract GridExInvariantTest is StdInvariant, Test {
         AdminFacet(gridEx).batchSetFacet(cancelSel, cancelFac);
 
         // AdminFacet selectors (beyond bootstrap)
-        bytes4[] memory adminSel = new bytes4[](10);
-        address[] memory adminFac = new address[](10);
+        bytes4[] memory adminSel = new bytes4[](9);
+        address[] memory adminFac = new address[](9);
 
         adminSel[0] = AdminFacet.setWETH.selector;
         adminFac[0] = address(adminFacet);
@@ -164,10 +164,8 @@ contract GridExInvariantTest is StdInvariant, Test {
         adminFac[6] = address(adminFacet);
         adminSel[7] = AdminFacet.transferOwnership.selector;
         adminFac[7] = address(adminFacet);
-        adminSel[8] = AdminFacet.setFacetAllowlist.selector;
+        adminSel[8] = AdminFacet.setFacet.selector;
         adminFac[8] = address(adminFacet);
-        adminSel[9] = AdminFacet.setFacet.selector;
-        adminFac[9] = address(adminFacet);
 
         AdminFacet(gridEx).batchSetFacet(adminSel, adminFac);
 

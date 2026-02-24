@@ -31,7 +31,6 @@ library GridExStorage {
         mapping(address => bool) whitelistedStrategies;
         // --- Facet routing ---
         mapping(bytes4 => address) selectorToFacet;
-        mapping(address => bool) facetAllowlist;
     }
 
     /// @notice Returns the storage layout at the fixed diamond slot

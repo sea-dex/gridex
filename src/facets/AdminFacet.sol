@@ -98,6 +98,7 @@ contract AdminFacet is IOrderEvents {
     /// @param selector The function selector
     /// @param facet The facet address to route the selector to
     function setFacet(bytes4 selector, address facet) external onlyOwner {
+        if (facet.code.length == 0) revert IProtocolErrors.InvalidAddress();
         GridExStorage.layout().selectorToFacet[selector] = facet;
         emit FacetUpdated(selector, facet);
     }
@@ -109,19 +110,13 @@ contract AdminFacet is IOrderEvents {
         require(selectors.length == facets.length, "Length mismatch");
         GridExStorage.Layout storage l = GridExStorage.layout();
         for (uint256 i; i < selectors.length;) {
+            if (facets[i].code.length == 0) revert IProtocolErrors.InvalidAddress();
             l.selectorToFacet[selectors[i]] = facets[i];
             emit FacetUpdated(selectors[i], facets[i]);
             unchecked {
                 ++i;
             }
         }
-    }
-
-    /// @notice Update the facet allowlist
-    /// @param facet The facet address
-    /// @param allowed True to allow, false to disallow
-    function setFacetAllowlist(address facet, bool allowed) external onlyOwner {
-        GridExStorage.layout().facetAllowlist[facet] = allowed;
     }
 
     /// @notice Transfer contract ownership to a new address

@@ -39,9 +39,6 @@ interface IGridExAdmin {
     /// @notice Register multiple selector -> facet mappings
     function batchSetFacet(bytes4[] calldata selectors, address[] calldata facets) external;
 
-    /// @notice Update the facet allowlist
-    function setFacetAllowlist(address facet, bool allowed) external;
-
     /// @notice Transfer contract ownership
     function transferOwnership(address newOwner) external;
 }
