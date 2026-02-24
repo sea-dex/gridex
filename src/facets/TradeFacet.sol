@@ -111,6 +111,7 @@ contract TradeFacet is IOrderEvents {
         } else {
             if (flag & 0x01 > 0) {
                 if (Currency.unwrap(inToken) != weth) revert NotWETH();
+                if (paid < inAmt) revert IProtocolErrors.InsufficientETH();
                 IWETH(weth).deposit{value: inAmt}();
                 if (paid > inAmt) {
                     _tryPaybackETH(addr, paid - inAmt);
