@@ -10,7 +10,7 @@ import {Currency} from "../src/libraries/Currency.sol";
 /// @notice Tests for fee boundary conditions (MIN_FEE, MAX_FEE)
 contract GridExFeeTest is GridExBaseTest {
     // Fee constants from GridOrder.sol
-    uint32 public constant MIN_FEE = 10; // 0.001%
+    uint32 public constant MIN_FEE = 1; // 0.001%
     uint32 public constant MAX_FEE = 100000; // 10%
 
     // ============ Fee Boundary Tests ============
@@ -145,7 +145,7 @@ contract GridExFeeTest is GridExBaseTest {
             askOrderCount: 5,
             bidOrderCount: 5,
             baseAmount: amt,
-            fee: 9, // Just below MIN_FEE (10)
+            fee: 0, // Just below MIN_FEE (1)
             compound: false,
             oneshot: false
         });
