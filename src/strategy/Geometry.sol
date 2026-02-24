@@ -35,9 +35,15 @@ contract Geometry is IGridStrategy {
     /// @notice Emitted when a new geometry strategy is created.
     event GeometryStrategyCreated(bool isAsk, uint128 gridId, uint256 price0, uint256 ratio);
 
+    /// @notice Modifier to restrict access to GridEx contract only
     modifier onlyGridEx() {
-        require(msg.sender == GRID_EX, "Unauthorized");
+        _onlyGridEx();
         _;
+    }
+
+    /// @notice Ensures only the GridEx contract can call the function
+    function _onlyGridEx() internal view {
+        require(msg.sender == GRID_EX, "Unauthorized");
     }
 
     /// @param _gridEx The GridEx contract address.

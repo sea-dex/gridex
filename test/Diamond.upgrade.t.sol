@@ -117,6 +117,7 @@ contract DiamondUpgradeTest is GridExDiamondBaseTest {
         vm.stopPrank();
         assertFalse(okSetFacet);
         assertGe(retSetFacet.length, 4);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(bytes4(retSetFacet), AdminFacet.NotOwner.selector);
 
         bytes4[] memory selectors = new bytes4[](1);
@@ -130,6 +131,7 @@ contract DiamondUpgradeTest is GridExDiamondBaseTest {
         vm.stopPrank();
         assertFalse(okBatchSetFacet);
         assertGe(retBatchSetFacet.length, 4);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(bytes4(retBatchSetFacet), AdminFacet.NotOwner.selector);
     }
 
@@ -184,6 +186,7 @@ contract DiamondUpgradeTest is GridExDiamondBaseTest {
         (bool ok, bytes memory ret) = exchange.call(abi.encodeWithSelector(bytes4(keccak256("unknownSelector()"))));
         assertFalse(ok);
         assertGe(ret.length, 4);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(bytes4(ret), bytes4(keccak256("FacetNotFound()")));
     }
 
