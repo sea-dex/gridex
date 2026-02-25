@@ -1,0 +1,12 @@
+[workspace]
+members = ["programs/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "BUSL-1.1"
+version = "0.1.0"
+
+[workspace.dependencies]
+pinocchio = { version = "0.10.2", features = ["cpi"] }
+borsh = { version = "1.5.1", features = ["derive"] }
