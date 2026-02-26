@@ -1,4 +1,3 @@
-
 ## Documentation
 
 A decentralized exchange (DEX) based on grid order is an innovative platform for trading digital assets that leverages the principles of grid order trading within a decentralized framework. Unlike traditional centralized exchanges, which rely on a central authority to facilitate transactions, DEXs operate on blockchain technology, allowing users to trade directly with each other without the need for intermediaries.
