@@ -202,9 +202,9 @@ contract DeployDeterministic is Script {
 
         cancelSelectors[0] = CancelFacet.cancelGrid.selector;
         cancelFacets[0] = deployedCancelFacet;
-        cancelSelectors[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelSelectors[1] = bytes4(keccak256("cancelGridOrders(address,uint64,uint32,uint32)"));
         cancelFacets[1] = deployedCancelFacet;
-        cancelSelectors[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelSelectors[2] = bytes4(keccak256("cancelGridOrders(uint48,address,uint64[],uint32)"));
         cancelFacets[2] = deployedCancelFacet;
         cancelSelectors[3] = CancelFacet.withdrawGridProfits.selector;
         cancelFacets[3] = deployedCancelFacet;
