@@ -100,11 +100,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Set up valid callback
         validCallback.setExchange(address(exchange));
@@ -126,11 +126,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 gridOrderId = toGridOrderId(1, bidOrderId);
 
         // Set up valid callback
         validCallback.setExchange(address(exchange));
@@ -154,11 +154,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Insufficient callback pays less than required
         insufficientCallback.setPayPercentage(50); // Only pay 50%
@@ -174,11 +174,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Insufficient callback pays nothing
         insufficientCallback.setPayPercentage(0);
@@ -197,12 +197,12 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 outerOrderId = toGridOrderId(1, orderId);
-        uint256 innerOrderId = toGridOrderId(1, orderId + 1); // different order
+        uint64 outerOrderId = toGridOrderId(1, orderId);
+        uint64 innerOrderId = toGridOrderId(1, orderId + 1); // different order
 
         // Set up reentrant callback to fill a DIFFERENT ask order during callback
         reentrantCallback.setReentryTarget(innerOrderId, amt, true);
@@ -231,12 +231,12 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 outerOrderId = toGridOrderId(1, bidOrderId);
-        uint256 innerOrderId = toGridOrderId(1, bidOrderId + 1); // different order
+        uint64 outerOrderId = toGridOrderId(1, bidOrderId);
+        uint64 innerOrderId = toGridOrderId(1, bidOrderId + 1); // different order
 
         // Set up reentrant callback to fill a DIFFERENT bid order during callback
         reentrantCallback.setReentryTarget(innerOrderId, amt, false);
@@ -267,14 +267,14 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 askOrderId = 0x80000000000000000000000000000001;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 askOrderId = 0x8000;
+        uint16 bidOrderId = 0;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 outerOrderId = toGridOrderId(1, askOrderId);
+        uint64 outerOrderId = toGridOrderId(1, askOrderId);
         // Inner call fills a BID order — this sends USDC out of the exchange
-        uint256 innerOrderId = toGridOrderId(1, bidOrderId);
+        uint64 innerOrderId = toGridOrderId(1, bidOrderId);
 
         // Use a callback that pays for the inner re-entry but NOT for the outer call
         ReentrantNoPayCallback noPayCallback = new ReentrantNoPayCallback(address(exchange));
@@ -306,11 +306,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Malicious callback will revert
         maliciousCallback.setShouldRevert(true);
@@ -326,11 +326,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 seaBefore = sea.balanceOf(taker);
 
@@ -351,11 +351,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256[] memory idList = new uint256[](3);
+        uint64[] memory idList = new uint64[](3);
         idList[0] = toGridOrderId(1, orderId);
         idList[1] = toGridOrderId(1, orderId + 1);
         idList[2] = toGridOrderId(1, orderId + 2);
@@ -384,11 +384,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256[] memory idList = new uint256[](3);
+        uint64[] memory idList = new uint64[](3);
         idList[0] = toGridOrderId(1, bidOrderId);
         idList[1] = toGridOrderId(1, bidOrderId + 1);
         idList[2] = toGridOrderId(1, bidOrderId + 2);
@@ -419,13 +419,13 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 askOrderId = 0x80000000000000000000000000000001;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 askOrderId = 0x8000;
+        uint16 bidOrderId = 0;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 askGridOrderId = toGridOrderId(1, askOrderId);
-        uint256 bidGridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint64 bidGridOrderId = toGridOrderId(1, bidOrderId);
 
         // Create an arbitrage callback that fills a bid order inside an ask order callback
         ArbitrageCallback arbCallback = new ArbitrageCallback(address(exchange));
@@ -477,13 +477,13 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 askOrderId = 0x80000000000000000000000000000001;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 askOrderId = 0x8000;
+        uint16 bidOrderId = 0;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 askGridOrderId = toGridOrderId(1, askOrderId);
-        uint256 bidGridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint64 bidGridOrderId = toGridOrderId(1, bidOrderId);
 
         // Create the callback contract
         AskCallsBidCallback askBidCb = new AskCallsBidCallback(address(exchange));
@@ -541,13 +541,13 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 askOrderId = 0x80000000000000000000000000000001;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 askOrderId = 0x8000;
+        uint16 bidOrderId = 0;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 askGridOrderId = toGridOrderId(1, askOrderId);
-        uint256 bidGridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint64 bidGridOrderId = toGridOrderId(1, bidOrderId);
 
         // Create the reverse arbitrage callback contract
         BidCallsAskCallback bidAskCb = new BidCallsAskCallback(address(exchange));
@@ -609,11 +609,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256[] memory idList = new uint256[](3);
+        uint64[] memory idList = new uint64[](3);
         idList[0] = toGridOrderId(1, orderId);
         idList[1] = toGridOrderId(1, orderId + 1);
         idList[2] = toGridOrderId(1, orderId + 2);
@@ -639,11 +639,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Configure the callback to attempt cancelGrid during the fill callback
         cancelDuringCallback.setCancelTarget(1); // gridId = 1
@@ -662,11 +662,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Configure the callback to attempt withdrawGridProfits during the fill callback
         cancelDuringCallback.setWithdrawTarget(1); // gridId = 1
@@ -688,11 +688,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Configure the callback to attempt placeGridOrders during the fill callback
         placeDuringCallback.setPlaceTarget(address(sea), address(usdc), address(linear), askPrice0, bidPrice0, gap, amt);
@@ -754,7 +754,7 @@ contract ReentrantCallback is IGridCallback {
             if (isAsk) {
                 (success,) = exchange.call(
                     abi.encodeWithSignature(
-                        "fillAskOrder(uint256,uint128,uint128,bytes,uint32)",
+                        "fillAskOrder(uint64,uint128,uint128,bytes,uint32)",
                         targetOrderId,
                         targetAmt,
                         uint128(0),
@@ -765,7 +765,7 @@ contract ReentrantCallback is IGridCallback {
             } else {
                 (success,) = exchange.call(
                     abi.encodeWithSignature(
-                        "fillBidOrder(uint256,uint128,uint128,bytes,uint32)",
+                        "fillBidOrder(uint64,uint128,uint128,bytes,uint32)",
                         targetOrderId,
                         targetAmt,
                         uint128(0),
@@ -854,7 +854,7 @@ contract ReentrantNoPayCallback is IGridCallback {
         if (isAsk) {
             (success,) = exchange.call(
                 abi.encodeWithSignature(
-                    "fillAskOrder(uint256,uint128,uint128,bytes,uint32)",
+                    "fillAskOrder(uint64,uint128,uint128,bytes,uint32)",
                     targetOrderId,
                     targetAmt,
                     uint128(0),
@@ -865,7 +865,7 @@ contract ReentrantNoPayCallback is IGridCallback {
         } else {
             (success,) = exchange.call(
                 abi.encodeWithSignature(
-                    "fillBidOrder(uint256,uint128,uint128,bytes,uint32)",
+                    "fillBidOrder(uint64,uint128,uint128,bytes,uint32)",
                     targetOrderId,
                     targetAmt,
                     uint128(0),
@@ -921,7 +921,7 @@ contract ArbitrageCallback is IGridCallback {
         _isInnerCall = true;
         (bool success,) = exchange.call(
             abi.encodeWithSignature(
-                "fillBidOrder(uint256,uint128,uint128,bytes,uint32)",
+                "fillBidOrder(uint64,uint128,uint128,bytes,uint32)",
                 bidOrderId,
                 bidAmt,
                 uint128(0),
@@ -974,7 +974,7 @@ contract CancelDuringCallback is IGridCallback {
             // Attempt withdrawGridProfits — should be blocked by _guardNoReentry()
             (success,) = exchange.call(
                 abi.encodeWithSignature(
-                    "withdrawGridProfits(uint128,uint256,address,uint32)",
+                    "withdrawGridProfits(uint48,uint256,address,uint32)",
                     targetGridId,
                     uint256(0),
                     address(this),
@@ -1114,7 +1114,7 @@ contract AskCallsBidCallback is IGridCallback {
         _isInnerCall = true;
         (bool success,) = exchange.call(
             abi.encodeWithSignature(
-                "fillBidOrder(uint256,uint128,uint128,bytes,uint32)",
+                "fillBidOrder(uint64,uint128,uint128,bytes,uint32)",
                 targetBidOrderId,
                 targetBidAmt,
                 uint128(0),
@@ -1177,7 +1177,7 @@ contract BidCallsAskCallback is IGridCallback {
         _isInnerCall = true;
         (bool success,) = exchange.call(
             abi.encodeWithSignature(
-                "fillAskOrder(uint256,uint128,uint128,bytes,uint32)",
+                "fillAskOrder(uint64,uint128,uint128,bytes,uint32)",
                 targetAskOrderId,
                 targetAskAmt,
                 uint128(0),

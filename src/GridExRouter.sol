@@ -85,7 +85,7 @@ contract GridExRouter {
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Fill a single ask grid order (buy base token)
-    function fillAskOrder(uint256, uint128, uint128, bytes calldata, uint32) external payable {
+    function fillAskOrder(uint64, uint128, uint128, bytes calldata, uint32) external payable {
         ReentrancyLib._enter();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
@@ -93,7 +93,7 @@ contract GridExRouter {
     }
 
     /// @notice Fill multiple ask orders in a single transaction
-    function fillAskOrders(uint64, uint256[] calldata, uint128[] calldata, uint128, uint128, bytes calldata, uint32)
+    function fillAskOrders(uint64, uint64[] calldata, uint128[] calldata, uint128, uint128, bytes calldata, uint32)
         external
         payable
     {
@@ -104,7 +104,7 @@ contract GridExRouter {
     }
 
     /// @notice Fill a single bid grid order (sell base token)
-    function fillBidOrder(uint256, uint128, uint128, bytes calldata, uint32) external payable {
+    function fillBidOrder(uint64, uint128, uint128, bytes calldata, uint32) external payable {
         ReentrancyLib._enter();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
@@ -112,7 +112,7 @@ contract GridExRouter {
     }
 
     /// @notice Fill multiple bid orders in a single transaction
-    function fillBidOrders(uint64, uint256[] calldata, uint128[] calldata, uint128, uint128, bytes calldata, uint32)
+    function fillBidOrders(uint64, uint64[] calldata, uint128[] calldata, uint128, uint128, bytes calldata, uint32)
         external
         payable
     {
@@ -127,28 +127,28 @@ contract GridExRouter {
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Cancel an entire grid and withdraw all remaining tokens
-    function cancelGrid(address, uint128, uint32) external {
+    function cancelGrid(address, uint48, uint32) external {
         ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
 
     /// @notice Cancel a range of consecutive grid orders
-    function cancelGridOrders(address, uint256, uint32, uint32) external {
+    function cancelGridOrders(address, uint64, uint32, uint32) external {
         ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
 
     /// @notice Cancel specific orders within a grid by ID list
-    function cancelGridOrders(uint128, address, uint256[] memory, uint32) external {
+    function cancelGridOrders(uint48, address, uint64[] memory, uint32) external {
         ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());
     }
 
     /// @notice Withdraw accumulated profits from a grid
-    function withdrawGridProfits(uint128, uint256, address, uint32) external {
+    function withdrawGridProfits(uint48, uint256, address, uint32) external {
         ReentrancyLib._guardNoReentry();
         ReentrancyLib._enter();
         _delegateToFacetGuarded(GridExStorage.layout());

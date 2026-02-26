@@ -25,7 +25,7 @@ contract GridExEdgeTest is GridExBaseTest {
         uint128 amt = 0.01 ether; // Small amount per order
 
         // Place 100 ask orders (large but reasonable)
-        uint32 askCount = 100;
+        uint16 askCount = 100;
 
         vm.startPrank(maker);
         sea.approve(address(exchange), type(uint256).max);
@@ -61,7 +61,7 @@ contract GridExEdgeTest is GridExBaseTest {
         uint128 amt = 0.01 ether;
 
         // Place 100 bid orders
-        uint32 bidCount = 100;
+        uint16 bidCount = 100;
 
         vm.startPrank(maker);
         usdc.approve(address(exchange), type(uint256).max);
@@ -98,8 +98,8 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 bidPrice0 = askPrice0 * 50; // Start high enough for 50 bid orders
         uint128 amt = 0.01 ether;
 
-        uint32 askCount = 50;
-        uint32 bidCount = 50;
+        uint16 askCount = 50;
+        uint16 bidCount = 50;
 
         vm.startPrank(maker);
         sea.approve(address(exchange), type(uint256).max);
@@ -203,11 +203,11 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill with minimum amount (1 wei)
         uint128 fillAmt = 1;
@@ -326,12 +326,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
         uint256 gap = askPrice0 / 20;
         uint128 amt = 0.02 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place ETH ask orders (ETH is base)
         _placeOrders(address(0), address(usdc), amt, 5, 0, askPrice0, 0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerWethBefore = weth.balanceOf(taker);
 
@@ -352,12 +352,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 0.02 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         // Place ETH bid orders (ETH is base, USDC is quote)
         _placeOrders(address(0), address(usdc), amt, 0, 5, 0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 gridOrderId = toGridOrderId(1, bidOrderId);
 
         uint256 takerEthBefore = taker.balance;
 
@@ -452,7 +452,7 @@ contract GridExEdgeTest is GridExBaseTest {
 
         // Amount that would overflow when multiplied by order count
         uint128 amt = type(uint128).max / 2;
-        uint32 askCount = 3; // amt * 3 > type(uint128).max
+        uint16 askCount = 3; // amt * 3 > type(uint128).max
 
         vm.startPrank(maker);
         sea.approve(address(exchange), type(uint256).max);
@@ -512,11 +512,11 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Try to fill more than available
         uint128 fillAmt = amt + 1;
@@ -533,11 +533,11 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Try to fill zero amount
         vm.startPrank(taker);
@@ -581,11 +581,11 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Set minAmt higher than what we're filling
         uint128 minAmt = amt + 1;
@@ -602,11 +602,11 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 gridOrderId = toGridOrderId(1, bidOrderId);
 
         // Set minAmt higher than what we're filling
         uint128 minAmt = amt + 1;
@@ -626,12 +626,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill the ask order completely
         vm.startPrank(taker);
@@ -654,12 +654,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Get initial protocol fee balance (protocol fees go to vault)
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
@@ -695,12 +695,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Get initial protocol fee balance (protocol fees go to vault)
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
@@ -734,12 +734,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 gridOrderId = toGridOrderId(1, bidOrderId);
 
         // Get initial protocol fee balance (for bid orders, fee is in quote token, goes to vault)
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
@@ -775,12 +775,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 bidOrderId = 0x0000000000000000000000000000001;
+        uint16 bidOrderId = 1;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        uint64 gridOrderId = toGridOrderId(1, bidOrderId);
 
         // Get initial protocol fee balance (protocol fees go to vault)
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
@@ -855,12 +855,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill the ask order completely
         vm.startPrank(taker);
@@ -886,12 +886,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Partially fill the ask order (only half)
         vm.startPrank(taker);
@@ -917,12 +917,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Get vault balance before (protocol fees go to vault)
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
@@ -999,12 +999,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place oneshot orders
         _placeOneshotOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Get initial protocol fee balance (protocol fees go to vault)
         uint256 vaultBalanceBefore = usdc.balanceOf(vault);
@@ -1063,12 +1063,12 @@ contract GridExEdgeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Place compound orders
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, true, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill the ask order
         vm.startPrank(taker);

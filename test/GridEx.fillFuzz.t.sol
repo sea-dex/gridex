@@ -16,7 +16,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillAskOrder_partialFill(uint128 fillAmt) public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 20000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 10, 0, askPrice0, askPrice0 - gap, gap, false, 500);
@@ -24,7 +24,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound fillAmt to valid range
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
@@ -64,7 +64,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         if (gap == 0) gap = 1;
 
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 1000 ether;
         uint128 fillAmt = 100 ether;
 
@@ -74,7 +74,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         _placeOrders(address(sea), address(usdc), orderAmt, 1, 0, askPrice0, askPrice0 - gap, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
 
@@ -96,13 +96,13 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 10000 ether;
         uint128 fillAmt = 1000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 1, 0, askPrice0, askPrice0 - gap, gap, false, feeBps);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
@@ -129,7 +129,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillBidOrder_partialFill(uint128 fillAmt) public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1; // Bid order ID starts from 1
+        uint16 orderId = 0; // Bid order ID starts from 1
         uint128 orderAmt = 20000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 0, 10, bidPrice0 + gap, bidPrice0, gap, false, 500);
@@ -137,7 +137,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound fillAmt to valid range
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
@@ -174,13 +174,13 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 10000 ether;
         uint128 fillAmt = 1000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 0, 1, bidPrice0 + gap, bidPrice0, gap, false, feeBps);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
@@ -210,19 +210,19 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 10000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, orderCount, 0, askPrice0, askPrice0 - gap, gap, false, 500);
 
         // Create order IDs and amounts arrays
-        uint256[] memory orderIds = new uint256[](orderCount);
+        uint64[] memory orderIds = new uint64[](orderCount);
         uint128[] memory amts = new uint128[](orderCount);
 
         uint128 totalFillAmt = 0;
         for (uint256 i = 0; i < orderCount; i++) {
             // forge-lint: disable-next-line
-            orderIds[i] = toGridOrderId(1, orderId + uint128(i));
+            orderIds[i] = toGridOrderId(1, orderId + uint16(i));
             // Vary fill amounts based on seed
             uint128 fillAmt = uint128(bound(uint256(fillAmtSeed) + i * 1000, 1 ether, orderAmt));
             amts[i] = fillAmt;
@@ -252,7 +252,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillAskOrders_withMaxAmt(uint128 maxAmt) public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 10000 ether;
         uint8 orderCount = 3;
 
@@ -261,12 +261,12 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound maxAmt to reasonable range
         maxAmt = uint128(bound(uint256(maxAmt), 1 ether, uint256(orderAmt) * orderCount));
 
-        uint256[] memory orderIds = new uint256[](orderCount);
+        uint64[] memory orderIds = new uint64[](orderCount);
         uint128[] memory amts = new uint128[](orderCount);
 
         for (uint256 i = 0; i < orderCount; i++) {
             // forge-lint: disable-next-line
-            orderIds[i] = toGridOrderId(1, orderId + uint128(i));
+            orderIds[i] = toGridOrderId(1, orderId + uint16(i));
             amts[i] = orderAmt; // Try to fill full amount
         }
 
@@ -293,18 +293,18 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 10000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 0, orderCount, bidPrice0 + gap, bidPrice0, gap, false, 500);
 
         // Create order IDs and amounts arrays
-        uint256[] memory orderIds = new uint256[](orderCount);
+        uint64[] memory orderIds = new uint64[](orderCount);
         uint128[] memory amts = new uint128[](orderCount);
 
         for (uint256 i = 0; i < orderCount; i++) {
             // forge-lint: disable-next-line
-            orderIds[i] = toGridOrderId(1, orderId + uint128(i));
+            orderIds[i] = toGridOrderId(1, orderId + uint16(i));
             // Vary fill amounts based on seed
             uint128 fillAmt = uint128(bound(uint256(fillAmtSeed) + i * 1000, 1 ether, orderAmt));
             amts[i] = fillAmt;
@@ -337,7 +337,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillBidOrders_withMaxAmt(uint128 maxAmt) public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 10000 ether;
         uint8 orderCount = 3;
 
@@ -346,12 +346,12 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound maxAmt to reasonable range
         maxAmt = uint128(bound(uint256(maxAmt), 1 ether, uint256(orderAmt) * orderCount));
 
-        uint256[] memory orderIds = new uint256[](orderCount);
+        uint64[] memory orderIds = new uint64[](orderCount);
         uint128[] memory amts = new uint128[](orderCount);
 
         for (uint256 i = 0; i < orderCount; i++) {
             // forge-lint: disable-next-line
-            orderIds[i] = toGridOrderId(1, orderId + uint128(i));
+            orderIds[i] = toGridOrderId(1, orderId + uint16(i));
             amts[i] = orderAmt; // Try to fill full amount
         }
 
@@ -375,7 +375,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillAskThenBid_roundtrip(uint128 fillAmt) public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 20000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 1, 0, askPrice0, askPrice0 - gap, gap, false, 500);
@@ -383,7 +383,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound fillAmt to valid range
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill ask order
         vm.startPrank(taker);
@@ -421,7 +421,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillBidThenAsk_roundtrip(uint128 fillAmt) public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 20000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 0, 1, bidPrice0 + gap, bidPrice0, gap, false, 500);
@@ -429,7 +429,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound fillAmt to valid range
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill bid order
         vm.startPrank(taker);
@@ -462,7 +462,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillAskOrder_compound(uint128 fillAmt) public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 20000 ether;
 
         // Place orders with compound = true
@@ -471,7 +471,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound fillAmt to valid range
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
 
@@ -497,7 +497,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillBidOrder_compound(uint128 fillAmt) public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 20000 ether;
 
         // Place orders with compound = true
@@ -506,7 +506,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         // Bound fillAmt to valid range
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerSeaBefore = sea.balanceOf(taker);
 
@@ -531,7 +531,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillAskOrder_minAmt(uint128 fillAmt, uint128 minAmt) public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 20000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 1, 0, askPrice0, askPrice0 - gap, gap, false, 500);
@@ -540,7 +540,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
         minAmt = uint128(bound(uint256(minAmt), 0, fillAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         vm.startPrank(taker);
         // This should succeed since fillAmt >= minAmt
@@ -555,7 +555,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
     function testFuzz_fillBidOrder_minAmt(uint128 fillAmt, uint128 minAmt) public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 20000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 0, 1, bidPrice0 + gap, bidPrice0, gap, false, 500);
@@ -564,7 +564,7 @@ contract GridExFillFuzzTest is GridExBaseTest {
         fillAmt = uint128(bound(uint256(fillAmt), 1 ether, orderAmt));
         minAmt = uint128(bound(uint256(minAmt), 0, fillAmt));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         vm.startPrank(taker);
         // This should succeed since fillAmt >= minAmt
@@ -583,12 +583,12 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = askPrice0 / 20;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 orderAmt = 100000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 1, 0, askPrice0, askPrice0 - gap, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         uint128 totalFilled = 0;
 
         for (uint256 i = 0; i < numFills && totalFilled < orderAmt; i++) {
@@ -619,12 +619,12 @@ contract GridExFillFuzzTest is GridExBaseTest {
 
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12));
         uint256 gap = bidPrice0 / 20;
-        uint128 orderId = 1;
+        uint16 orderId = 0;
         uint128 orderAmt = 100000 ether;
 
         _placeOrders(address(sea), address(usdc), orderAmt, 0, 1, bidPrice0 + gap, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         uint128 totalFilled = 0;
 
         for (uint256 i = 0; i < numFills && totalFilled < orderAmt; i++) {

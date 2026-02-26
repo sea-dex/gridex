@@ -18,16 +18,16 @@ contract ViewFacet {
     // ─── Grid order queries ──────────────────────────────────────────
 
     /// @notice Get information about a single grid order
-    /// @param id The grid order ID
+    /// @param id The grid order ID (64 bits)
     /// @return The order information struct
-    function getGridOrder(uint256 id) external view returns (IGridOrder.OrderInfo memory) {
+    function getGridOrder(uint64 id) external view returns (IGridOrder.OrderInfo memory) {
         return GridExStorage.layout().gridState.getOrderInfo(id, false);
     }
 
     /// @notice Get information about multiple grid orders
-    /// @param idList Array of grid order IDs to query
+    /// @param idList Array of grid order IDs to query (64 bits each)
     /// @return orderList Array of order information structs
-    function getGridOrders(uint256[] calldata idList) external view returns (IGridOrder.OrderInfo[] memory) {
+    function getGridOrders(uint64[] calldata idList) external view returns (IGridOrder.OrderInfo[] memory) {
         GridExStorage.Layout storage l = GridExStorage.layout();
         uint256 len = idList.length;
         IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](len);
@@ -42,16 +42,16 @@ contract ViewFacet {
     }
 
     /// @notice Get the accumulated profits for a grid
-    /// @param gridId The grid ID to query
+    /// @param gridId The grid ID to query (48 bits)
     /// @return The profit amount in quote tokens
-    function getGridProfits(uint96 gridId) external view returns (uint256) {
+    function getGridProfits(uint48 gridId) external view returns (uint256) {
         return GridExStorage.layout().gridState.gridConfigs[gridId].profits;
     }
 
     /// @notice Get the configuration for a grid
-    /// @param gridId The grid ID to query
+    /// @param gridId The grid ID to query (48 bits)
     /// @return The grid configuration struct
-    function getGridConfig(uint96 gridId) external view returns (IGridOrder.GridConfig memory) {
+    function getGridConfig(uint48 gridId) external view returns (IGridOrder.GridConfig memory) {
         return GridExStorage.layout().gridState.gridConfigs[gridId];
     }
 

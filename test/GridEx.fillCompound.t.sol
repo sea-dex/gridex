@@ -10,7 +10,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
@@ -18,7 +18,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(amt * 10, sea.balanceOf(address(exchange)));
         assertEq(0, usdc.balanceOf(address(exchange)));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
         exchange.fillAskOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
@@ -83,7 +83,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
@@ -92,7 +92,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(0, usdc.balanceOf(address(exchange)));
 
         uint128 fillAmt1 = 1000 ether;
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         for (uint256 i = 0; i < amt / fillAmt1; i++) {
             vm.startPrank(taker);
             exchange.fillAskOrder(gridOrderId, fillAmt1, fillAmt1, new bytes(0), 0);
@@ -138,7 +138,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
@@ -148,7 +148,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
 
         vm.startPrank(taker);
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);
@@ -206,7 +206,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
     function test_fillCompoundBidOrder() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 0, 10, 0, bidPrice0, gap, true, 500);
@@ -221,7 +221,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(quoteAmt, usdc.balanceOf(address(exchange)));
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
         exchange.fillBidOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
@@ -290,7 +290,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
     function test_partialFillCompoundBidOrder() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 0, 10, 0, bidPrice0, gap, true, 500);
@@ -303,7 +303,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         // }
         (, uint128 totalQuoteAmt) = Lens.calcGridAmount(amt, bidPrice0, gap, 0, 10);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         assertEq(0, sea.balanceOf(address(exchange)));
         assertEq(totalQuoteAmt, usdc.balanceOf(address(exchange)));
         IGridOrder.OrderInfo memory order0 = exchange.getGridOrder(gridOrderId);
@@ -386,7 +386,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
     function test_partialFillCompoundBidOrders() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 0, 10, 0, bidPrice0, gap, true, 500);
@@ -401,7 +401,7 @@ contract GridExFillCompoundTest is GridExBaseTest {
         uint128 quoteAmt0 = Lens.calcQuoteAmount(amt, price0, false);
         uint128 quoteAmt1 = Lens.calcQuoteAmount(amt, price1, false);
         uint128 quoteAmt2 = Lens.calcQuoteAmount(amt, price2, false);
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);

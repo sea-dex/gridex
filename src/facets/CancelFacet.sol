@@ -51,9 +51,9 @@ contract CancelFacet is IOrderEvents {
 
     /// @notice Cancel an entire grid and withdraw all remaining tokens
     /// @param recipient The address to receive the withdrawn tokens
-    /// @param gridId The grid ID to cancel
+    /// @param gridId The grid ID to cancel (48 bits)
     /// @param flag Bit flags: 1 = base to ETH, 2 = quote to ETH
-    function cancelGrid(address recipient, uint128 gridId, uint32 flag) external {
+    function cancelGrid(address recipient, uint48 gridId, uint32 flag) external {
         GridExStorage.Layout storage l = GridExStorage.layout();
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = l.gridState.cancelGrid(msg.sender, gridId);
         IPair.Pair memory pair = l.getPairById[pairId];
@@ -69,13 +69,13 @@ contract CancelFacet is IOrderEvents {
 
     /// @notice Cancel a range of consecutive grid orders
     /// @param recipient The address to receive the withdrawn tokens
-    /// @param startGridOrderId The first grid order ID to cancel
+    /// @param startGridOrderId The first grid order ID to cancel (64 bits)
     /// @param howmany The number of consecutive orders to cancel
     /// @param flag Bit flags: 1 = base to ETH, 2 = quote to ETH
-    function cancelGridOrders(address recipient, uint256 startGridOrderId, uint32 howmany, uint32 flag) external {
-        uint256[] memory idList = new uint256[](howmany);
-        (uint128 gridId,) = GridOrder.extractGridIdOrderId(startGridOrderId);
-        for (uint256 i; i < howmany;) {
+    function cancelGridOrders(address recipient, uint64 startGridOrderId, uint32 howmany, uint32 flag) external {
+        uint64[] memory idList = new uint64[](howmany);
+        (uint48 gridId,) = GridOrder.extractGridIdOrderId(startGridOrderId);
+        for (uint64 i; i < howmany;) {
             idList[i] = startGridOrderId + i;
             unchecked {
                 ++i;
@@ -86,15 +86,15 @@ contract CancelFacet is IOrderEvents {
     }
 
     /// @notice Cancel specific orders within a grid by ID list
-    /// @param gridId The grid ID containing the orders
+    /// @param gridId The grid ID containing the orders (48 bits)
     /// @param recipient The address to receive the withdrawn tokens
-    /// @param idList Array of order IDs to cancel
+    /// @param idList Array of grid order IDs to cancel (64 bits each)
     /// @param flag Bit flags: 1 = base to ETH, 2 = quote to ETH
-    function cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag) external {
+    function cancelGridOrders(uint48 gridId, address recipient, uint64[] memory idList, uint32 flag) external {
         _cancelGridOrders(gridId, recipient, idList, flag);
     }
 
-    function _cancelGridOrders(uint128 gridId, address recipient, uint256[] memory idList, uint32 flag) internal {
+    function _cancelGridOrders(uint48 gridId, address recipient, uint64[] memory idList, uint32 flag) internal {
         GridExStorage.Layout storage l = GridExStorage.layout();
         (uint64 pairId, uint256 baseAmt, uint256 quoteAmt) = l.gridState.cancelGridOrders(msg.sender, gridId, idList);
 
@@ -110,11 +110,11 @@ contract CancelFacet is IOrderEvents {
     // ─── Withdraw & modify ───────────────────────────────────────────
 
     /// @notice Withdraw accumulated profits from a grid
-    /// @param gridId The grid ID to withdraw profits from
+    /// @param gridId The grid ID to withdraw profits from (48 bits)
     /// @param amt The amount to withdraw (0 = withdraw all)
     /// @param to The recipient address
     /// @param flag If quote is WETH and flag != 0, receive ETH instead
-    function withdrawGridProfits(uint128 gridId, uint256 amt, address to, uint32 flag) external {
+    function withdrawGridProfits(uint48 gridId, uint256 amt, address to, uint32 flag) external {
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.GridConfig memory conf = l.gridState.gridConfigs[gridId];
         if (conf.owner != msg.sender) {
@@ -147,9 +147,9 @@ contract CancelFacet is IOrderEvents {
     }
 
     /// @notice Modify the fee for a grid
-    /// @param gridId The grid ID to modify
+    /// @param gridId The grid ID to modify (48 bits)
     /// @param fee The new fee in basis points
-    function modifyGridFee(uint128 gridId, uint32 fee) external {
+    function modifyGridFee(uint48 gridId, uint32 fee) external {
         GridExStorage.Layout storage l = GridExStorage.layout();
         l.gridState.modifyGridFee(msg.sender, gridId, fee);
     }

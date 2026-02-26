@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {Test} from "forge-std/Test.sol";
 
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
-import {IGridEx} from "../src/interfaces/IGridEx.sol";
+import {IGridExRouter} from "../src/interfaces/IGridExRouter.sol";
 import {GridExRouter} from "../src/GridExRouter.sol";
 import {TradeFacet} from "../src/facets/TradeFacet.sol";
 import {CancelFacet} from "../src/facets/CancelFacet.sol";
@@ -35,8 +35,8 @@ contract GridExBaseTest is Test {
     USDC public usdc;
     address public vault = address(0x0888880);
 
-    /// @dev `exchange` is the router address typed as IGridEx for direct method calls
-    IGridEx public exchange;
+    /// @dev `exchange` is the router address for direct method calls
+    IGridExRouter public exchange;
 
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     address maker = address(0x100);
@@ -61,7 +61,7 @@ contract GridExBaseTest is Test {
 
         // Deploy Router (with admin facet address for bootstrapping)
         router = new GridExRouter(address(this), vault, address(adminFacet));
-        exchange = IGridEx(address(router));
+        exchange = IGridExRouter(address(router));
 
         // Register all selectors (admin facet selectors already bootstrapped in constructor)
         _registerAllSelectors();
@@ -130,9 +130,9 @@ contract GridExBaseTest is Test {
 
         cancelSel[0] = CancelFacet.cancelGrid.selector;
         cancelFac[0] = address(cancelFacet);
-        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint64,uint32,uint32)"));
         cancelFac[1] = address(cancelFacet);
-        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint48,address,uint64[],uint32)"));
         cancelFac[2] = address(cancelFacet);
         cancelSel[3] = CancelFacet.withdrawGridProfits.selector;
         cancelFac[3] = address(cancelFacet);
@@ -200,8 +200,8 @@ contract GridExBaseTest is Test {
         AdminFacet(address(exchange)).batchSetFacet(viewSel, viewFac);
     }
 
-    function toGridOrderId(uint128 gridId, uint128 orderId) internal pure returns (uint256) {
-        return uint256(uint256(gridId) << 128) | uint256(orderId);
+    function toGridOrderId(uint48 gridId, uint16 orderId) internal pure returns (uint64) {
+        return (uint64(gridId) << 16) | uint64(orderId);
     }
 
     function _placeOrdersBy(

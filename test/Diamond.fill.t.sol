@@ -14,7 +14,7 @@ contract DiamondFillTest is GridExDiamondBaseTest {
     function test_fillAskOrder() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20000 ether; // SEA
 
         _placeOrders(address(sea), address(usdc), amt, 10, 0, askPrice0, askPrice0 - gap, gap, false, 500);
@@ -25,7 +25,7 @@ contract DiamondFillTest is GridExDiamondBaseTest {
         IGridOrder.GridConfig memory gridConf = ViewFacet(exchange).getGridConfig(1);
         assertEq(gridConf.pairId, 1);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
         TradeFacet(exchange).fillAskOrder(gridOrderId, amt, amt, new bytes(0), 0);
         vm.stopPrank();
@@ -41,8 +41,8 @@ contract DiamondFillTest is GridExDiamondBaseTest {
 
         _placeOrders(address(sea), address(usdc), amt, 0, 10, askPrice0, askPrice0 - gap, gap, false, 500);
 
-        uint128 bidOrderId = 1;
-        uint256 gridOrderId = toGridOrderId(1, bidOrderId);
+        uint16 bidOrderId = 1;
+        uint64 gridOrderId = toGridOrderId(1, bidOrderId);
 
         vm.startPrank(taker);
         TradeFacet(exchange).fillBidOrder(gridOrderId, amt, 0, new bytes(0), 0);

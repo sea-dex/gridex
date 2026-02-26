@@ -283,21 +283,21 @@ contract GridExFuzzTest is Test {
     // ============ Grid Order ID Fuzz Tests ============
 
     /// @notice Fuzz test grid order ID encoding/decoding
-    function testFuzz_gridOrderId_roundtrip(uint128 gridId, uint128 orderId) public pure {
-        uint256 combined = GridOrder.toGridOrderId(gridId, orderId);
+    function testFuzz_gridOrderId_roundtrip(uint48 gridId, uint16 orderId) public pure {
+        uint64 combined = GridOrder.toGridOrderId(gridId, orderId);
 
-        (uint128 extractedGridId, uint128 extractedOrderId) = GridOrder.extractGridIdOrderId(combined);
+        (uint48 extractedGridId, uint16 extractedOrderId) = GridOrder.extractGridIdOrderId(combined);
 
         assertEq(extractedGridId, gridId);
         assertEq(extractedOrderId, orderId);
     }
 
     /// @notice Fuzz test ask order identification
-    function testFuzz_isAskGridOrder(uint128 orderId) public pure {
-        // Ask orders have high bit set (>= 0x80000000000000000000000000000000)
+    function testFuzz_isAskGridOrder(uint16 orderId) public pure {
+        // Ask orders have high bit set (>= 0x8000)
         bool isAsk = GridOrder.isAskGridOrder(orderId);
 
-        if (orderId >= 0x80000000000000000000000000000000) {
+        if (orderId >= 0x8000) {
             assertTrue(isAsk);
         } else {
             assertFalse(isAsk);

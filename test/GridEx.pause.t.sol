@@ -16,10 +16,10 @@ contract GridExPauseTest is GridExBaseTest {
     uint256 constant BID_PRICE = 9e32;
     uint256 constant PRICE_GAP = 1e31;
 
-    // Ask orders have high bit set
-    uint128 constant ASK_ORDER_FLAG = 0x80000000000000000000000000000000;
-    uint128 constant ASK_ORDER_START_ID = ASK_ORDER_FLAG | 1;
-    uint128 constant BID_ORDER_START_ID = 1;
+    // Ask orders have high bit set (uint16)
+    uint16 constant ASK_ORDER_FLAG = 0x8000;
+    uint16 constant ASK_ORDER_START_ID = 0x8000;
+    uint16 constant BID_ORDER_START_ID = 0;
 
     function setUp() public override {
         super.setUp();
@@ -37,12 +37,12 @@ contract GridExPauseTest is GridExBaseTest {
     }
 
     /// @notice Helper to create ask order ID
-    function toAskOrderId(uint128 gridId, uint128 orderIndex) internal pure returns (uint256) {
+    function toAskOrderId(uint48 gridId, uint16 orderIndex) internal pure returns (uint64) {
         return toGridOrderId(gridId, ASK_ORDER_START_ID + orderIndex);
     }
 
     /// @notice Helper to create bid order ID
-    function toBidOrderId(uint128 gridId, uint128 orderIndex) internal pure returns (uint256) {
+    function toBidOrderId(uint48 gridId, uint16 orderIndex) internal pure returns (uint64) {
         return toGridOrderId(gridId, BID_ORDER_START_ID + orderIndex);
     }
 
@@ -163,7 +163,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // Try to fill - should revert (use correct ask order ID)
-        uint256 orderId = toAskOrderId(1, 0); // First ask order
+        uint64 orderId = toAskOrderId(1, 0); // First ask order
         vm.startPrank(taker);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         exchange.fillAskOrder(orderId, 1 ether, 0, "", 0);
@@ -179,7 +179,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // Try to fill bid order - should revert (use correct bid order ID)
-        uint256 orderId = toBidOrderId(1, 0); // First bid order
+        uint64 orderId = toBidOrderId(1, 0); // First bid order
         vm.startPrank(taker);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         exchange.fillBidOrder(orderId, 1 ether, 0, "", 0);
@@ -195,7 +195,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // Try to fill multiple orders - should revert
-        uint256[] memory idList = new uint256[](2);
+        uint64[] memory idList = new uint64[](2);
         idList[0] = toAskOrderId(1, 0);
         idList[1] = toAskOrderId(1, 1);
 
@@ -218,7 +218,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // Try to fill multiple bid orders - should revert
-        uint256[] memory idList = new uint256[](2);
+        uint64[] memory idList = new uint64[](2);
         idList[0] = toBidOrderId(1, 0);
         idList[1] = toBidOrderId(1, 1);
 
@@ -259,7 +259,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // Cancel specific orders should still work (use ask order IDs)
-        uint256[] memory idList = new uint256[](2);
+        uint64[] memory idList = new uint64[](2);
         idList[0] = toAskOrderId(1, 0);
         idList[1] = toAskOrderId(1, 1);
 
@@ -274,7 +274,7 @@ contract GridExPauseTest is GridExBaseTest {
         _placeOrders(address(sea), address(weth), 1 ether, 5, 5, ASK_PRICE, BID_PRICE, PRICE_GAP, false, 1000);
 
         // Fill an ask order to generate profits (use correct ask order ID)
-        uint256 orderId = toAskOrderId(1, 0);
+        uint64 orderId = toAskOrderId(1, 0);
         vm.startPrank(taker);
         exchange.fillAskOrder(orderId, 1 ether, 0, "", 0);
         vm.stopPrank();
@@ -303,7 +303,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // View functions should still work (use correct ask order ID)
-        uint256 orderId = toAskOrderId(1, 0);
+        uint64 orderId = toAskOrderId(1, 0);
         IGridOrder.OrderInfo memory info = exchange.getGridOrder(orderId);
         assertEq(info.baseAmt, 1 ether, "Should be able to read order info when paused");
     }
@@ -321,7 +321,7 @@ contract GridExPauseTest is GridExBaseTest {
         exchange.pause();
 
         // Verify fill reverts (use correct ask order ID)
-        uint256 orderId = toAskOrderId(1, 0);
+        uint64 orderId = toAskOrderId(1, 0);
         vm.startPrank(taker);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         exchange.fillAskOrder(orderId, 1 ether, 0, "", 0);
@@ -377,7 +377,7 @@ contract GridExPauseTest is GridExBaseTest {
         vm.stopPrank();
 
         // Verify order was placed
-        uint256 orderId = toGridOrderId(1, 1);
+        uint64 orderId = toGridOrderId(1, 1);
         IGridOrder.OrderInfo memory info = exchange.getGridOrder(orderId);
         assertEq(info.baseAmt, 1 ether, "Order should be placed after unpause");
     }

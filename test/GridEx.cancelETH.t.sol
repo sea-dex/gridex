@@ -13,7 +13,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 2 ether / 100; // SEA
 
         _placeOrders(address(0), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
@@ -39,7 +39,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 2 ether / 100; // SEA
 
         _placeOrders(address(0), address(usdc), amt, 10, 0, askPrice0, 0, gap, false, 500);
@@ -67,7 +67,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 2 ether / 100; // SEA
 
         _placeOrders(address(0), address(usdc), amt, 10, 0, askPrice0, 0, gap, true, 500);
@@ -77,7 +77,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         assertEq(initialETHAmt - 10 * amt, eth.balanceOf(maker));
         assertEq(0, weth.balanceOf(maker));
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);
@@ -123,7 +123,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500 / (10 ** 12)); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
         // uint96 orderId = 0x800000000000000000000001;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 2 ether / 100; // SEA
 
         _placeOrders(address(0), address(usdc), amt, 10, 0, askPrice0, 0, gap, false, 500);
@@ -132,7 +132,7 @@ contract GridExCancelETHTest is GridExBaseTest {
         assertEq(0, usdc.balanceOf(address(exchange)));
         assertEq(initialETHAmt - 10 * amt, eth.balanceOf(maker));
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);
@@ -177,7 +177,7 @@ contract GridExCancelETHTest is GridExBaseTest {
     function test_cancelETHBidGridWithoutFill1() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 0, 10, 0, bidPrice0, gap, false, 500);
@@ -205,7 +205,7 @@ contract GridExCancelETHTest is GridExBaseTest {
     function test_cancelETHBidGridWithoutFill2() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 0, 10, 0, bidPrice0, gap, false, 500);
@@ -234,12 +234,12 @@ contract GridExCancelETHTest is GridExBaseTest {
     function test_cancelETHBidGridFilled1() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 0, 10, 0, bidPrice0, gap, true, 500);
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);
@@ -284,12 +284,12 @@ contract GridExCancelETHTest is GridExBaseTest {
     function test_cancelETHBidGridFilled2() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 0, 10, 0, bidPrice0, gap, true, 500);
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);

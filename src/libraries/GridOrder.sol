@@ -30,12 +30,11 @@ library GridOrder {
     /// @dev MAX_FEE of 100000 = 10%
     uint32 public constant MAX_FEE = 100000;
 
-    /// @dev Mask for extracting order ID from grid order ID (lower 128 bits)
-    uint256 private constant ODER_ID_MASK = 0xffffffffffffffffffffffffffffffff;
+    /// @dev Mask for extracting order ID from grid order ID (lower 16 bits)
+    uint64 private constant ORDER_ID_MASK = 0xFFFF;
 
-    /// @dev Mask for identifying ask orders (high bit of order ID is set)
-    /// @dev Ask orders have order IDs starting from 0x80000000000000000000000000000001
-    uint128 private constant ASK_ODER_MASK = ProtocolConstants.ASK_ORDER_FLAG;
+    /// @dev Mask for identifying ask orders (high bit of uint16 order ID is set)
+    uint16 private constant ASK_ORDER_MASK = ProtocolConstants.ASK_ORDER_FLAG;
 
     /// @dev Grid status: normal/active - grid is operational and orders can be filled
     uint32 private constant GRID_STATUS_NORMAL = 0;
@@ -45,40 +44,35 @@ library GridOrder {
 
     /// @notice State structure for managing all grid orders
     /// @dev Stored in contract storage. This is the main state container for the grid order system.
-    ///      Grid order IDs are composed of: (gridId << 128) | orderId
-    ///      - gridId: Unique identifier for a grid (128 bits)
-    ///      - orderId: Unique identifier for an order within the grid (128 bits)
+    ///      Grid order IDs are composed of: (gridId << 16) | orderId
+    ///      - gridId: Unique identifier for a grid (48 bits)
+    ///      - orderId: Unique identifier for an order within the grid (16 bits)
+    ///      Order ID ranges:
+    ///      - Bid orders: 0-32767 (0x0000-0x7FFF)
+    ///      - Ask orders: 32768-65535 (0x8000-0xFFFF)
     struct GridState {
         /// @notice Next grid ID to assign (starts from 1)
         /// @dev Incremented each time a new grid is created
-        uint128 nextGridId;
-        /// @notice Next bid order ID to assign (starts from 1)
-        /// @dev Bid orders have IDs in the range [1, ASK_ORDER_FLAG)
-        uint128 nextBidOrderId;
-        /// @notice Next ask order ID to assign (starts from 0x80000000000000000000000000000001)
-        /// @dev Ask orders have the high bit set to distinguish from bid orders
-        uint128 nextAskOrderId;
+        uint64 nextGridId;
         /// @notice Protocol fee in basis points for oneshot orders (all fee goes to protocol, no LP fee)
         /// @dev Default is 500 (0.05%). For oneshot orders, there is no LP fee component.
         uint32 oneshotProtocolFeeBps;
         /// @notice Mapping from grid order ID to order status
-        /// @dev 0 = GRID_STATUS_NORMAL (active), 1 = GRID_STATUS_CANCELED
-        mapping(uint256 gridOrderId => uint256) orderStatus;
+        /// @dev false = GRID_STATUS_NORMAL (active), true = GRID_STATUS_CANCELED
+        mapping(uint64 gridOrderId => bool) orderStatus;
         /// @notice Mapping from grid order ID to order data
         /// @dev Contains the current amount and reverse amount for each order
-        mapping(uint256 gridOrderId => IGridOrder.Order) orderInfos;
+        mapping(uint64 gridOrderId => IGridOrder.Order) orderInfos;
         /// @notice Mapping from grid ID to grid configuration
         /// @dev Contains all configuration parameters for a grid including owner, strategies, and fees
-        mapping(uint256 gridId => IGridOrder.GridConfig) gridConfigs;
+        mapping(uint48 gridId => IGridOrder.GridConfig) gridConfigs;
     }
 
     /// @notice Initialize the grid state
-    /// @dev Sets initial values for grid ID and order ID counters
+    /// @dev Sets initial values for grid ID counter
     /// @param self The grid state storage to initialize
     function initialize(GridState storage self) internal {
-        self.nextGridId = ProtocolConstants.GRID_ID_START;
-        self.nextBidOrderId = ProtocolConstants.BID_ORDER_START_ID;
-        self.nextAskOrderId = ProtocolConstants.ASK_ORDER_START_ID;
+        self.nextGridId = uint64(ProtocolConstants.GRID_ID_START);
         self.oneshotProtocolFeeBps = 500; // default oneshot fee bps 0.05%
     }
 
@@ -125,49 +119,65 @@ library GridOrder {
     }
 
     /// @notice Combine grid ID and order ID into a single grid order ID
-    /// @param gridId The grid ID
-    /// @param orderId The order ID within the grid
-    /// @return id The combined grid order ID
-    function toGridOrderId(uint128 gridId, uint128 orderId) public pure returns (uint256 id) {
-        id = (uint256(gridId) << 128) | uint256(orderId);
+    /// @param gridId The grid ID (48 bits)
+    /// @param orderId The order ID within the grid (16 bits)
+    /// @return id The combined grid order ID (64 bits)
+    function toGridOrderId(uint48 gridId, uint16 orderId) public pure returns (uint64 id) {
+        id = (uint64(gridId) << 16) | uint64(orderId);
     }
 
     /// @notice Check if an order ID represents an ask order
-    /// @param orderId The order ID to check
-    /// @return True if the order is an ask order
-    function isAskGridOrder(uint256 orderId) public pure returns (bool) {
-        return (orderId & ASK_ODER_MASK) > 0;
+    /// @param orderId The order ID to check (16 bits)
+    /// @return True if the order is an ask order (high bit set)
+    function isAskGridOrder(uint16 orderId) public pure returns (bool) {
+        return (orderId & ASK_ORDER_MASK) != 0;
     }
 
     /// @notice Extract grid ID and order ID from a combined grid order ID
-    /// @param gridOrderId The combined grid order ID
-    /// @return The grid ID
-    /// @return The order ID
-    function extractGridIdOrderId(uint256 gridOrderId) internal pure returns (uint128, uint128) {
-        // casting to 'uint128' is safe here
+    /// @param gridOrderId The combined grid order ID (64 bits)
+    /// @return The grid ID (48 bits)
+    /// @return The order ID (16 bits)
+    function extractGridIdOrderId(uint64 gridOrderId) internal pure returns (uint48, uint16) {
         // forge-lint: disable-next-line(unsafe-typecast)
-        return (uint128(gridOrderId >> 128), uint128(gridOrderId & ODER_ID_MASK));
+        return (uint48(gridOrderId >> 16), uint16(gridOrderId & ORDER_ID_MASK));
+    }
+
+    /// @notice Get order index from order ID
+    /// @dev For bid orders (0-32767), index equals orderId
+    ///      For ask orders (32768-65535), index = orderId - 32768
+    /// @param orderId The order ID (16 bits)
+    /// @return The order index within the grid
+    function getOrderIndex(uint16 orderId) internal pure returns (uint16) {
+        if (orderId & ASK_ORDER_MASK != 0) {
+            // Ask order: subtract ASK_ORDER_START_ID (0x8000 = 32768)
+            return orderId - ProtocolConstants.ASK_ORDER_START_ID;
+        } else {
+            // Bid order: index equals orderId
+            return orderId;
+        }
     }
 
     /// @notice Get order amounts for cancellation
     /// @dev Returns base and quote amounts to refund when canceling an order
     /// @param self The grid state storage
     /// @param gridConf The grid configuration
-    /// @param orderId The order ID to cancel
+    /// @param orderId The order ID to cancel (16 bits)
     /// @return baseAmt The base token amount to refund
     /// @return quoteAmt The quote token amount to refund
-    function getOrderAmountsForCancel(GridState storage self, IGridOrder.GridConfig memory gridConf, uint128 orderId)
+    function getOrderAmountsForCancel(GridState storage self, IGridOrder.GridConfig memory gridConf, uint16 orderId)
         internal
         view
         returns (uint128 baseAmt, uint128 quoteAmt)
     {
         bool isAsk = isAskGridOrder(orderId);
+        uint16 orderIdx = getOrderIndex(orderId);
+
         if (isAsk) {
-            if (orderId < gridConf.startAskOrderId || orderId >= gridConf.startAskOrderId + gridConf.askOrderCount) {
+            if (orderIdx >= gridConf.askOrderCount) {
                 revert IOrderErrors.InvalidGridId();
             }
         } else {
-            if (orderId < gridConf.startBidOrderId || orderId >= gridConf.startBidOrderId + gridConf.bidOrderCount) {
+            if (orderIdx >= gridConf.bidOrderCount) {
                 revert IOrderErrors.InvalidGridId();
             }
         }
@@ -179,11 +189,7 @@ library GridOrder {
             if (isAsk) {
                 return (gridConf.baseAmt, 0);
             } else {
-                uint256 price =
-                    gridConf.bidStrategy.getPrice(false, gridConf.gridId, orderId - gridConf.startBidOrderId);
-                // uint256 price = gridConf.startBidPrice -
-                //     gridConf.bidGap *
-                //     (orderId - gridConf.startBidOrderId);
+                uint256 price = gridConf.bidStrategy.getPrice(false, gridConf.gridId, orderIdx);
                 uint128 quoteVol = Lens.calcQuoteAmount(gridConf.baseAmt, price, false);
                 return (0, quoteVol);
             }
@@ -201,14 +207,14 @@ library GridOrder {
     /// @param pairId The trading pair ID
     /// @param maker The grid owner address
     /// @param param The grid order parameters
-    /// @return The new grid ID
+    /// @return The new grid ID (48 bits)
     function createGridConfig(
         GridState storage self,
         uint64 pairId,
         address maker,
         IGridOrder.GridOrderParam calldata param
-    ) internal returns (uint128) {
-        uint128 gridId = self.nextGridId++;
+    ) internal returns (uint48) {
+        uint48 gridId = uint48(self.nextGridId++);
 
         // For oneshot orders, override user fee with oneshotProtocolFeeBps
         uint32 effectiveFee = param.oneshot ? self.oneshotProtocolFeeBps : param.fee;
@@ -218,8 +224,6 @@ library GridOrder {
             profits: 0,
             gridId: gridId,
             pairId: pairId,
-            startAskOrderId: self.nextAskOrderId,
-            startBidOrderId: self.nextBidOrderId,
             baseAmt: param.baseAmount,
             askStrategy: param.askStrategy,
             bidStrategy: param.bidStrategy,
@@ -236,13 +240,12 @@ library GridOrder {
 
     /// @notice Place a new grid order
     /// @dev Creates grid config and calculates required token amounts
+    ///      Order IDs: bid orders use 0-32767, ask orders use 32768-65535
     /// @param self The grid state storage
     /// @param pairId The trading pair ID
     /// @param maker The grid owner address
     /// @param param The grid order parameters
-    /// @return The grid ID
-    /// @return The starting ask order ID (combined with grid ID)
-    /// @return The starting bid order ID (combined with grid ID)
+    /// @return The grid ID (48 bits)
     /// @return The total base token amount required
     /// @return The total quote token amount required
     function placeGridOrder(
@@ -250,30 +253,25 @@ library GridOrder {
         uint64 pairId,
         address maker,
         IGridOrder.GridOrderParam calldata param
-    ) internal returns (uint128, uint256, uint256, uint128, uint128) {
+    ) internal returns (uint48, uint128, uint128) {
         validateGridOrderParam(param);
 
-        uint128 gridId = createGridConfig(self, pairId, maker, param);
+        uint48 gridId = createGridConfig(self, pairId, maker, param);
 
         uint128 baseAmt = param.baseAmount;
-        // uint96 orderId;
-        uint128 startAskOrderId;
-        uint128 startBidOrderId;
         uint128 quoteAmt;
 
+        // Ask orders start at ASK_ORDER_START_ID (0x8000 = 32768)
+        // Bid orders start at BID_ORDER_START_ID (0)
+
         if (param.askOrderCount > 0) {
-            startAskOrderId = self.nextAskOrderId;
-            self.nextAskOrderId += param.askOrderCount;
             IGridStrategy(param.askStrategy).createGridStrategy(true, gridId, param.askData);
         }
 
         if (param.bidOrderCount > 0) {
-            startBidOrderId = self.nextBidOrderId;
-            self.nextBidOrderId += param.bidOrderCount;
-
             IGridStrategy(param.bidStrategy).createGridStrategy(false, gridId, param.bidData);
 
-            for (uint128 i; i < param.bidOrderCount;) {
+            for (uint16 i; i < param.bidOrderCount;) {
                 uint256 price = IGridStrategy(param.bidStrategy).getPrice(false, gridId, i);
                 uint128 amt = Lens.calcQuoteAmount(baseAmt, price, false);
                 quoteAmt += amt;
@@ -285,8 +283,8 @@ library GridOrder {
 
         return (
             gridId,
-            toGridOrderId(gridId, startAskOrderId),
-            toGridOrderId(gridId, startBidOrderId),
+            // toGridOrderId(gridId, ProtocolConstants.ASK_ORDER_START_ID),
+            // toGridOrderId(gridId, ProtocolConstants.BID_ORDER_START_ID),
             baseAmt * param.askOrderCount,
             quoteAmt
         );
@@ -298,37 +296,30 @@ library GridOrder {
     /// @param gridOrderId The combined grid order ID
     /// @param forFill Whether this is for filling (reverts if canceled)
     /// @return orderInfo The order information struct
-    function getOrderInfo(GridState storage self, uint256 gridOrderId, bool forFill)
+    function getOrderInfo(GridState storage self, uint64 gridOrderId, bool forFill)
         internal
         view
         returns (IGridOrder.OrderInfo memory orderInfo)
     {
-        (uint128 gridId, uint128 orderId) = extractGridIdOrderId(gridOrderId);
-        bool isAsk = isAskGridOrder(gridOrderId);
+        (uint48 gridId, uint16 orderId) = extractGridIdOrderId(gridOrderId);
+        bool isAsk = isAskGridOrder(orderId);
         IGridOrder.Order memory order = self.orderInfos[gridOrderId];
         IGridOrder.GridConfig memory gridConf = self.gridConfigs[gridId];
 
         // Cache order index calculation - used multiple times
-        uint128 orderIdx;
+        uint16 orderIdx = getOrderIndex(orderId);
+
         if (isAsk) {
-            uint128 startAskId = gridConf.startAskOrderId;
-            if (orderId < startAskId || orderId >= startAskId + gridConf.askOrderCount) {
+            if (orderIdx >= gridConf.askOrderCount) {
                 revert IOrderErrors.InvalidGridId();
-            }
-            unchecked {
-                orderIdx = orderId - startAskId;
             }
         } else {
-            uint128 startBidId = gridConf.startBidOrderId;
-            if (orderId < startBidId || orderId >= startBidId + gridConf.bidOrderCount) {
+            if (orderIdx >= gridConf.bidOrderCount) {
                 revert IOrderErrors.InvalidGridId();
-            }
-            unchecked {
-                orderIdx = orderId - startBidId;
             }
         }
 
-        if ((self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) || gridConf.status != GRID_STATUS_NORMAL) {
+        if (self.orderStatus[gridOrderId] || gridConf.status != GRID_STATUS_NORMAL) {
             if (forFill) {
                 revert IOrderErrors.OrderCanceled();
             }
@@ -384,8 +375,8 @@ library GridOrder {
     /// @notice Mark a one-shot order as completed
     /// @param self The grid state storage
     /// @param gridOrderId The grid order ID to complete
-    function completeOneShotOrder(GridState storage self, uint256 gridOrderId) internal {
-        self.orderStatus[gridOrderId] = GRID_STATUS_CANCELED;
+    function completeOneShotOrder(GridState storage self, uint64 gridOrderId) internal {
+        self.orderStatus[gridOrderId] = true;
     }
 
     /// @notice Fill an ask order (taker buys base token)
@@ -396,7 +387,7 @@ library GridOrder {
     /// @return result The fill result containing amounts and fees
     function fillAskOrder(
         GridState storage self,
-        uint256 gridOrderId,
+        uint64 gridOrderId,
         uint128 amt // base token amt
     )
         internal
@@ -486,8 +477,6 @@ library GridOrder {
         order.revAmount = result.orderRevAmt;
 
         if (result.profit > 0) {
-            // uint128 gridId = orderInfo.gridId;
-            // IGridOrder.GridConfig storage gridConfig = gridConfigs[gridId];
             self.gridConfigs[orderInfo.gridId].profits += uint128(result.profit);
         }
 
@@ -497,12 +486,12 @@ library GridOrder {
     /// @notice Fill a bid order (taker sells base token)
     /// @dev Calculates fill amounts, fees, and updates order state
     /// @param self The grid state storage
-    /// @param gridOrderId The grid order ID to fill
+    /// @param gridOrderId The grid order ID to fill (64 bits)
     /// @param amt The base token amount to fill
     /// @return result The fill result containing amounts and fees
     function fillBidOrder(
         GridState storage self,
-        uint256 gridOrderId,
+        uint64 gridOrderId,
         uint128 amt // base token amt
     )
         internal
@@ -511,7 +500,6 @@ library GridOrder {
         uint128 orderBaseAmt; // base token amount of the grid order
         uint128 orderQuoteAmt; // quote token amount of the grid order
         uint256 buyPrice;
-        // uint256 orderPrice;
 
         IGridOrder.OrderInfo memory orderInfo = getOrderInfo(self, gridOrderId, true);
         if (orderInfo.isAsk) {
@@ -596,11 +584,11 @@ library GridOrder {
     /// @dev Cancels all orders in the grid and returns token amounts to refund
     /// @param self The grid state storage
     /// @param sender The address requesting cancellation (must be owner)
-    /// @param gridId The grid ID to cancel
+    /// @param gridId The grid ID to cancel (48 bits)
     /// @return The pair ID
     /// @return The total base token amount to refund
     /// @return The total quote token amount to refund
-    function cancelGrid(GridState storage self, address sender, uint128 gridId)
+    function cancelGrid(GridState storage self, address sender, uint48 gridId)
         internal
         returns (uint64, uint256, uint256)
     {
@@ -616,25 +604,21 @@ library GridOrder {
         uint256 baseAmt;
         uint256 quoteAmt;
 
+        // Cancel ask orders (orderIds: 0x8000 to 0x8000 + askOrderCount - 1)
         if (gridConf.askOrderCount > 0) {
-            uint32 askCount = gridConf.askOrderCount;
-            uint128 startAskId = gridConf.startAskOrderId;
-            for (uint32 i; i < askCount;) {
-                uint128 orderId = startAskId + i;
-                uint256 gridOrderId = toGridOrderId(gridId, orderId);
-                if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
+            uint16 askCount = gridConf.askOrderCount;
+            for (uint16 i; i < askCount;) {
+                uint16 orderId = ProtocolConstants.ASK_ORDER_START_ID + i;
+                uint64 gridOrderId = toGridOrderId(gridId, orderId);
+                if (self.orderStatus[gridOrderId]) {
                     unchecked {
                         ++i;
                     }
                     continue;
                 }
 
-                // do not set orderStatus to save gas
-                // orderStatus[orderId] = GridStatusCanceled;
-
                 (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
                 unchecked {
-                    // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
                     baseAmt += ba;
                     quoteAmt += qa;
                     ++i;
@@ -642,24 +626,21 @@ library GridOrder {
             }
         }
 
+        // Cancel bid orders (orderIds: 0 to bidOrderCount - 1)
         if (gridConf.bidOrderCount > 0) {
-            uint32 bidCount = gridConf.bidOrderCount;
-            uint128 startBidId = gridConf.startBidOrderId;
-            for (uint32 i; i < bidCount;) {
-                uint128 orderId = startBidId + i;
-                uint256 gridOrderId = toGridOrderId(gridId, orderId);
-                if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
+            uint16 bidCount = gridConf.bidOrderCount;
+            for (uint16 i; i < bidCount;) {
+                uint16 orderId = i; // Bid orders start at 0
+                uint64 gridOrderId = toGridOrderId(gridId, orderId);
+                if (self.orderStatus[gridOrderId]) {
                     unchecked {
                         ++i;
                     }
                     continue;
                 }
-                // do not set orderStatus to save gas
-                // orderStatus[orderId] = GridStatusCanceled;
 
                 (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
                 unchecked {
-                    // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
                     baseAmt += ba;
                     quoteAmt += qa;
                     ++i;
@@ -682,12 +663,12 @@ library GridOrder {
     /// @dev Cancels only the specified orders and returns token amounts to refund
     /// @param self The grid state storage
     /// @param sender The address requesting cancellation (must be owner)
-    /// @param gridId The grid ID containing the orders
-    /// @param idList Array of grid order IDs to cancel
+    /// @param gridId The grid ID containing the orders (48 bits)
+    /// @param idList Array of grid order IDs to cancel (64 bits each)
     /// @return The pair ID
     /// @return The total base token amount to refund
     /// @return The total quote token amount to refund
-    function cancelGridOrders(GridState storage self, address sender, uint128 gridId, uint256[] memory idList)
+    function cancelGridOrders(GridState storage self, address sender, uint48 gridId, uint64[] memory idList)
         internal
         returns (uint64, uint256, uint256)
     {
@@ -704,23 +685,35 @@ library GridOrder {
         uint256 quoteAmt;
         uint256 len = idList.length;
         for (uint256 i; i < len;) {
-            uint256 gridOrderId = idList[i];
-            (uint128 gid, uint128 orderId) = extractGridIdOrderId(gridOrderId);
+            uint64 gridOrderId = idList[i];
+            (uint48 gid, uint16 orderId) = extractGridIdOrderId(gridOrderId);
             if (gid != gridId) {
                 revert IOrderErrors.InvalidGridId();
             }
 
-            if (self.orderStatus[gridOrderId] != GRID_STATUS_NORMAL) {
+            // Validate orderId is within valid range
+            bool isAsk = isAskGridOrder(orderId);
+            uint16 orderIdx = getOrderIndex(orderId);
+            if (isAsk) {
+                if (orderIdx >= gridConf.askOrderCount) {
+                    revert IOrderErrors.InvalidGridId();
+                }
+            } else {
+                if (orderIdx >= gridConf.bidOrderCount) {
+                    revert IOrderErrors.InvalidGridId();
+                }
+            }
+
+            if (self.orderStatus[gridOrderId]) {
                 revert IOrderErrors.OrderCanceled();
             }
 
             (uint128 ba, uint128 qa) = getOrderAmountsForCancel(self, gridConf, orderId);
             unchecked {
-                // Safe: ba and qa are uint128 from storage, sum cannot exceed uint256
                 baseAmt += ba;
                 quoteAmt += qa;
             }
-            self.orderStatus[gridOrderId] = GRID_STATUS_CANCELED;
+            self.orderStatus[gridOrderId] = true;
             emit IOrderEvents.CancelGridOrder(msg.sender, orderId, gridId);
             unchecked {
                 ++i;
@@ -734,9 +727,9 @@ library GridOrder {
     /// @dev Only the grid owner can modify the fee. Oneshot grids cannot have their fee modified.
     /// @param self The grid state storage
     /// @param sender The address requesting the modification (must be owner)
-    /// @param gridId The grid ID to modify
+    /// @param gridId The grid ID to modify (48 bits)
     /// @param fee The new fee in basis points
-    function modifyGridFee(GridState storage self, address sender, uint256 gridId, uint32 fee) internal {
+    function modifyGridFee(GridState storage self, address sender, uint48 gridId, uint32 fee) internal {
         IGridOrder.GridConfig storage gridConf = self.gridConfigs[gridId];
         if (sender != gridConf.owner) {
             revert IOrderErrors.NotGridOwner();

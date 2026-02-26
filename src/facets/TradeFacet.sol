@@ -224,19 +224,18 @@ contract TradeFacet is IOrderEvents {
 
         pair = _getOrCreatePair(base, quote);
 
-        uint256 startAskOrderId;
-        uint256 startBidOrderId;
-        uint128 gridId;
-        (gridId, startAskOrderId, startBidOrderId, baseAmt, quoteAmt) =
-            l.gridState.placeGridOrder(pair.pairId, maker, param);
+        // uint256 startAskOrderId;
+        // uint256 startBidOrderId;
+        uint48 gridId;
+        (gridId, baseAmt, quoteAmt) = l.gridState.placeGridOrder(pair.pairId, maker, param);
 
         emit GridOrderCreated(
             maker,
             pair.pairId,
             param.baseAmount,
             gridId,
-            startAskOrderId,
-            startBidOrderId,
+            // startAskOrderId,
+            // startBidOrderId,
             param.askOrderCount,
             param.bidOrderCount,
             param.fee,
@@ -259,7 +258,7 @@ contract TradeFacet is IOrderEvents {
     /// @param minAmt The minimum base amount to accept (slippage protection)
     /// @param data Callback data (if non-empty, triggers flash-swap callback)
     /// @param flag Bit flags: 0 = ERC20 only, 1 = quote is ETH, 2 = base is ETH
-    function fillAskOrder(uint256 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
+    function fillAskOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
         external
         payable
     {
@@ -304,7 +303,7 @@ contract TradeFacet is IOrderEvents {
     /// @param flag Bit flags for ETH handling
     function fillAskOrders(
         uint64 pairId,
-        uint256[] calldata idList,
+        uint64[] calldata idList,
         uint128[] calldata amtList,
         uint128 maxAmt,
         uint128 minAmt,
@@ -318,7 +317,7 @@ contract TradeFacet is IOrderEvents {
         GridExStorage.Layout storage l = GridExStorage.layout();
         AccFilled memory filled;
         for (uint256 i; i < idList.length;) {
-            uint256 gridOrderId = idList[i];
+            uint64 gridOrderId = idList[i];
             uint128 amt = amtList[i];
 
             if (maxAmt > 0 && maxAmt < filled.amt + amt) {
@@ -370,12 +369,12 @@ contract TradeFacet is IOrderEvents {
     // ─── Fill bid orders ─────────────────────────────────────────────
 
     /// @notice Fill a single bid grid order (sell base token)
-    /// @param gridOrderId The combined grid ID and order ID
+    /// @param gridOrderId The combined grid ID and order ID (64 bits)
     /// @param amt The base amount to sell
     /// @param minAmt The minimum base amount to accept (slippage protection)
     /// @param data Callback data (if non-empty, triggers flash-swap callback)
     /// @param flag Bit flags: 0 = ERC20 only, 1 = base is ETH, 2 = quote is ETH
-    function fillBidOrder(uint256 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
+    function fillBidOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
         external
         payable
     {
@@ -420,7 +419,7 @@ contract TradeFacet is IOrderEvents {
     /// @param flag Bit flags for ETH handling
     function fillBidOrders(
         uint64 pairId,
-        uint256[] calldata idList,
+        uint64[] calldata idList,
         uint128[] calldata amtList,
         uint128 maxAmt,
         uint128 minAmt,
@@ -438,7 +437,7 @@ contract TradeFacet is IOrderEvents {
         uint128 protocolFee = 0;
 
         for (uint256 i; i < idList.length;) {
-            uint256 gridOrderId = idList[i];
+            uint64 gridOrderId = idList[i];
             uint128 amt = amtList[i];
 
             if (maxAmt > 0 && maxAmt - filledAmt < amt) {

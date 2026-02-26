@@ -16,18 +16,27 @@ library ProtocolConstants {
     uint32 internal constant QUOTE_PRIORITY_WETH = 1 << 19;
 
     // ---------------------------------------------------------------------
-    // Order ID domains
+    // Order ID domains (uint16)
     // ---------------------------------------------------------------------
 
-    /// @dev Ask orders are distinguished by having the high bit of a uint128 set.
-    uint128 internal constant ASK_ORDER_FLAG = 0x80000000000000000000000000000000;
+    /// @dev Ask orders are distinguished by having the high bit of a uint16 set.
+    ///      Ask order IDs: 32768-65535 (0x8000-0xFFFF)
+    ///      Bid order IDs: 0-32767 (0x0000-0x7FFF)
+    uint16 internal constant ASK_ORDER_FLAG = 0x8000;
 
-    /// @dev Ask order IDs start at `ASK_ORDER_FLAG | 1`.
-    uint128 internal constant ASK_ORDER_START_ID = ASK_ORDER_FLAG | 1;
+    /// @dev Ask order IDs start at 0x8000 (32768).
+    uint16 internal constant ASK_ORDER_START_ID = 0x8000;
 
-    /// @dev Bid order IDs start at 1.
-    uint128 internal constant BID_ORDER_START_ID = 1;
+    /// @dev Bid order IDs start at 0.
+    uint16 internal constant BID_ORDER_START_ID = 0;
+
+    /// @dev Maximum orders per side (32768).
+    uint16 internal constant MAX_ORDERS_PER_SIDE = 0x8000;
+
+    // ---------------------------------------------------------------------
+    // Grid ID (uint48)
+    // ---------------------------------------------------------------------
 
     /// @dev Grid IDs start at 1.
-    uint128 internal constant GRID_ID_START = 1;
+    uint48 internal constant GRID_ID_START = 1;
 }

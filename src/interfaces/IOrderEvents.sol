@@ -11,8 +11,6 @@ interface IOrderEvents {
     /// @param pairId The trading pair ID
     /// @param amount The base amount of every grid order
     /// @param gridId The unique grid identifier
-    /// @param askOrderId The starting order ID for ask orders
-    /// @param bidOrderId The starting order ID for bid orders
     /// @param asks The number of ask orders in the grid
     /// @param bids The number of bid orders in the grid
     /// @param fee The grid order fee in basis points
@@ -27,8 +25,8 @@ interface IOrderEvents {
         // uint256 bidGap,
         uint256 amount,
         uint128 gridId,
-        uint256 askOrderId,
-        uint256 bidOrderId,
+        // uint256 askOrderId,
+        // uint256 bidOrderId,
         uint32 asks,
         uint32 bids,
         uint32 fee,

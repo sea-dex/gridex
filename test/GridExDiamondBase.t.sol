@@ -129,9 +129,9 @@ contract GridExDiamondBaseTest is Test {
 
         cancelSel[0] = CancelFacet.cancelGrid.selector;
         cancelFac[0] = address(cancelFacet);
-        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint64,uint32,uint32)"));
         cancelFac[1] = address(cancelFacet);
-        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint48,address,uint64[],uint32)"));
         cancelFac[2] = address(cancelFacet);
         cancelSel[3] = CancelFacet.withdrawGridProfits.selector;
         cancelFac[3] = address(cancelFacet);
@@ -197,8 +197,8 @@ contract GridExDiamondBaseTest is Test {
         AdminFacet(exchange).batchSetFacet(viewSel, viewFac);
     }
 
-    function toGridOrderId(uint128 gridId, uint128 orderId) internal pure returns (uint256) {
-        return uint256(uint256(gridId) << 128) | uint256(orderId);
+    function toGridOrderId(uint48 gridId, uint16 orderId) internal pure returns (uint64) {
+        return (uint64(gridId) << 16) | uint64(orderId);
     }
 
     function _placeOrdersBy(

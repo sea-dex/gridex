@@ -192,11 +192,11 @@ contract GridExFeeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MIN_FEE);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
         uint256 takerSeaBefore = sea.balanceOf(taker);
@@ -220,11 +220,11 @@ contract GridExFeeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, MAX_FEE);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 takerUsdcBefore = usdc.balanceOf(taker);
         uint256 takerSeaBefore = sea.balanceOf(taker);
@@ -373,7 +373,7 @@ contract GridExFeeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 10000 ether; // 10000 tokens
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         // Give maker more tokens
         // forge-lint: disable-next-line
@@ -388,7 +388,7 @@ contract GridExFeeTest is GridExBaseTest {
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 10000); // 1% fee
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         uint256 vaultUsdcBefore = usdc.balanceOf(vault);
 
@@ -408,11 +408,11 @@ contract GridExFeeTest is GridExBaseTest {
         uint256 gap = askPrice0 / 20;
         uint256 bidPrice0 = askPrice0 - gap;
         uint128 amt = 1 ether;
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
 
         _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         // Fill ask order
         vm.startPrank(taker);

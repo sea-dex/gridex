@@ -20,8 +20,8 @@ contract GridExFillGeometryTest is GridExBaseTest {
     }
 
     function _placeGeometryOrders(
-        uint32 askCount,
-        uint32 bidCount,
+        uint16 askCount,
+        uint16 bidCount,
         uint128 baseAmt,
         uint256 askPrice0,
         uint256 bidPrice0,
@@ -53,10 +53,10 @@ contract GridExFillGeometryTest is GridExBaseTest {
 
         _placeGeometryOrders(4, 0, baseAmt, askPrice0, 0, askRatio, 0);
 
-        uint128 orderId0 = 0x80000000000000000000000000000001;
-        uint128 orderId1 = orderId0 + 1;
-        uint256 gridOrderId0 = toGridOrderId(1, orderId0);
-        uint256 gridOrderId1 = toGridOrderId(1, orderId1);
+        uint16 orderId0 = 0x8000;
+        uint16 orderId1 = orderId0 + 1;
+        uint64 gridOrderId0 = toGridOrderId(1, orderId0);
+        uint64 gridOrderId1 = toGridOrderId(1, orderId1);
 
         IGridOrder.OrderInfo memory order0Before = exchange.getGridOrder(gridOrderId0);
         IGridOrder.OrderInfo memory order1Before = exchange.getGridOrder(gridOrderId1);
@@ -78,8 +78,8 @@ contract GridExFillGeometryTest is GridExBaseTest {
 
         _placeGeometryOrders(0, 4, baseAmt, 0, bidPrice0, 0, bidRatio);
 
-        uint128 orderId0 = 1;
-        uint256 gridOrderId0 = toGridOrderId(1, orderId0);
+        uint16 orderId0 = 0;
+        uint64 gridOrderId0 = toGridOrderId(1, orderId0);
         IGridOrder.OrderInfo memory order0Before = exchange.getGridOrder(gridOrderId0);
 
         vm.startPrank(taker);
@@ -99,8 +99,8 @@ contract GridExFillGeometryTest is GridExBaseTest {
 
         _placeGeometryOrders(3, 0, baseAmt, askPrice0, 0, askRatio, 0);
 
-        uint128 orderId0 = 0x80000000000000000000000000000001;
-        uint256[] memory ids = new uint256[](3);
+        uint16 orderId0 = 0x8000;
+        uint64[] memory ids = new uint64[](3);
         ids[0] = toGridOrderId(1, orderId0);
         ids[1] = toGridOrderId(1, orderId0 + 1);
         ids[2] = toGridOrderId(1, orderId0 + 2);

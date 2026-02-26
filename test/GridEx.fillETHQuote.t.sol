@@ -13,14 +13,14 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_fillAskOrder_revertWhenUnderpayETHInput() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20 ether;
 
         _placeOrders(address(sea), address(0), amt, 10, 0, askPrice0, 0, gap, false, 500);
 
         (uint128 ethVol, uint128 fee) = Lens.calcAskOrderQuoteAmount(askPrice0, amt, 500);
         uint256 requiredIn = uint256(ethVol) + uint256(fee);
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
 
         vm.startPrank(taker);
         vm.expectRevert(IProtocolErrors.InsufficientETH.selector);
@@ -31,7 +31,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_fillETHQuoteAskOrder() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        uint128 orderId = 0x80000000000000000000000000000001;
+        // uint16 orderId = 0x8000;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 10, 0, askPrice0, 0, gap, false, 500);
@@ -41,12 +41,12 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(0, weth.balanceOf(address(exchange)));
         assertEq(initialSEAAmt - 10 * amt, sea.balanceOf(maker));
         IGridOrder.GridConfig memory gridConf = exchange.getGridConfig(1);
-        assertEq(gridConf.startAskOrderId, orderId);
+        // Ask orders start at ASK_ORDER_START_ID (0x8000 = 32768)
         assertEq(gridConf.askOrderCount, 10);
 
         (uint128 ethVol, uint128 fee) = Lens.calcAskOrderQuoteAmount(askPrice0, amt, 500);
-        uint256 gridOrderId = toGridOrderId(1, orderId);
-        assertEq(gridOrderId, 0x180000000000000000000000000000001);
+        uint64 gridOrderId = toGridOrderId(1, uint16(0x8000)); // First ask order
+        assertEq(gridOrderId, (uint64(1) << 16) | 0x8000);
 
         vm.startPrank(taker);
         exchange.fillAskOrder{value: ethVol + fee}(gridOrderId, amt, amt, new bytes(0), 1); // intoken: ETH
@@ -115,7 +115,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_partialFillETHQuoteAskOrders() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 10, 0, askPrice0, 0, gap, false, 500);
@@ -124,7 +124,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(0, weth.balanceOf(address(exchange)));
         assertEq(0, eth.balanceOf(address(exchange)));
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);
@@ -191,7 +191,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_fillETHQuoteBidOrder() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 200 ether; // ETH
 
         _placeOrders(address(sea), address(0), amt, 0, 10, 0, bidPrice0, gap, false, 500);
@@ -200,7 +200,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
 
         assertEq(quoteAmt, weth.balanceOf(address(exchange)));
         assertEq(0, sea.balanceOf(address(exchange)));
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         // grid order flipped
         IGridOrder.OrderInfo memory order = exchange.getGridOrder(gridOrderId);
         // console.log(order.amount);
@@ -282,7 +282,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
     function test_partialFillETHQuoteBidOrders() public {
         uint256 bidPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = bidPrice0 / 20; // 0.0001
-        uint128 orderId = 0x000000000000000000000001;
+        uint16 orderId = 0;
         uint128 amt = 2 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 0, 10, 0, bidPrice0, gap, false, 500);
@@ -305,7 +305,7 @@ contract GridExFillETHQuoteTest is GridExBaseTest {
         assertEq(order1.amount, quoteAmt1);
         assertEq(order2.amount, quoteAmt2);
 
-        uint256[] memory orderIds = new uint256[](3);
+        uint64[] memory orderIds = new uint64[](3);
         orderIds[0] = toGridOrderId(1, orderId);
         orderIds[1] = toGridOrderId(1, orderId + 1);
         orderIds[2] = toGridOrderId(1, orderId + 2);

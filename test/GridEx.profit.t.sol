@@ -11,7 +11,7 @@ contract GridExProfitTest is GridExBaseTest {
     function test_profitAskOrder() public {
         uint256 askPrice0 = uint256(PRICE_MULTIPLIER / 500); // 0.002
         uint256 gap = askPrice0 / 20; // 0.0001
-        uint128 orderId = 0x80000000000000000000000000000001;
+        uint16 orderId = 0x8000;
         uint128 amt = 20 ether; // SEA
 
         _placeOrders(address(sea), address(0), amt, 10, 0, askPrice0, 0, gap, false, 500);
@@ -22,7 +22,7 @@ contract GridExProfitTest is GridExBaseTest {
 
         (uint128 ethVol, uint128 fees) = Lens.calcAskOrderQuoteAmount(askPrice0, amt, 500);
 
-        uint256 gridOrderId = toGridOrderId(1, orderId);
+        uint64 gridOrderId = toGridOrderId(1, orderId);
         vm.startPrank(taker);
         exchange.fillAskOrder{value: ethVol + fees}(gridOrderId, amt, amt, new bytes(0), 1);
         vm.stopPrank();

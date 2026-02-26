@@ -257,7 +257,7 @@ contract GridExInvariantTest is StdInvariant, Test {
     /// @notice Invariant: Maker profits should be withdrawable
     function invariant_profitsWithdrawable() public view {
         // Get maker's grid profits
-        uint96 gridId = handler.gridId();
+        uint48 gridId = handler.gridId();
         if (gridId == 0) return; // No grid created yet
 
         uint256 profits = ViewFacet(gridEx).getGridProfits(gridId);
@@ -279,7 +279,7 @@ contract GridExHandler is Test {
     address public maker;
     address public taker;
 
-    uint96 public gridId;
+    uint48 public gridId;
     uint256[] public orderIds;
 
     uint256 constant PRICE_MULTIPLIER = 10 ** 36;
@@ -310,12 +310,12 @@ contract GridExHandler is Test {
     }
 
     /// @notice Place ask orders
-    function placeAskOrders(uint128 baseAmt, uint128 price0, uint64 gap, uint32 askCount) public {
+    function placeAskOrders(uint128 baseAmt, uint128 price0, uint64 gap, uint16 askCount) public {
         // Bound inputs
         baseAmt = uint128(bound(uint256(baseAmt), 1e15, 1e24));
         price0 = uint128(bound(uint256(price0), PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000));
         gap = uint64(bound(uint256(gap), PRICE_MULTIPLIER / 10000, PRICE_MULTIPLIER / 10));
-        askCount = uint32(bound(uint256(askCount), 1, 10));
+        askCount = uint16(bound(uint256(askCount), 1, 10));
 
         // Ensure we have enough balance
         uint256 totalBase = uint256(baseAmt) * uint256(askCount);
@@ -358,12 +358,12 @@ contract GridExHandler is Test {
     }
 
     /// @notice Place bid orders
-    function placeBidOrders(uint128 baseAmt, uint128 price0, uint64 gap, uint32 bidCount) public {
+    function placeBidOrders(uint128 baseAmt, uint128 price0, uint64 gap, uint16 bidCount) public {
         // Bound inputs
         baseAmt = uint128(bound(uint256(baseAmt), 1e15, 1e24));
         price0 = uint128(bound(uint256(price0), PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000));
         gap = uint64(bound(uint256(gap), PRICE_MULTIPLIER / 10000, PRICE_MULTIPLIER / 10));
-        bidCount = uint32(bound(uint256(bidCount), 1, 10));
+        bidCount = uint16(bound(uint256(bidCount), 1, 10));
 
         // Calculate required quote amount
         uint256 totalQuote = 0;
@@ -416,11 +416,11 @@ contract GridExHandler is Test {
         if (orderIds.length == 0) return;
 
         orderIndex = bound(orderIndex, 0, orderIds.length - 1);
-        uint256 orderId = orderIds[orderIndex];
+        uint64 orderId = uint64(orderIds[orderIndex]);
 
         // Check if it's an ask order (high bit set)
-        (, uint128 localOrderId) = _extractIds(orderId);
-        if (localOrderId < 0x80000000000000000000000000000000) {
+        (, uint16 localOrderId) = _extractIds(uint64(orderId));
+        if (localOrderId < 0x8000) {
             return; // Not an ask order
         }
 
@@ -465,10 +465,10 @@ contract GridExHandler is Test {
         if (orderIds.length == 0) return;
 
         orderIndex = bound(orderIndex, 0, orderIds.length - 1);
-        uint256 orderId = orderIds[orderIndex];
+        uint64 orderId = uint64(orderIds[orderIndex]);
 
         // Check if it's a bid order (high bit not set)
-        (, uint128 localOrderId) = _extractIds(orderId);
+        (, uint16 localOrderId) = _extractIds(uint64(orderId));
         if (localOrderId >= 0x80000000000000000000000000000000) {
             return; // Not a bid order
         }
@@ -508,10 +508,10 @@ contract GridExHandler is Test {
         }
     }
 
-    function _extractIds(uint256 gridOrderId) internal pure returns (uint128 gridId_, uint128 orderId_) {
-        // forge-lint: disable-next-line
-        gridId_ = uint128(gridOrderId >> 128);
-        // forge-lint: disable-next-line
-        orderId_ = uint128(gridOrderId);
+    function _extractIds(uint64 gridOrderId) internal pure returns (uint48 gridId_, uint16 orderId_) {
+        // forge-lint: disable-next-line(unsafe-typecast)
+        gridId_ = uint48(gridOrderId >> 16);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        orderId_ = uint16(gridOrderId & 0xFFFF);
     }
 }
