@@ -289,10 +289,10 @@ contract GeometryTest is Test {
 
         // Calculate price at index 100 using the contract's method
         uint256 contractPrice = geometry.getPrice(true, 1, 100);
-        
+
         // Verify it's greater than price at index 0
         assertGt(contractPrice, price0, "Price at index 100 should be greater than price0");
-        
+
         // Verify monotonicity
         uint256 prevPrice = price0;
         for (uint256 i = 1; i <= 100; i++) {
@@ -327,12 +327,7 @@ contract GeometryTest is Test {
     // ============ Fuzz Tests ============
 
     /// @dev Fuzz test for validateParams with ask orders
-    function testFuzz_validateParams_ask_call(
-        uint256 price0,
-        uint256 ratio,
-        uint256 amt,
-        uint256 count
-    ) public view {
+    function testFuzz_validateParams_ask_call(uint256 price0, uint256 ratio, uint256 amt, uint256 count) public view {
         // Bound inputs to reasonable ranges that guarantee non-zero quotes
         // price0 * amt / PRICE_MULTIPLIER must be >= 1
         // So we need price0 * amt >= PRICE_MULTIPLIER
@@ -348,12 +343,7 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for validateParams with bid orders
-    function testFuzz_validateParams_bid_call(
-        uint256 price0,
-        uint256 ratio,
-        uint256 amt,
-        uint256 count
-    ) public view {
+    function testFuzz_validateParams_bid_call(uint256 price0, uint256 ratio, uint256 amt, uint256 count) public view {
         // Bound inputs to reasonable ranges that guarantee non-zero quotes
         // price0 * amt / PRICE_MULTIPLIER must be >= 1
         // So we need price0 * amt >= PRICE_MULTIPLIER
@@ -369,11 +359,7 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for price calculation consistency
-    function testFuzz_priceCalculation_consistency(
-        uint256 price0,
-        uint256 ratio,
-        uint128 idx
-    ) public {
+    function testFuzz_priceCalculation_consistency(uint256 price0, uint256 ratio, uint128 idx) public {
         // Bound to reasonable values
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (101 * RATIO_MULTIPLIER) / 100, (11 * RATIO_MULTIPLIER) / 10); // 1.01 to 1.1
@@ -388,7 +374,7 @@ contract GeometryTest is Test {
         }
 
         uint256 actualPrice = geometry.getPrice(true, 1, idx);
-        
+
         // Allow for small precision differences due to different calculation paths
         // The contract uses exponentiation by squaring, we use iterative multiplication
         // Both should give very close results
@@ -396,11 +382,7 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for reverse price calculation
-    function testFuzz_reversePriceCalculation(
-        uint256 price0,
-        uint256 ratio,
-        uint128 idx
-    ) public {
+    function testFuzz_reversePriceCalculation(uint256 price0, uint256 ratio, uint128 idx) public {
         // Bound to reasonable values
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (101 * RATIO_MULTIPLIER) / 100, (11 * RATIO_MULTIPLIER) / 10); // 1.01 to 1.1
@@ -415,11 +397,7 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for bid price calculation
-    function testFuzz_bidPriceCalculation(
-        uint256 price0,
-        uint256 ratio,
-        uint128 idx
-    ) public {
+    function testFuzz_bidPriceCalculation(uint256 price0, uint256 ratio, uint128 idx) public {
         // Bound to reasonable values for bid (ratio < 1)
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (9 * RATIO_MULTIPLIER) / 10, (99 * RATIO_MULTIPLIER) / 100); // 0.9 to 0.99
@@ -434,7 +412,7 @@ contract GeometryTest is Test {
         }
 
         uint256 actualPrice = geometry.getPrice(false, 1, idx);
-        
+
         // Allow for small precision differences
         assertApproxEqRel(actualPrice, expectedPrice, 1e15, "Bid price calculation mismatch"); // 0.1% tolerance
     }
@@ -458,10 +436,7 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for extreme price values
-    function testFuzz_extremePrices(
-        uint256 price0,
-        uint128 idx
-    ) public {
+    function testFuzz_extremePrices(uint256 price0, uint128 idx) public {
         // Test with various price magnitudes
         price0 = bound(price0, PRICE_MULTIPLIER / 1e10, PRICE_MULTIPLIER * 1e10);
         idx = uint128(bound(idx, 0, 10));
@@ -579,12 +554,7 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz invariant: price relationship holds for random inputs
-    function testFuzz_invariant_priceRelationship(
-        uint256 price0,
-        uint256 ratio,
-        uint128 idx1,
-        uint128 idx2
-    ) public {
+    function testFuzz_invariant_priceRelationship(uint256 price0, uint256 ratio, uint128 idx1, uint128 idx2) public {
         // Bound to reasonable values
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (101 * RATIO_MULTIPLIER) / 100, (11 * RATIO_MULTIPLIER) / 10);
@@ -717,7 +687,7 @@ contract GeometryTest is Test {
 
         assertEq(geometry.getPrice(true, 1, 0), price0_a);
         assertEq(geometry.getPrice(true, 2, 0), price0_b);
-        
+
         // Verify they produce different prices at index 1
         uint256 price1_a = geometry.getPrice(true, 1, 1);
         uint256 price1_b = geometry.getPrice(true, 2, 1);
@@ -739,10 +709,10 @@ contract GeometryTest is Test {
         ratio = bound(ratio, RATIO_MULTIPLIER + 1, 10 * RATIO_MULTIPLIER);
 
         geometry.createGridStrategy(true, 1, abi.encode(price0, ratio));
-        
+
         uint256 reversePrice = geometry.getReversePrice(true, 1, 0);
         uint256 expectedReversePrice = FullMath.mulDiv(price0, RATIO_MULTIPLIER, ratio);
-        
+
         assertEq(reversePrice, expectedReversePrice, "Reverse price at index 0 mismatch");
     }
 }
