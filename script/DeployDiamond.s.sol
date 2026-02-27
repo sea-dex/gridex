@@ -135,9 +135,9 @@ contract DeployDiamond is Script {
 
         cancelSel[0] = CancelFacet.cancelGrid.selector;
         cancelFac[0] = cancelFacet;
-        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint256,uint32,uint32)"));
+        cancelSel[1] = bytes4(keccak256("cancelGridOrders(address,uint64,uint32,uint32)"));
         cancelFac[1] = cancelFacet;
-        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint128,address,uint256[],uint32)"));
+        cancelSel[2] = bytes4(keccak256("cancelGridOrders(uint48,address,uint64[],uint32)"));
         cancelFac[2] = cancelFacet;
         cancelSel[3] = CancelFacet.withdrawGridProfits.selector;
         cancelFac[3] = cancelFacet;
@@ -148,33 +148,36 @@ contract DeployDiamond is Script {
         console.log("[OK] CancelFacet selectors registered");
 
         // Register ViewFacet selectors separately (they go through fallback)
-        bytes4[] memory viewSelectors = new bytes4[](10);
-        address[] memory viewFacets = new address[](10);
-        uint256 vi = 0;
+        bytes4[] memory viewSelectors = new bytes4[](12);
+        address[] memory viewFacets = new address[](12);
 
-        viewSelectors[vi] = ViewFacet.getGridOrder.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.getGridOrders.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.getGridProfits.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.getGridConfig.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.getOneshotProtocolFeeBps.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.isStrategyWhitelisted.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.getPairTokens.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.getPairIdByTokens.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.paused.selector;
-        viewFacets[vi++] = viewFacet;
-        viewSelectors[vi] = ViewFacet.owner.selector;
-        viewFacets[vi++] = viewFacet;
+        viewSelectors[0] = ViewFacet.getGridOrder.selector;
+        viewFacets[0] = viewFacet;
+        viewSelectors[1] = ViewFacet.getGridOrders.selector;
+        viewFacets[1] = viewFacet;
+        viewSelectors[2] = ViewFacet.getGridProfits.selector;
+        viewFacets[2] = viewFacet;
+        viewSelectors[3] = ViewFacet.getGridConfig.selector;
+        viewFacets[3] = viewFacet;
+        viewSelectors[4] = ViewFacet.getOneshotProtocolFeeBps.selector;
+        viewFacets[4] = viewFacet;
+        viewSelectors[5] = ViewFacet.isStrategyWhitelisted.selector;
+        viewFacets[5] = viewFacet;
+        viewSelectors[6] = ViewFacet.getPairTokens.selector;
+        viewFacets[6] = viewFacet;
+        viewSelectors[7] = ViewFacet.getPairIdByTokens.selector;
+        viewFacets[7] = viewFacet;
+        viewSelectors[8] = ViewFacet.paused.selector;
+        viewFacets[8] = viewFacet;
+        viewSelectors[9] = ViewFacet.owner.selector;
+        viewFacets[9] = viewFacet;
+        viewSelectors[10] = ViewFacet.vault.selector;
+        viewFacets[10] = viewFacet;
+        viewSelectors[11] = ViewFacet.WETH.selector;
+        viewFacets[11] = viewFacet;
 
         AdminFacet(router).batchSetFacet(viewSelectors, viewFacets);
-        console.log("[OK] View selectors registered");
+        console.log("[OK] ViewFacet selectors registered");
     }
 
     function _printSummary() internal view {
