@@ -24,7 +24,7 @@ interface IOrderEvents {
         // uint256 bidPrice0,
         // uint256 bidGap,
         uint256 amount,
-        uint128 gridId,
+        uint48 gridId,
         // uint256 askOrderId,
         // uint256 bidOrderId,
         uint32 asks,

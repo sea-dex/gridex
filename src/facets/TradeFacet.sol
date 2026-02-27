@@ -32,7 +32,7 @@ contract TradeFacet is IOrderEvents {
     event QuotableTokenUpdated(Currency quote, uint256 priority);
 
     /// @notice Emitted when grid profits are withdrawn
-    event WithdrawProfit(uint128 gridId, Currency quote, address to, uint256 amt);
+    event WithdrawProfit(uint48 gridId, Currency quote, address to, uint256 amt);
 
     /// @notice Emitted when an ETH refund attempt fails
     event RefundFailed(address indexed to, uint256 amount);

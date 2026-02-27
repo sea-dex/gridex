@@ -767,7 +767,7 @@ contract GeometryHandler is Test {
         return geometry.getPrice(true, gridId, idx);
     }
 
-    function getPriceBid(uint128 gridIdIdx, uint16 idx) external view returns (uint256) {
+    function getPriceBid(uint48 gridIdIdx, uint16 idx) external view returns (uint256) {
         if (bidGridIds.length == 0) return 0;
         uint48 gridId = bidGridIds[uint256(gridIdIdx) % bidGridIds.length];
         return geometry.getPrice(false, gridId, idx);

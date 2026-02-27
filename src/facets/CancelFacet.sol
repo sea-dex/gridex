@@ -23,7 +23,7 @@ contract CancelFacet is IOrderEvents {
     using GridOrder for GridOrder.GridState;
     using SafeTransferLib for ERC20;
 
-    event WithdrawProfit(uint128 gridId, Currency quote, address to, uint256 amt);
+    event WithdrawProfit(uint48 gridId, Currency quote, address to, uint256 amt);
 
     error ETHTransferFailed();
     error NotWETH();

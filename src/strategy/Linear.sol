@@ -61,7 +61,7 @@ contract Linear is IGridStrategy {
     /// @param isAsk True if this is an ask strategy
     /// @param gridId The grid ID
     /// @return The storage key
-    function gridIdKey(bool isAsk, uint128 gridId) internal pure returns (uint256) {
+    function gridIdKey(bool isAsk, uint48 gridId) internal pure returns (uint256) {
         if (isAsk) {
             return (uint256(ProtocolConstants.ASK_ORDER_FLAG) << 128) | uint256(gridId);
         }
