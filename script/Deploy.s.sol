@@ -51,7 +51,7 @@ contract Deploy is Script {
 
     /// @notice The salt used for CREATE2 deployment
     /// @dev CRITICAL: This must be the same across all chains for deterministic addresses
-    bytes32 public constant DEPLOYMENT_SALT = keccak256("GridEx.V1.2024.Production.Diamond");
+    bytes32 public constant DEPLOYMENT_SALT = keccak256("GridEx.V2.2026.Production.Diamond");
 
     /// @notice Deterministic deployment proxy (same address on all EVM chains)
     /// @dev Deployed via keyless deployment, available on most chains

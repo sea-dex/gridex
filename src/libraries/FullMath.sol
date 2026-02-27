@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.33;
 
 /// @title Contains 512-bit math functions
 /// @author Uniswap Labs
