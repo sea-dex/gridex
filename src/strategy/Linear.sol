@@ -41,7 +41,7 @@ contract Linear is IGridStrategy {
     /// @param gridId The grid ID this strategy belongs to
     /// @param price0 The base price (first order price)
     /// @param gap The price gap between consecutive orders
-    event LinearStrategyCreated(bool isAsk, uint128 gridId, uint256 price0, int256 gap);
+    event LinearStrategyCreated(bool isAsk, uint48 gridId, uint256 price0, int256 gap);
 
     /// @notice Linear strategy parameters
     /// @dev Stored for each grid to calculate order prices
