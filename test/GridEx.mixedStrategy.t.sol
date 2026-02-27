@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import {IGridOrder} from "../src/interfaces/IGridOrder.sol";
 import {Geometry} from "../src/strategy/Geometry.sol";
-import {Linear} from "../src/strategy/Linear.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {Lens} from "../src/libraries/Lens.sol";
 import {AdminFacet} from "../src/facets/AdminFacet.sol";
@@ -37,6 +36,7 @@ contract GridExMixedStrategyTest is GridExBaseTest {
             askStrategy: geometry,
             bidStrategy: linear,
             askData: abi.encode(askPrice0, askRatio),
+           // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(bidGap)),
             askOrderCount: askCount,
             bidOrderCount: bidCount,
@@ -65,6 +65,7 @@ contract GridExMixedStrategyTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: geometry,
+           // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(askGap)),
             bidData: abi.encode(bidPrice0, bidRatio),
             askOrderCount: askCount,
@@ -478,7 +479,7 @@ contract GridExMixedStrategyTest is GridExBaseTest {
         uint64 gridBidId = toGridOrderId(1, 0);
 
         // Record initial balances
-        uint256 makerUSDCBefore = usdc.balanceOf(maker);
+        // uint256 makerUSDCBefore = usdc.balanceOf(maker);
 
         // Fill ask order
         vm.startPrank(taker);
@@ -501,12 +502,12 @@ contract GridExMixedStrategyTest is GridExBaseTest {
 
         // Withdraw profits
         vm.startPrank(maker);
-        uint256 makerUSDCAfter = usdc.balanceOf(maker);
+        uint256 makerUsdcAfter = usdc.balanceOf(maker);
         exchange.withdrawGridProfits(1, profitsAfterBothFills, maker, 0);
-        uint256 makerUSDCFinal = usdc.balanceOf(maker);
+        uint256 makerUsdcFinal = usdc.balanceOf(maker);
         vm.stopPrank();
 
-        assertEq(makerUSDCFinal - makerUSDCAfter, profitsAfterBothFills);
+        assertEq(makerUsdcFinal - makerUsdcAfter, profitsAfterBothFills);
     }
 
     /// @notice Test partial fill on mixed strategy grid

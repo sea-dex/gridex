@@ -37,13 +37,13 @@ interface IOrderEvents {
     /// @notice Emitted when an entire grid is canceled
     /// @param owner The owner of the canceled grid
     /// @param gridId The ID of the canceled grid
-    event CancelWholeGrid(address indexed owner, uint128 indexed gridId);
+    event CancelWholeGrid(address indexed owner, uint48 indexed gridId);
 
     /// @notice Emitted when a single grid order is canceled
     /// @param owner The owner of the canceled order
     /// @param orderId The ID of the canceled order
     /// @param gridId The grid ID containing the canceled order
-    event CancelGridOrder(address indexed owner, uint128 indexed orderId, uint128 indexed gridId);
+    event CancelGridOrder(address indexed owner, uint64 indexed orderId, uint48 indexed gridId);
 
     /// @notice Emitted when a grid order is filled or partially filled
     /// @param taker The address that filled the order
@@ -55,7 +55,7 @@ interface IOrderEvents {
     /// @param isAsk True if the filled order was an ask order, false for bid
     event FilledOrder(
         address taker,
-        uint256 gridOrderId,
+        uint64 gridOrderId,
         uint256 baseAmt,
         uint256 quoteVol,
         uint256 orderAmt,
@@ -73,7 +73,7 @@ interface IOrderEvents {
     /// @param sender The address that changed the fee
     /// @param gridId The grid ID whose fee was changed
     /// @param fee The new fee in basis points
-    event GridFeeChanged(address indexed sender, uint256 gridId, uint32 fee);
+    event GridFeeChanged(address indexed sender, uint48 gridId, uint32 fee);
 
     /// @notice Emitted when the oneshot protocol fee is changed
     /// @param sender The address that changed the fee

@@ -22,7 +22,7 @@ interface IGridStrategy {
     /// @param isAsk True if creating ask strategy, false for bid
     /// @param gridId The unique grid identifier
     /// @param data Encoded strategy parameters
-    function createGridStrategy(bool isAsk, uint128 gridId, bytes memory data) external;
+    function createGridStrategy(bool isAsk, uint48 gridId, bytes memory data) external;
 
     /// @notice Get the price for a specific order in the grid
     /// @dev Price is in quote tokens per base token (scaled by 1e18 or similar)
@@ -30,7 +30,7 @@ interface IGridStrategy {
     /// @param gridId The grid identifier
     /// @param idx The order index within the grid (0-based)
     /// @return The order price
-    function getPrice(bool isAsk, uint128 gridId, uint128 idx) external view returns (uint256);
+    function getPrice(bool isAsk, uint48 gridId, uint16 idx) external view returns (uint256);
 
     /// @notice Get the reverse price for a filled order
     /// @dev Used when an order is filled and needs to be placed on the opposite side
@@ -38,5 +38,5 @@ interface IGridStrategy {
     /// @param gridId The grid identifier
     /// @param idx The order index within the grid (0-based)
     /// @return The reverse price
-    function getReversePrice(bool isAsk, uint128 gridId, uint128 idx) external view returns (uint256);
+    function getReversePrice(bool isAsk, uint48 gridId, uint16 idx) external view returns (uint256);
 }

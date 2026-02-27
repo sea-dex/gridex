@@ -201,6 +201,7 @@ contract GeometryTest is Test {
         // amt * price / PRICE_MULTIPLIER must be >= 1
         // So amt >= PRICE_MULTIPLIER / price = PRICE_MULTIPLIER
         vm.expectRevert(IGeometryErrors.GeometryAskZeroQuote.selector);
+        // forge-lint: disable-next-line(unsafe-typecast)
         geometry.validateParams(true, uint128(PRICE_MULTIPLIER), abi.encode(price0, ratio), 2);
     }
 
@@ -210,6 +211,7 @@ contract GeometryTest is Test {
         uint256 ratio = (9 * RATIO_MULTIPLIER) / 10;
         // With tiny price, need very large amount to produce non-zero quote
         vm.expectRevert(IGeometryErrors.GeometryBidZeroQuote.selector);
+        // forge-lint: disable-next-line(unsafe-typecast)
         geometry.validateParams(false, uint128(PRICE_MULTIPLIER), abi.encode(price0, ratio), 2);
     }
 
@@ -295,8 +297,8 @@ contract GeometryTest is Test {
 
         // Verify monotonicity
         uint256 prevPrice = price0;
-        for (uint256 i = 1; i <= 100; i++) {
-            uint256 price = geometry.getPrice(true, 1, uint128(i));
+        for (uint16 i = 1; i <= 100; i++) {
+            uint256 price = geometry.getPrice(true, 1, i);
             assertGt(price, prevPrice, "Prices should be monotonically increasing");
             prevPrice = price;
         }
@@ -339,6 +341,7 @@ contract GeometryTest is Test {
         amt = bound(amt, 1 ether, 1000000 ether);
 
         // Should not revert with valid parameters
+        // forge-lint: disable-next-line(unsafe-typecast)
         geometry.validateParams(true, uint128(amt), abi.encode(price0, ratio), uint32(count));
     }
 
@@ -355,21 +358,22 @@ contract GeometryTest is Test {
         amt = bound(amt, 1 ether, 1000000 ether);
 
         // Should not revert with valid parameters
+        // forge-lint: disable-next-line(unsafe-typecast)
         geometry.validateParams(false, uint128(amt), abi.encode(price0, ratio), uint32(count));
     }
 
     /// @dev Fuzz test for price calculation consistency
-    function testFuzz_priceCalculation_consistency(uint256 price0, uint256 ratio, uint128 idx) public {
+    function testFuzz_priceCalculation_consistency(uint256 price0, uint256 ratio, uint16 idx) public {
         // Bound to reasonable values
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (101 * RATIO_MULTIPLIER) / 100, (11 * RATIO_MULTIPLIER) / 10); // 1.01 to 1.1
-        idx = uint128(bound(idx, 0, 20));
+        idx = uint16(bound(idx, 0, 20));
 
         geometry.createGridStrategy(true, 1, abi.encode(price0, ratio));
 
         // Calculate expected price iteratively
         uint256 expectedPrice = price0;
-        for (uint128 i = 0; i < idx; i++) {
+        for (uint16 i = 0; i < idx; i++) {
             expectedPrice = FullMath.mulDiv(expectedPrice, ratio, RATIO_MULTIPLIER);
         }
 
@@ -382,11 +386,11 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for reverse price calculation
-    function testFuzz_reversePriceCalculation(uint256 price0, uint256 ratio, uint128 idx) public {
+    function testFuzz_reversePriceCalculation(uint256 price0, uint256 ratio, uint16 idx) public {
         // Bound to reasonable values
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (101 * RATIO_MULTIPLIER) / 100, (11 * RATIO_MULTIPLIER) / 10); // 1.01 to 1.1
-        idx = uint128(bound(idx, 1, 20)); // Start from 1 to avoid special case
+        idx = uint16(bound(idx, 1, 20)); // Start from 1 to avoid special case
 
         geometry.createGridStrategy(true, 1, abi.encode(price0, ratio));
 
@@ -397,17 +401,17 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for bid price calculation
-    function testFuzz_bidPriceCalculation(uint256 price0, uint256 ratio, uint128 idx) public {
+    function testFuzz_bidPriceCalculation(uint256 price0, uint256 ratio, uint16 idx) public {
         // Bound to reasonable values for bid (ratio < 1)
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (9 * RATIO_MULTIPLIER) / 10, (99 * RATIO_MULTIPLIER) / 100); // 0.9 to 0.99
-        idx = uint128(bound(idx, 0, 20));
+        idx = uint16(bound(idx, 0, 20));
 
         geometry.createGridStrategy(false, 1, abi.encode(price0, ratio));
 
         // Calculate expected price iteratively
         uint256 expectedPrice = price0;
-        for (uint128 i = 0; i < idx; i++) {
+        for (uint16 i = 0; i < idx; i++) {
             expectedPrice = FullMath.mulDiv(expectedPrice, ratio, RATIO_MULTIPLIER);
         }
 
@@ -436,10 +440,10 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz test for extreme price values
-    function testFuzz_extremePrices(uint256 price0, uint128 idx) public {
+    function testFuzz_extremePrices(uint256 price0, uint16 idx) public {
         // Test with various price magnitudes
         price0 = bound(price0, PRICE_MULTIPLIER / 1e10, PRICE_MULTIPLIER * 1e10);
-        idx = uint128(bound(idx, 0, 10));
+        idx = uint16(bound(idx, 0, 10));
         uint256 ratio = (11 * RATIO_MULTIPLIER) / 10;
 
         geometry.createGridStrategy(true, 1, abi.encode(price0, ratio));
@@ -475,7 +479,7 @@ contract GeometryTest is Test {
         uint256 ratio = (11 * RATIO_MULTIPLIER) / 10;
         geometry.createGridStrategy(true, 1, abi.encode(price0, ratio));
 
-        for (uint128 i = 1; i <= 20; i++) {
+        for (uint16 i = 1; i <= 20; i++) {
             uint256 price = geometry.getPrice(true, 1, i);
             uint256 reversePrice = geometry.getReversePrice(true, 1, i);
             uint256 prevPrice = geometry.getPrice(true, 1, i - 1);
@@ -497,7 +501,7 @@ contract GeometryTest is Test {
         uint256 ratio = (9 * RATIO_MULTIPLIER) / 10;
         geometry.createGridStrategy(false, 1, abi.encode(price0, ratio));
 
-        for (uint128 i = 1; i <= 20; i++) {
+        for (uint16 i = 1; i <= 20; i++) {
             uint256 price = geometry.getPrice(false, 1, i);
             uint256 reversePrice = geometry.getReversePrice(false, 1, i);
             uint256 prevPrice = geometry.getPrice(false, 1, i - 1);
@@ -519,7 +523,7 @@ contract GeometryTest is Test {
         geometry.createGridStrategy(true, 1, abi.encode(price0, ratio));
 
         uint256 prevPrice = 0;
-        for (uint128 i = 0; i <= 20; i++) {
+        for (uint16 i = 0; i <= 20; i++) {
             uint256 price = geometry.getPrice(true, 1, i);
             assertGt(price, prevPrice, "Ask prices should be monotonically increasing");
             prevPrice = price;
@@ -533,7 +537,7 @@ contract GeometryTest is Test {
         geometry.createGridStrategy(false, 1, abi.encode(price0, ratio));
 
         uint256 prevPrice = type(uint256).max;
-        for (uint128 i = 0; i <= 20; i++) {
+        for (uint16 i = 0; i <= 20; i++) {
             uint256 price = geometry.getPrice(false, 1, i);
             assertLt(price, prevPrice, "Bid prices should be monotonically decreasing");
             prevPrice = price;
@@ -554,12 +558,12 @@ contract GeometryTest is Test {
     }
 
     /// @dev Fuzz invariant: price relationship holds for random inputs
-    function testFuzz_invariant_priceRelationship(uint256 price0, uint256 ratio, uint128 idx1, uint128 idx2) public {
+    function testFuzz_invariant_priceRelationship(uint256 price0, uint256 ratio, uint16 idx1, uint16 idx2) public {
         // Bound to reasonable values
         price0 = bound(price0, PRICE_MULTIPLIER / 1000, PRICE_MULTIPLIER * 1000);
         ratio = bound(ratio, (101 * RATIO_MULTIPLIER) / 100, (11 * RATIO_MULTIPLIER) / 10);
-        idx1 = uint128(bound(idx1, 0, 20));
-        idx2 = uint128(bound(idx2, 0, 20));
+        idx1 = uint16(bound(idx1, 0, 20));
+        idx2 = uint16(bound(idx2, 0, 20));
 
         vm.assume(idx1 < idx2);
 
@@ -615,7 +619,7 @@ contract GeometryTest is Test {
     function test_maxGridId() public {
         uint256 price0 = PRICE_MULTIPLIER;
         uint256 ratio = (11 * RATIO_MULTIPLIER) / 10;
-        uint128 maxGridId = type(uint128).max;
+        uint48 maxGridId = type(uint48).max;
 
         geometry.createGridStrategy(true, maxGridId, abi.encode(price0, ratio));
         assertEq(geometry.getPrice(true, maxGridId, 0), price0);
@@ -677,21 +681,21 @@ contract GeometryTest is Test {
 
     /// @dev Test that different gridIds produce independent strategies
     function test_multipleStrategies_independent() public {
-        uint256 price0_a = PRICE_MULTIPLIER;
-        uint256 ratio_a = (11 * RATIO_MULTIPLIER) / 10;
-        uint256 price0_b = PRICE_MULTIPLIER * 2;
-        uint256 ratio_b = (12 * RATIO_MULTIPLIER) / 10;
+        uint256 price0A = PRICE_MULTIPLIER;
+        uint256 ratioA = (11 * RATIO_MULTIPLIER) / 10;
+        uint256 price0B = PRICE_MULTIPLIER * 2;
+        uint256 ratioB = (12 * RATIO_MULTIPLIER) / 10;
 
-        geometry.createGridStrategy(true, 1, abi.encode(price0_a, ratio_a));
-        geometry.createGridStrategy(true, 2, abi.encode(price0_b, ratio_b));
+        geometry.createGridStrategy(true, 1, abi.encode(price0A, ratioA));
+        geometry.createGridStrategy(true, 2, abi.encode(price0B, ratioB));
 
-        assertEq(geometry.getPrice(true, 1, 0), price0_a);
-        assertEq(geometry.getPrice(true, 2, 0), price0_b);
+        assertEq(geometry.getPrice(true, 1, 0), price0A);
+        assertEq(geometry.getPrice(true, 2, 0), price0B);
 
         // Verify they produce different prices at index 1
-        uint256 price1_a = geometry.getPrice(true, 1, 1);
-        uint256 price1_b = geometry.getPrice(true, 2, 1);
-        assertNotEq(price1_a, price1_b, "Different strategies should produce different prices");
+        uint256 price1A = geometry.getPrice(true, 1, 1);
+        uint256 price1B = geometry.getPrice(true, 2, 1);
+        assertNotEq(price1A, price1B, "Different strategies should produce different prices");
     }
 
     /// @dev Test price at index 0 equals basePrice
@@ -724,14 +728,14 @@ contract GeometryHandler is Test {
     uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
     uint256 public constant RATIO_MULTIPLIER = 10 ** 18;
 
-    uint128[] public askGridIds;
-    uint128[] public bidGridIds;
+    uint48[] public askGridIds;
+    uint48[] public bidGridIds;
 
     constructor(address _geometry) {
         geometry = Geometry(_geometry);
     }
 
-    function createAskStrategy(uint128 gridId, uint256 price0, uint256 ratio) external {
+    function createAskStrategy(uint48 gridId, uint256 price0, uint256 ratio) external {
         price0 = bound(price0, 1, type(uint128).max);
         ratio = bound(ratio, RATIO_MULTIPLIER + 1, 10 * RATIO_MULTIPLIER);
 
@@ -744,7 +748,7 @@ contract GeometryHandler is Test {
         askGridIds.push(gridId);
     }
 
-    function createBidStrategy(uint128 gridId, uint256 price0, uint256 ratio) external {
+    function createBidStrategy(uint48 gridId, uint256 price0, uint256 ratio) external {
         price0 = bound(price0, 1, type(uint128).max);
         ratio = bound(ratio, RATIO_MULTIPLIER / 10, RATIO_MULTIPLIER - 1);
 
@@ -757,15 +761,15 @@ contract GeometryHandler is Test {
         bidGridIds.push(gridId);
     }
 
-    function getPriceAsk(uint128 gridIdIdx, uint128 idx) external view returns (uint256) {
+    function getPriceAsk(uint48 gridIdIdx, uint16 idx) external view returns (uint256) {
         if (askGridIds.length == 0) return 0;
-        uint128 gridId = askGridIds[uint256(gridIdIdx) % askGridIds.length];
+        uint48 gridId = askGridIds[uint256(gridIdIdx) % askGridIds.length];
         return geometry.getPrice(true, gridId, idx);
     }
 
-    function getPriceBid(uint128 gridIdIdx, uint128 idx) external view returns (uint256) {
+    function getPriceBid(uint128 gridIdIdx, uint16 idx) external view returns (uint256) {
         if (bidGridIds.length == 0) return 0;
-        uint128 gridId = bidGridIds[uint256(gridIdIdx) % bidGridIds.length];
+        uint48 gridId = bidGridIds[uint256(gridIdIdx) % bidGridIds.length];
         return geometry.getPrice(false, gridId, idx);
     }
 }

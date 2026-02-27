@@ -459,7 +459,7 @@ contract LinearTest is Test {
     // ============ Fuzz Tests ============
 
     /// @notice Fuzz test for ask order price calculation
-    function testFuzz_getPrice_ask(uint128 price0, uint64 gap, uint32 idx) public {
+    function testFuzz_getPrice_ask(uint128 price0, uint64 gap, uint16 idx) public {
         vm.assume(price0 > 0 && price0 < (1 << 127));
         vm.assume(gap > 0 && gap < price0);
         vm.assume(idx < 1000);
@@ -478,7 +478,7 @@ contract LinearTest is Test {
     }
 
     /// @notice Fuzz test for bid order price calculation
-    function testFuzz_getPrice_bid(uint128 price0, uint64 gap, uint32 idx) public {
+    function testFuzz_getPrice_bid(uint128 price0, uint64 gap, uint16 idx) public {
         vm.assume(price0 > 0 && price0 < (1 << 127));
         vm.assume(gap > 0 && gap < price0 / 1000); // Ensure gap is small enough
         vm.assume(idx < 1000);
@@ -499,7 +499,7 @@ contract LinearTest is Test {
 
     /// @notice Test with maximum valid gridId
     function test_maxGridId() public {
-        uint128 maxGridId = type(uint128).max;
+        uint48 maxGridId = type(uint48).max;
         bytes memory data = abi.encode(uint256(1000), int256(100));
 
         vm.prank(exchange);

@@ -33,7 +33,7 @@ contract Geometry is IGridStrategy {
     mapping(uint256 => GeometryStrategy) public strategies;
 
     /// @notice Emitted when a new geometry strategy is created.
-    event GeometryStrategyCreated(bool isAsk, uint128 gridId, uint256 price0, uint256 ratio);
+    event GeometryStrategyCreated(bool isAsk, uint48 gridId, uint256 price0, uint256 ratio);
 
     /// @notice Modifier to restrict access to GridEx contract only
     modifier onlyGridEx() {
@@ -122,7 +122,7 @@ contract Geometry is IGridStrategy {
     }
 
     /// @inheritdoc IGridStrategy
-    function createGridStrategy(bool isAsk, uint128 gridId, bytes memory data) external override onlyGridEx {
+    function createGridStrategy(bool isAsk, uint48 gridId, bytes memory data) external override onlyGridEx {
         uint256 key = gridIdKey(isAsk, gridId);
         require(strategies[key].basePrice == 0, "Already exists");
         (uint256 price0, uint256 ratio) = abi.decode(data, (uint256, uint256));
@@ -132,13 +132,13 @@ contract Geometry is IGridStrategy {
     }
 
     /// @inheritdoc IGridStrategy
-    function getPrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
+    function getPrice(bool isAsk, uint48 gridId, uint16 idx) external view override returns (uint256) {
         GeometryStrategy storage s = strategies[gridIdKey(isAsk, gridId)];
         return _priceAt(s.basePrice, s.ratio, idx);
     }
 
     /// @inheritdoc IGridStrategy
-    function getReversePrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
+    function getReversePrice(bool isAsk, uint48 gridId, uint16 idx) external view override returns (uint256) {
         GeometryStrategy storage s = strategies[gridIdKey(isAsk, gridId)];
         if (idx == 0) {
             return FullMath.mulDiv(s.basePrice, RATIO_MULTIPLIER, s.ratio);

@@ -69,7 +69,7 @@ contract Linear is IGridStrategy {
     }
 
     /// @inheritdoc IGridStrategy
-    function createGridStrategy(bool isAsk, uint128 gridId, bytes memory data) external override onlyGridEx {
+    function createGridStrategy(bool isAsk, uint48 gridId, bytes memory data) external override onlyGridEx {
         uint256 key = gridIdKey(isAsk, gridId);
         require(strategies[key].basePrice == 0, "Already exists");
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
@@ -143,7 +143,7 @@ contract Linear is IGridStrategy {
     }
 
     /// @inheritdoc IGridStrategy
-    function getPrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
+    function getPrice(bool isAsk, uint48 gridId, uint16 idx) external view override returns (uint256) {
         uint256 key = gridIdKey(isAsk, gridId);
         LinearStrategy storage s = strategies[key];
         // Direct storage read is cheaper than loading full struct to memory
@@ -153,7 +153,7 @@ contract Linear is IGridStrategy {
     }
 
     /// @inheritdoc IGridStrategy
-    function getReversePrice(bool isAsk, uint128 gridId, uint128 idx) external view override returns (uint256) {
+    function getReversePrice(bool isAsk, uint48 gridId, uint16 idx) external view override returns (uint256) {
         uint256 key = gridIdKey(isAsk, gridId);
         LinearStrategy storage s = strategies[key];
         // Direct storage read is cheaper than loading full struct to memory
