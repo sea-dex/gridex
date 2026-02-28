@@ -97,6 +97,13 @@ contract Linear is IGridStrategy {
             if (uint256(gap) >= price0) {
                 revert ILinearErrors.LinearAskGapTooLarge();
             }
+            
+            // casting to 'uint256' is safe because gap > 0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            if (uint256(count - 1) * uint256(int256(gap)) >= uint256(type(int256).max)) {
+                revert ILinearErrors.LinearAskPriceOverflow();
+            }
+
             // casting to 'uint256' is safe because gap > 0
             // forge-lint: disable-next-line(unsafe-typecast)
             if (uint256(price0) + uint256(count - 1) * uint256(int256(gap)) >= type(uint256).max) {
@@ -123,6 +130,14 @@ contract Linear is IGridStrategy {
             if (uint256(price0) + uint256(-int256(gap)) >= type(uint256).max) {
                 revert ILinearErrors.LinearBidPriceOverflow();
             }
+
+            // Check for int256 overflow in price calculation
+            // gap is negative, so we check |gap| * (count-1) < int256.max
+            // forge-lint: disable-next-line(unsafe-typecast)
+            if (uint256(-int256(gap)) * uint256(count - 1) >= uint256(type(int256).max)) {
+                revert ILinearErrors.LinearBidPriceOverflow();
+            }
+
             // casting to 'uint256' is safe because price0 < 1<<128
             // forge-lint: disable-next-line(unsafe-typecast)
             int256 priceLast = int256(uint256(price0)) + int256(gap) * int256(uint256(count) - 1);
