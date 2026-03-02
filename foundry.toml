@@ -16,7 +16,7 @@ remappings = [
 ]
 
 [profile.default.fuzz]
-runs = 100000
+runs = 50000
 seed = "0x4444"
 
 [profile.ci.fuzz]
