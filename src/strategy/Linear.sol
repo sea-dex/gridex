@@ -97,7 +97,7 @@ contract Linear is IGridStrategy {
             if (uint256(gap) >= price0) {
                 revert ILinearErrors.LinearAskGapTooLarge();
             }
-            
+
             // casting to 'uint256' is safe because gap > 0
             // forge-lint: disable-next-line(unsafe-typecast)
             if (uint256(count - 1) * uint256(int256(gap)) >= uint256(type(int256).max)) {

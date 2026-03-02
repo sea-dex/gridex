@@ -36,7 +36,7 @@ contract GridExMixedStrategyTest is GridExBaseTest {
             askStrategy: geometry,
             bidStrategy: linear,
             askData: abi.encode(askPrice0, askRatio),
-           // forge-lint: disable-next-line(unsafe-typecast)
+            // forge-lint: disable-next-line(unsafe-typecast)
             bidData: abi.encode(bidPrice0, -int256(bidGap)),
             askOrderCount: askCount,
             bidOrderCount: bidCount,
@@ -65,7 +65,7 @@ contract GridExMixedStrategyTest is GridExBaseTest {
         IGridOrder.GridOrderParam memory param = IGridOrder.GridOrderParam({
             askStrategy: linear,
             bidStrategy: geometry,
-           // forge-lint: disable-next-line(unsafe-typecast)
+            // forge-lint: disable-next-line(unsafe-typecast)
             askData: abi.encode(askPrice0, int256(askGap)),
             bidData: abi.encode(bidPrice0, bidRatio),
             askOrderCount: askCount,
