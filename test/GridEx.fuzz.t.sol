@@ -184,7 +184,7 @@ contract GridExFuzzTest is Test {
     }
 
     /// @notice Fuzz test fee split ratio
-    function testFuzz_feeSplitRatio(uint128 vol, uint32 bps) public pure {
+    function testFuzz_feeSplitRatio(uint128 vol, uint16 bps) public pure {
         vm.assume(vol > 100); // Need enough volume for meaningful fee
         vm.assume(bps >= MIN_FEE && bps <= MAX_FEE);
 
@@ -372,11 +372,26 @@ contract GridExFuzzTest is Test {
     }
 
     /// @notice Fuzz test that higher fees produce higher fee amounts
-    function testFuzz_monotonicity_fees(uint128 vol, uint32 fee1, uint32 fee2) public pure {
-        vm.assume(vol > 0);
-        vm.assume(fee1 >= MIN_FEE && fee1 <= MAX_FEE);
-        vm.assume(fee2 >= MIN_FEE && fee2 <= MAX_FEE);
-        vm.assume(fee1 != fee2);
+    function testFuzz_monotonicity_fees(uint128 vol, uint16 fee1, uint16 fee2) public pure {
+        // vm.assume(vol > 0);
+        // vm.assume(fee1 >= MIN_FEE && fee1 <= MAX_FEE);
+        // vm.assume(fee2 >= MIN_FEE && fee2 <= MAX_FEE);
+        // vm.assume(fee1 != fee2);
+
+        vol = uint128(bound(vol, 1, 1e40));
+
+        fee1 = uint16(bound(fee1, MIN_FEE, MAX_FEE));
+        fee2 = uint16(bound(fee2, MIN_FEE, MAX_FEE));
+
+        // avoid equals
+        if (fee1 == fee2) {
+            if (fee1 == 65535) {
+                fee1 = fee1 - 1;
+            } else {
+                fee2 = fee2 + 1;
+            }
+            // fee2 = fee1 == MAX_FEE ? fee1 - 1 : fee1 + 1;
+        }
 
         (uint128 lpFee1, uint128 protocolFee1) = Lens.calculateFees(vol, fee1);
         (uint128 lpFee2, uint128 protocolFee2) = Lens.calculateFees(vol, fee2);
