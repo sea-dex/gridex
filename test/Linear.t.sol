@@ -462,7 +462,8 @@ contract LinearTest is Test {
     function testFuzz_getPrice_ask(uint128 price0, uint64 gap, uint16 idx) public {
         vm.assume(price0 > 0 && price0 < (1 << 127));
         vm.assume(gap > 0 && gap < price0);
-        vm.assume(idx < 1000);
+        // vm.assume(idx < 1000);
+        idx = uint16(bound(idx, 2, 1000));
 
         // Ensure no overflow
         uint256 maxPrice = uint256(price0) + uint256(gap) * uint256(idx);
@@ -479,9 +480,11 @@ contract LinearTest is Test {
 
     /// @notice Fuzz test for bid order price calculation
     function testFuzz_getPrice_bid(uint128 price0, uint64 gap, uint16 idx) public {
-        vm.assume(price0 > 0 && price0 < (1 << 127));
-        vm.assume(gap > 0 && gap < price0 / 1000); // Ensure gap is small enough
-        vm.assume(idx < 1000);
+        vm.assume(price0 > 1000 && price0 < (1 << 127));
+        // vm.assume(gap > 0 && gap < price0 / 1000); // Ensure gap is small enough
+        gap = uint64(bound(gap, 1, uint64(price0/1000)));
+        // vm.assume(idx < 1000);
+        idx = uint16(bound(idx, 2, 1000));
 
         // Ensure price doesn't go negative
         vm.assume(uint256(price0) > uint256(gap) * uint256(idx));
