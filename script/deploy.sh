@@ -42,7 +42,7 @@ NC='\033[0m' # No Color
 # ============================================================
 
 # Deployment salt - MUST be the same across all chains
-DEPLOYMENT_SALT="GridEx.V1.2024.Production"
+DEPLOYMENT_SALT="GridEx.V2.2026.Production.Diamond"
 
 # Script path
 DEPLOY_SCRIPT="script/Deploy.s.sol"
