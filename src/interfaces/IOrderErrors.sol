@@ -29,6 +29,9 @@ interface IOrderErrors {
     /// @notice Thrown when attempting to create a grid with zero orders
     error ZeroGridOrderCount();
 
+    /// @notice Thrown when attempting to create a grid more than 0x8000 orders
+    error ExceedGridOrderCount();
+
     /// @notice Thrown when buy price is less than 0 or sell price overflows
     error InvalidGapPrice();
 

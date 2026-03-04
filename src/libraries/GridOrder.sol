@@ -30,6 +30,9 @@ library GridOrder {
     /// @dev MAX_FEE of 100000 = 10%
     uint32 public constant MAX_FEE = 100000;
 
+    /// @dev MAX_ORDERS_PER_SIDE 32768
+    uint16 public constant MAX_ORDERS_PER_SIDE = 0x8000;
+
     /// @dev Mask for extracting order ID from grid order ID (lower 16 bits)
     uint64 private constant ORDER_ID_MASK = 0xFFFF;
 
@@ -84,6 +87,10 @@ library GridOrder {
         // Require at least one order (ask or bid)
         if (param.askOrderCount == 0 && param.bidOrderCount == 0) {
             revert IOrderErrors.ZeroGridOrderCount();
+        }
+
+        if (param.askOrderCount >= MAX_ORDERS_PER_SIDE || param.bidOrderCount >= MAX_ORDERS_PER_SIDE) {
+            revert IOrderErrors.ExceedGridOrderCount();
         }
 
         // For oneshot orders, skip user fee validation since it will be overridden
