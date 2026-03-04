@@ -59,6 +59,28 @@ get_vault_address() {
     cast call "$ROUTER_ADDRESS" "vault()(address)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
 }
 
+# Get router owner address
+get_router_owner_address() {
+    check_config
+    cast call "$ROUTER_ADDRESS" "owner()(address)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
+}
+
+# Get owner address of a contract implementing owner()
+get_contract_owner_address() {
+    local contract_address="$1"
+    cast call "$contract_address" "owner()(address)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
+}
+
+# Get signer address from private key
+get_signer_address() {
+    cast wallet address --private-key "$PRIVATE_KEY" 2>/dev/null | tr -d '[:space:]'
+}
+
+# Normalize address to lowercase for comparisons
+normalize_address() {
+    echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 # ═══════════════════════════════════════════════════════════════════
 #  ADMIN FACET FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════
@@ -179,8 +201,13 @@ admin_rescue_eth() {
 admin_transfer_ownership() {
     local new_owner="$1"
     local target="${2:-both}" # both | router | vault
+    local zero_address="0x0000000000000000000000000000000000000000"
     if [ -z "$new_owner" ]; then
         print_error "Usage: $0 admin_transfer_ownership <NEW_OWNER_ADDRESS> [both|router|vault]"
+        exit 1
+    fi
+    if [ "$(normalize_address "$new_owner")" = "$zero_address" ]; then
+        print_error "NEW_OWNER_ADDRESS cannot be zero address"
         exit 1
     fi
     if [ "$target" != "both" ] && [ "$target" != "router" ] && [ "$target" != "vault" ]; then
@@ -190,8 +217,16 @@ admin_transfer_ownership() {
     check_config
     check_private_key
 
-    local zero_address="0x0000000000000000000000000000000000000000"
+    local signer
     local vault_address=""
+    local router_owner=""
+    local vault_owner=""
+
+    signer="$(get_signer_address)"
+    if [ -z "$signer" ] || [ "$(normalize_address "$signer")" = "$zero_address" ]; then
+        print_error "Failed to derive signer address from PRIVATE_KEY"
+        exit 1
+    fi
 
     if [ "$target" = "both" ] || [ "$target" = "vault" ]; then
         vault_address="$(get_vault_address)"
@@ -199,11 +234,22 @@ admin_transfer_ownership() {
             print_error "Failed to resolve vault address from router"
             exit 1
         fi
+    fi
 
-        print_info "Transferring Vault ownership to $new_owner..."
-        cast send "$vault_address" "transferOwnership(address)" "$new_owner" \
-            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-        print_success "Vault ownership transferred"
+    if [ "$target" = "both" ] || [ "$target" = "router" ]; then
+        router_owner="$(get_router_owner_address)"
+        if [ "$(normalize_address "$router_owner")" != "$(normalize_address "$signer")" ]; then
+            print_error "Signer is not current Router owner (router owner: $router_owner, signer: $signer)"
+            exit 1
+        fi
+    fi
+
+    if [ "$target" = "both" ] || [ "$target" = "vault" ]; then
+        vault_owner="$(get_contract_owner_address "$vault_address")"
+        if [ "$(normalize_address "$vault_owner")" != "$(normalize_address "$signer")" ]; then
+            print_error "Signer is not current Vault owner (vault owner: $vault_owner, signer: $signer)"
+            exit 1
+        fi
     fi
 
     if [ "$target" = "both" ] || [ "$target" = "router" ]; then
@@ -211,6 +257,13 @@ admin_transfer_ownership() {
         cast send "$ROUTER_ADDRESS" "transferOwnership(address)" "$new_owner" \
             --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
         print_success "Router ownership transferred"
+    fi
+
+    if [ "$target" = "both" ] || [ "$target" = "vault" ]; then
+        print_info "Transferring Vault ownership to $new_owner..."
+        cast send "$vault_address" "transferOwnership(address)" "$new_owner" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+        print_success "Vault ownership transferred"
     fi
 }
 

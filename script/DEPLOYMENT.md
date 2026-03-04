@@ -217,7 +217,7 @@ forge verify-contract \
 ## Post-Deployment Checklist
 
 - [ ] Verify all contracts on block explorers
-- [ ] Confirm Linear strategy is whitelisted
+- [ ] Confirm Linear and Geometry strategies are whitelisted
 - [ ] Transfer ownership of both Router and Vault (or run `admin_transfer_ownership <new_owner>`)
 - [ ] Test basic functionality (place order, fill order)
 - [ ] Update frontend/backend with new addresses
