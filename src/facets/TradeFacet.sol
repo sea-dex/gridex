@@ -40,6 +40,7 @@ contract TradeFacet is IOrderEvents {
     error NotEnough();
     error ETHTransferFailed();
     error NotWETH();
+    error TransferInMismatch();
 
     // ─── Pair helpers ────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ contract TradeFacet is IOrderEvents {
     ) internal {
         address weth = GridExStorage.layout().weth;
         if (flag == 0) {
-            ERC20(Currency.unwrap(inToken)).safeTransferFrom(addr, address(this), inAmt);
+            _transferTokenFrom(inToken, addr, inAmt);
             outToken.transfer(addr, outAmt);
         } else {
             if (flag & 0x01 > 0) {
@@ -117,7 +118,7 @@ contract TradeFacet is IOrderEvents {
                     _tryPaybackETH(addr, paid - inAmt);
                 }
             } else {
-                ERC20(Currency.unwrap(inToken)).safeTransferFrom(addr, address(this), inAmt);
+                _transferTokenFrom(inToken, addr, inAmt);
             }
 
             if (flag & 0x02 > 0) {
@@ -131,7 +132,13 @@ contract TradeFacet is IOrderEvents {
     }
 
     function _transferTokenFrom(Currency token, address addr, uint256 amount) internal {
+        if (amount == 0) return;
+        uint256 beforeBal = token.balanceOfSelf();
         ERC20(Currency.unwrap(token)).safeTransferFrom(addr, address(this), amount);
+        uint256 afterBal = token.balanceOfSelf();
+        if (afterBal < beforeBal || afterBal - beforeBal != amount) {
+            revert TransferInMismatch();
+        }
     }
 
     // forge-lint: disable-next-line(mixed-case-function)
