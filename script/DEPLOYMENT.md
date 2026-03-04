@@ -74,43 +74,50 @@ For **identical addresses** across chains:
 
 ### The Challenge
 
-GridEx constructor requires:
-```solidity
-constructor(address weth_, address usd_, address _vault)
-```
+In the current diamond architecture:
+- `Vault` constructor requires `owner`
+- `GridExRouter` constructor requires `(owner, vault, adminFacet)`
+- `Linear` and `Geometry` constructors require `router`
 
-Since WETH and USD addresses differ per chain, the bytecode differs, resulting in different addresses.
+So deterministic addresses across chains now depend on:
+- Using the same CREATE2 deployer
+- Using the same salt
+- Using the same constructor arguments (especially the same deployer/owner)
+
+`WETH` and `USD` are configured post-deployment via admin calls and no longer affect CREATE2 addresses.
+
+The legacy single-contract deployment model is no longer used.
+
+Router constructor:
+```solidity
+constructor(address _owner, address _vault, address _adminFacet)
+```
 
 ### Solutions
 
-#### Option A: Use Canonical Token Addresses (Recommended for Production)
+#### Option A: Use the same deployer across chains (Recommended)
 
-Deploy your own WETH and USD tokens using CREATE2 first, ensuring they have the same address on all chains:
-
-```bash
-# 1. Deploy canonical WETH/USD to all chains first
-# 2. Use those addresses for GridEx deployment
-WETH_ADDRESS=0x... USD_ADDRESS=0x... ./script/deploy.sh deploy base
-```
-
-#### Option B: Accept Different Addresses Per Chain
-
-If using native WETH/USD on each chain, accept that GridEx will have different addresses:
+Use the same private key / sender for all chains so constructor arguments remain identical where required:
 
 ```bash
-# Uses chain-specific WETH/USD from DeployConfig.sol
+# Uses current chain config for WETH/USD via DeployConfig
 ./script/deploy.sh deploy base
 ```
 
-#### Option C: Use Proxy Pattern
+#### Option B: Different deployers per chain
 
-Deploy a minimal proxy with no constructor args, then initialize:
+If the deployer/owner differs, CREATE2 addresses will differ:
 
-```solidity
-// Proxy has no constructor args = same address everywhere
-contract GridExProxy {
-    function initialize(address weth, address usd, address vault) external;
-}
+```bash
+DEPLOYER_ADDRESS=0x... ./script/deploy.sh deploy base
+```
+
+#### Option C: Transfer ownership to multisig after deployment
+
+Deploy with an EOA, then transfer control to governance/multisig:
+
+```bash
+./script/gridex-cli.sh admin_transfer_ownership <new_owner>
 ```
 
 ## Deployment Commands
@@ -172,28 +179,36 @@ WETH_ADDRESS=0x... USD_ADDRESS=0x... forge script script/Deploy.s.sol --rpc-url 
 Contracts are automatically verified if you provide explorer API keys. Manual verification:
 
 ```bash
-# Vault (no constructor args)
+# Vault
 forge verify-contract \
   --chain-id 84532 \
   --etherscan-api-key $BASESCAN_API_KEY \
   0x... \
-  src/Vault.sol:Vault
+  src/Vault.sol:Vault \
+  --constructor-args $(cast abi-encode "constructor(address)" $OWNER)
 
-# GridEx
+# AdminFacet / TradeFacet / CancelFacet / ViewFacet (no constructor args)
 forge verify-contract \
   --chain-id 84532 \
   --etherscan-api-key $BASESCAN_API_KEY \
   0x... \
-  src/GridEx.sol:GridEx \
-  --constructor-args $(cast abi-encode "constructor(address,address,address)" $WETH $USD $VAULT)
+  src/facets/AdminFacet.sol:AdminFacet
 
-# Linear
+# Router
+forge verify-contract \
+  --chain-id 84532 \
+  --etherscan-api-key $BASESCAN_API_KEY \
+  0x... \
+  src/GridExRouter.sol:GridExRouter \
+  --constructor-args $(cast abi-encode "constructor(address,address,address)" $OWNER $VAULT $ADMIN_FACET)
+
+# Linear / Geometry
 forge verify-contract \
   --chain-id 84532 \
   --etherscan-api-key $BASESCAN_API_KEY \
   0x... \
   src/strategy/Linear.sol:Linear \
-  --constructor-args $(cast abi-encode "constructor(address)" $GRIDEX)
+  --constructor-args $(cast abi-encode "constructor(address)" $ROUTER)
 ```
 
 ## Post-Deployment Checklist
@@ -252,16 +267,19 @@ Common causes:
                               │ constructor arg
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                        GridEx                                │
-│    (Same address if WETH/USD are same, else different)      │
+│                      GridExRouter                            │
+│             (diamond entrypoint, deterministic)              │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              │ constructor arg
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        Linear                                │
-│              (Depends on GridEx address)                     │
-└─────────────────────────────────────────────────────────────┘
+                 │               │               │
+                 ▼               ▼               ▼
+        ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+        │  TradeFacet  │ │ CancelFacet  │ │  AdminFacet  │
+        └──────────────┘ └──────────────┘ └──────────────┘
+                 │
+                 ▼
+            ┌──────────┐
+            │ ViewFacet │
+            └──────────┘
 ```
 
 ## Example: Full Multi-Chain Deployment

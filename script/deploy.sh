@@ -330,8 +330,8 @@ cmd_verify() {
     local address=$3
     
     if [ -z "$chain" ] || [ -z "$contract" ] || [ -z "$address" ]; then
-        print_error "Usage: $0 verify <chain> <contract> <address>"
-        echo "Contracts: Vault, GridEx, Linear"
+        print_error "Usage: $0 verify <chain> <contract> <address> [constructor_args...]"
+        echo "Contracts: Vault, AdminFacet, TradeFacet, CancelFacet, ViewFacet, Router, Linear, Geometry"
         exit 1
     fi
     
@@ -348,27 +348,60 @@ cmd_verify() {
     
     case $contract in
         "Vault")
-            forge verify-contract \
-                --chain-id "$chain_id" \
-                --etherscan-api-key "$explorer_key" \
-                "$address" \
-                src/Vault.sol:Vault
-            ;;
-        "GridEx")
-            if [ -z "$4" ] || [ -z "$5" ] || [ -z "$6" ]; then
-                print_error "GridEx requires: <weth> <usd> <vault>"
+            if [ -z "$4" ]; then
+                print_error "Vault requires: <owner>"
                 exit 1
             fi
             forge verify-contract \
                 --chain-id "$chain_id" \
                 --etherscan-api-key "$explorer_key" \
                 "$address" \
-                src/GridEx.sol:GridEx \
+                src/Vault.sol:Vault \
+                --constructor-args $(cast abi-encode "constructor(address)" "$4")
+            ;;
+        "AdminFacet")
+            forge verify-contract \
+                --chain-id "$chain_id" \
+                --etherscan-api-key "$explorer_key" \
+                "$address" \
+                src/facets/AdminFacet.sol:AdminFacet
+            ;;
+        "TradeFacet")
+            forge verify-contract \
+                --chain-id "$chain_id" \
+                --etherscan-api-key "$explorer_key" \
+                "$address" \
+                src/facets/TradeFacet.sol:TradeFacet
+            ;;
+        "CancelFacet")
+            forge verify-contract \
+                --chain-id "$chain_id" \
+                --etherscan-api-key "$explorer_key" \
+                "$address" \
+                src/facets/CancelFacet.sol:CancelFacet
+            ;;
+        "ViewFacet")
+            forge verify-contract \
+                --chain-id "$chain_id" \
+                --etherscan-api-key "$explorer_key" \
+                "$address" \
+                src/facets/ViewFacet.sol:ViewFacet
+            ;;
+        "Router")
+            if [ -z "$4" ] || [ -z "$5" ] || [ -z "$6" ]; then
+                print_error "Router requires: <owner> <vault> <admin_facet>"
+                exit 1
+            fi
+            forge verify-contract \
+                --chain-id "$chain_id" \
+                --etherscan-api-key "$explorer_key" \
+                "$address" \
+                src/GridExRouter.sol:GridExRouter \
                 --constructor-args $(cast abi-encode "constructor(address,address,address)" "$4" "$5" "$6")
             ;;
         "Linear")
             if [ -z "$4" ]; then
-                print_error "Linear requires: <gridex>"
+                print_error "Linear requires: <router>"
                 exit 1
             fi
             forge verify-contract \
@@ -376,6 +409,18 @@ cmd_verify() {
                 --etherscan-api-key "$explorer_key" \
                 "$address" \
                 src/strategy/Linear.sol:Linear \
+                --constructor-args $(cast abi-encode "constructor(address)" "$4")
+            ;;
+        "Geometry")
+            if [ -z "$4" ]; then
+                print_error "Geometry requires: <router>"
+                exit 1
+            fi
+            forge verify-contract \
+                --chain-id "$chain_id" \
+                --etherscan-api-key "$explorer_key" \
+                "$address" \
+                src/strategy/Geometry.sol:Geometry \
                 --constructor-args $(cast abi-encode "constructor(address)" "$4")
             ;;
         *)
@@ -427,7 +472,8 @@ cmd_help() {
     echo "  $0 preview base-sepolia"
     echo "  $0 deploy arbitrum"
     echo "  $0 all base-sepolia arbitrum-sepolia"
-    echo "  $0 verify base-sepolia Vault 0x..."
+    echo "  $0 verify base-sepolia Vault 0x... <owner>"
+    echo "  $0 verify base-sepolia Router 0x... <owner> <vault> <admin_facet>"
 }
 
 # ============================================================

@@ -167,8 +167,8 @@ contract GridExBaseTest is Test {
         AdminFacet(address(exchange)).batchSetFacet(adminSel, adminFac);
 
         // ViewFacet selectors
-        bytes4[] memory viewSel = new bytes4[](13);
-        address[] memory viewFac = new address[](13);
+        bytes4[] memory viewSel = new bytes4[](14);
+        address[] memory viewFac = new address[](14);
 
         viewSel[0] = ViewFacet.getGridOrder.selector;
         viewFac[0] = address(viewFacet);
@@ -188,14 +188,16 @@ contract GridExBaseTest is Test {
         viewFac[7] = address(viewFacet);
         viewSel[8] = ViewFacet.getPairById.selector;
         viewFac[8] = address(viewFacet);
-        viewSel[9] = ViewFacet.paused.selector;
+        viewSel[9] = ViewFacet.facetAddress.selector;
         viewFac[9] = address(viewFacet);
-        viewSel[10] = ViewFacet.owner.selector;
+        viewSel[10] = ViewFacet.paused.selector;
         viewFac[10] = address(viewFacet);
-        viewSel[11] = ViewFacet.vault.selector;
+        viewSel[11] = ViewFacet.owner.selector;
         viewFac[11] = address(viewFacet);
-        viewSel[12] = ViewFacet.WETH.selector;
+        viewSel[12] = ViewFacet.vault.selector;
         viewFac[12] = address(viewFacet);
+        viewSel[13] = ViewFacet.WETH.selector;
+        viewFac[13] = address(viewFacet);
 
         AdminFacet(address(exchange)).batchSetFacet(viewSel, viewFac);
     }

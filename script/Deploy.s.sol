@@ -263,8 +263,8 @@ contract Deploy is Script {
         console.log("[OK] AdminFacet selectors registered");
 
         // ViewFacet selectors
-        bytes4[] memory viewSelectors = new bytes4[](12);
-        address[] memory viewFacets = new address[](12);
+        bytes4[] memory viewSelectors = new bytes4[](14);
+        address[] memory viewFacets = new address[](14);
 
         viewSelectors[0] = ViewFacet.getGridOrder.selector;
         viewFacets[0] = viewFacet;
@@ -282,14 +282,18 @@ contract Deploy is Script {
         viewFacets[6] = viewFacet;
         viewSelectors[7] = ViewFacet.getPairIdByTokens.selector;
         viewFacets[7] = viewFacet;
-        viewSelectors[8] = ViewFacet.paused.selector;
+        viewSelectors[8] = ViewFacet.getPairById.selector;
         viewFacets[8] = viewFacet;
-        viewSelectors[9] = ViewFacet.owner.selector;
+        viewSelectors[9] = ViewFacet.facetAddress.selector;
         viewFacets[9] = viewFacet;
-        viewSelectors[10] = ViewFacet.vault.selector;
+        viewSelectors[10] = ViewFacet.paused.selector;
         viewFacets[10] = viewFacet;
-        viewSelectors[11] = ViewFacet.WETH.selector;
+        viewSelectors[11] = ViewFacet.owner.selector;
         viewFacets[11] = viewFacet;
+        viewSelectors[12] = ViewFacet.vault.selector;
+        viewFacets[12] = viewFacet;
+        viewSelectors[13] = ViewFacet.WETH.selector;
+        viewFacets[13] = viewFacet;
 
         AdminFacet(router).batchSetFacet(viewSelectors, viewFacets);
         console.log("[OK] ViewFacet selectors registered");

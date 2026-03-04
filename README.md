@@ -59,21 +59,22 @@ $ anvil
 
 ### Deploy
 
-create mock tokens: WETH USDC
-```
-forge create --broadcast test/utils/USDC.sol:USDC --rpc-url https://sepolia.base.org --private-key
-forge create --broadcast test/utils/WETH.sol:WETH --rpc-url https://sepolia.base.org --private-key
+```shell
+# 1) prepare deployment env
+$ cp script/.env.example script/.env
+$ vim script/.env
+
+# 2) preview deterministic addresses
+$ ./script/deploy.sh preview base-sepolia
+
+# 3) deploy GridExRouter + Facets + Vault + strategies
+$ ./script/deploy.sh deploy base-sepolia
 ```
 
 ```shell
-$ forge create --broadcast src/strategy/Linear.sol:Linear --rpc-url https://sepolia.base.org --private-key <your_private_key>
-$ forge create --broadcast src/Vault.sol:Vault --rpc-url https://sepolia.base.org --private-key <your_private_key>
-$ forge create --broadcast src/GridEx.sol:GridEx --rpc-url https://sepolia.base.org --private-key <your_private_key> --constructor-args xx xx xx
-```
-
-```
-$ forge script script/GridEx.s.sol --broadcast --rpc-url https://sepolia.base.org --private-key <your_private_key> --verify
-
+# direct forge usage
+$ forge script script/Deploy.s.sol --sig "preview()" --rpc-url <your_rpc_url>
+$ forge script script/Deploy.s.sol --rpc-url <your_rpc_url> --broadcast --private-key <your_private_key> --verify
 ```
 
 ### Cast
