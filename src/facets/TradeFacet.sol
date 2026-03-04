@@ -28,6 +28,17 @@ contract TradeFacet is IOrderEvents {
     using GridOrder for GridOrder.GridState;
     using SafeTransferLib for ERC20;
 
+    /// @dev Transient callback settlement session depth.
+    bytes32 private constant CALLBACK_SESSION_DEPTH_SLOT = keccak256("gridex.callback.session.depth");
+    /// @dev Number of tokens touched in the current callback settlement session.
+    bytes32 private constant CALLBACK_SESSION_TOKEN_COUNT_SLOT = keccak256("gridex.callback.session.token.count");
+    /// @dev Base slot for touched token list (slot = base + index).
+    bytes32 private constant CALLBACK_SESSION_TOKENS_BASE_SLOT = keccak256("gridex.callback.session.tokens");
+    /// @dev Prefixes for per-token callback settlement accounting.
+    bytes32 private constant CALLBACK_SESSION_BASELINE_PREFIX = keccak256("gridex.callback.session.baseline");
+    bytes32 private constant CALLBACK_SESSION_REQUIRED_PREFIX = keccak256("gridex.callback.session.required");
+    bytes32 private constant CALLBACK_SESSION_SENT_PREFIX = keccak256("gridex.callback.session.sent");
+
     /// @notice Emitted when a quote token's priority is set or updated
     event QuotableTokenUpdated(Currency quote, uint256 priority);
 
@@ -151,8 +162,200 @@ contract TradeFacet is IOrderEvents {
     }
 
     function _incProtocolProfits(Currency quote, uint128 profit) internal {
+        if (profit == 0) return;
+        if (_isCallbackSessionActive()) {
+            _callbackSessionRegisterToken(quote);
+            bytes32 sentSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_SENT_PREFIX, quote);
+            uint256 sent;
+            assembly {
+                sent := tload(sentSlot)
+            }
+            sent += profit;
+            assembly {
+                tstore(sentSlot, sent)
+            }
+        }
         address v = GridExStorage.layout().vault;
         quote.transfer(v, profit);
+    }
+
+    function _callbackSessionDepth() internal view returns (uint256 depth) {
+        bytes32 depthSlot = CALLBACK_SESSION_DEPTH_SLOT;
+        assembly {
+            depth := tload(depthSlot)
+        }
+    }
+
+    function _isCallbackSessionActive() internal view returns (bool) {
+        return _callbackSessionDepth() > 0;
+    }
+
+    function _callbackTokenListSlot(uint256 index) internal pure returns (bytes32 slot) {
+        bytes32 base = CALLBACK_SESSION_TOKENS_BASE_SLOT;
+        assembly ("memory-safe") {
+            slot := add(base, index)
+        }
+    }
+
+    function _callbackTokenMetricSlot(bytes32 prefix, Currency token) internal pure returns (bytes32 slot) {
+        address tokenAddr = Currency.unwrap(token);
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, prefix)
+            mstore(add(ptr, 0x20), and(tokenAddr, 0xffffffffffffffffffffffffffffffffffffffff))
+            slot := keccak256(ptr, 0x40)
+        }
+    }
+
+    function _callbackSessionRegisterToken(Currency token) internal {
+        bytes32 countSlot = CALLBACK_SESSION_TOKEN_COUNT_SLOT;
+        uint256 count;
+        assembly {
+            count := tload(countSlot)
+        }
+
+        address tokenAddr = Currency.unwrap(token);
+        for (uint256 i; i < count;) {
+            address listed;
+            bytes32 listSlot = _callbackTokenListSlot(i);
+            assembly {
+                listed := tload(listSlot)
+            }
+            if (listed == tokenAddr) return;
+            unchecked {
+                ++i;
+            }
+        }
+
+        bytes32 newSlot = _callbackTokenListSlot(count);
+        bytes32 baselineSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_BASELINE_PREFIX, token);
+        uint256 baseline = token.balanceOfSelf();
+        assembly {
+            tstore(newSlot, and(tokenAddr, 0xffffffffffffffffffffffffffffffffffffffff))
+            tstore(countSlot, add(count, 1))
+            tstore(baselineSlot, baseline)
+        }
+    }
+
+    function _callbackSessionRecord(Currency inToken, Currency outToken, uint256 inAmt, uint256 outAmt) internal {
+        _callbackSessionRegisterToken(inToken);
+        _callbackSessionRegisterToken(outToken);
+
+        bytes32 requiredSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_REQUIRED_PREFIX, inToken);
+        uint256 required;
+        assembly {
+            required := tload(requiredSlot)
+        }
+        required += inAmt;
+        assembly {
+            tstore(requiredSlot, required)
+        }
+
+        bytes32 sentSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_SENT_PREFIX, outToken);
+        uint256 sent;
+        assembly {
+            sent := tload(sentSlot)
+        }
+        sent += outAmt;
+        assembly {
+            tstore(sentSlot, sent)
+        }
+    }
+
+    function _callbackSessionEnter(Currency inToken, Currency outToken, uint256 inAmt, uint256 outAmt) internal {
+        bytes32 depthSlot = CALLBACK_SESSION_DEPTH_SLOT;
+        uint256 depth;
+        assembly {
+            depth := tload(depthSlot)
+        }
+
+        if (depth == 0) {
+            bytes32 countSlot = CALLBACK_SESSION_TOKEN_COUNT_SLOT;
+            assembly {
+                tstore(countSlot, 0)
+            }
+        }
+
+        depth += 1;
+        assembly {
+            tstore(depthSlot, depth)
+        }
+
+        _callbackSessionRecord(inToken, outToken, inAmt, outAmt);
+    }
+
+    function _callbackSessionSettleAndClear() internal {
+        bytes32 countSlot = CALLBACK_SESSION_TOKEN_COUNT_SLOT;
+        uint256 count;
+        assembly {
+            count := tload(countSlot)
+        }
+
+        for (uint256 i; i < count;) {
+            bytes32 listSlot = _callbackTokenListSlot(i);
+            address tokenAddr;
+            assembly {
+                tokenAddr := tload(listSlot)
+            }
+            Currency token = Currency.wrap(tokenAddr);
+
+            bytes32 baselineSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_BASELINE_PREFIX, token);
+            bytes32 requiredSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_REQUIRED_PREFIX, token);
+            bytes32 sentSlot = _callbackTokenMetricSlot(CALLBACK_SESSION_SENT_PREFIX, token);
+
+            uint256 baseline;
+            uint256 required;
+            uint256 sent;
+            assembly {
+                baseline := tload(baselineSlot)
+                required := tload(requiredSlot)
+                sent := tload(sentSlot)
+            }
+
+            uint256 minBalance;
+            if (required >= sent) {
+                minBalance = baseline + (required - sent);
+            } else {
+                uint256 netOut = sent - required;
+                minBalance = baseline > netOut ? baseline - netOut : 0;
+            }
+
+            if (token.balanceOfSelf() < minBalance) {
+                revert IProtocolErrors.CallbackInsufficientInput();
+            }
+
+            assembly {
+                tstore(listSlot, 0)
+                tstore(baselineSlot, 0)
+                tstore(requiredSlot, 0)
+                tstore(sentSlot, 0)
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        assembly {
+            tstore(countSlot, 0)
+        }
+    }
+
+    function _callbackSessionExit() internal {
+        bytes32 depthSlot = CALLBACK_SESSION_DEPTH_SLOT;
+        uint256 depth;
+        assembly {
+            depth := tload(depthSlot)
+        }
+
+        depth -= 1;
+        assembly {
+            tstore(depthSlot, depth)
+        }
+
+        if (depth == 0) {
+            _callbackSessionSettleAndClear();
+        }
     }
 
     // ─── Place orders ────────────────────────────────────────────────
@@ -283,18 +486,18 @@ contract TradeFacet is IOrderEvents {
         IPair.Pair memory pair = l.getPairById[result.pairId];
         uint128 inAmt = result.filledVol + result.lpFee + result.protocolFee;
         if (data.length > 0) {
-            _incProtocolProfits(pair.quote, result.protocolFee);
-            uint256 balanceBefore = pair.quote.balanceOfSelf();
-
+            _callbackSessionEnter(pair.quote, pair.base, inAmt, result.filledAmt);
             pair.base.transfer(msg.sender, result.filledAmt);
             IGridCallback(msg.sender)
                 .gridFillCallback(
                     Currency.unwrap(pair.quote), Currency.unwrap(pair.base), inAmt, result.filledAmt, data
                 );
-            if (balanceBefore + inAmt > pair.quote.balanceOfSelf()) {
-                revert IProtocolErrors.CallbackInsufficientInput();
-            }
+            _callbackSessionExit();
+            _incProtocolProfits(pair.quote, result.protocolFee);
         } else {
+            if (_isCallbackSessionActive()) {
+                _callbackSessionRecord(pair.quote, pair.base, inAmt, result.filledAmt);
+            }
             _settleAssetWith(pair.quote, pair.base, msg.sender, inAmt, result.filledAmt, msg.value, flag);
             _incProtocolProfits(pair.quote, result.protocolFee);
         }
@@ -359,15 +562,16 @@ contract TradeFacet is IOrderEvents {
         IPair.Pair memory pair = l.getPairById[pairId];
         Currency quote = pair.quote;
         if (data.length > 0) {
-            _incProtocolProfits(quote, filled.protocolFee);
-            uint256 balanceBefore = pair.quote.balanceOfSelf();
+            _callbackSessionEnter(pair.quote, pair.base, filled.vol, filled.amt);
             pair.base.transfer(msg.sender, filled.amt);
             IGridCallback(msg.sender)
                 .gridFillCallback(Currency.unwrap(pair.quote), Currency.unwrap(pair.base), filled.vol, filled.amt, data);
-            if (balanceBefore + filled.vol > pair.quote.balanceOfSelf()) {
-                revert IProtocolErrors.CallbackInsufficientInput();
-            }
+            _callbackSessionExit();
+            _incProtocolProfits(quote, filled.protocolFee);
         } else {
+            if (_isCallbackSessionActive()) {
+                _callbackSessionRecord(pair.quote, pair.base, filled.vol, filled.amt);
+            }
             _settleAssetWith(quote, pair.base, msg.sender, filled.vol, filled.amt, msg.value, flag);
             _incProtocolProfits(quote, filled.protocolFee);
         }
@@ -400,17 +604,18 @@ contract TradeFacet is IOrderEvents {
         uint128 outAmt = result.filledVol - result.lpFee - result.protocolFee;
 
         if (data.length > 0) {
-            _incProtocolProfits(pair.quote, result.protocolFee);
+            _callbackSessionEnter(pair.base, pair.quote, result.filledAmt, outAmt);
             pair.quote.transfer(msg.sender, outAmt);
-            uint256 balanceBefore = pair.base.balanceOfSelf();
             IGridCallback(msg.sender)
                 .gridFillCallback(
                     Currency.unwrap(pair.base), Currency.unwrap(pair.quote), result.filledAmt, outAmt, data
                 );
-            if (balanceBefore + result.filledAmt > pair.base.balanceOfSelf()) {
-                revert IProtocolErrors.CallbackInsufficientInput();
-            }
+            _callbackSessionExit();
+            _incProtocolProfits(pair.quote, result.protocolFee);
         } else {
+            if (_isCallbackSessionActive()) {
+                _callbackSessionRecord(pair.base, pair.quote, result.filledAmt, outAmt);
+            }
             _settleAssetWith(pair.base, pair.quote, msg.sender, result.filledAmt, outAmt, msg.value, flag);
             _incProtocolProfits(pair.quote, result.protocolFee);
         }
@@ -486,15 +691,16 @@ contract TradeFacet is IOrderEvents {
 
         IPair.Pair memory pair = l.getPairById[pairId];
         if (data.length > 0) {
-            _incProtocolProfits(pair.quote, protocolFee);
+            _callbackSessionEnter(pair.base, pair.quote, filledAmt, filledVol);
             pair.quote.transfer(msg.sender, filledVol);
-            uint256 balanceBefore = pair.base.balanceOfSelf();
             IGridCallback(msg.sender)
                 .gridFillCallback(Currency.unwrap(pair.base), Currency.unwrap(pair.quote), filledAmt, filledVol, data);
-            if (balanceBefore + filledAmt > pair.base.balanceOfSelf()) {
-                revert IProtocolErrors.CallbackInsufficientInput();
-            }
+            _callbackSessionExit();
+            _incProtocolProfits(pair.quote, protocolFee);
         } else {
+            if (_isCallbackSessionActive()) {
+                _callbackSessionRecord(pair.base, pair.quote, filledAmt, filledVol);
+            }
             _settleAssetWith(pair.base, pair.quote, taker, filledAmt, filledVol, msg.value, flag);
             _incProtocolProfits(pair.quote, protocolFee);
         }

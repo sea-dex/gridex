@@ -8,6 +8,7 @@ import {IGridStrategy} from "../src/interfaces/IGridStrategy.sol";
 import {IERC20Minimal} from "../src/interfaces/IERC20Minimal.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {TradeFacet} from "../src/facets/TradeFacet.sol";
+import {SEA} from "./utils/SEA.sol";
 
 /// @title GridExCallbackTest
 /// @notice Tests for callback pattern with various receiver behaviors
@@ -18,6 +19,10 @@ contract GridExCallbackTest is GridExBaseTest {
     ValidCallback public validCallback;
     CancelDuringCallback public cancelDuringCallback;
     PlaceDuringCallback public placeDuringCallback;
+    SinglePayReentrantAskCallback public singlePayAskCallback;
+    SinglePayReentrantBidBatchCallback public singlePayBidBatchCallback;
+    AskCallsBidNettingCallback public askBidNettingCb;
+    BidCallsAskNettingCallback public bidAskNettingCb;
 
     function setUp() public override {
         super.setUp();
@@ -28,6 +33,10 @@ contract GridExCallbackTest is GridExBaseTest {
         validCallback = new ValidCallback();
         cancelDuringCallback = new CancelDuringCallback(address(exchange));
         placeDuringCallback = new PlaceDuringCallback(address(exchange));
+        singlePayAskCallback = new SinglePayReentrantAskCallback(address(exchange));
+        singlePayBidBatchCallback = new SinglePayReentrantBidBatchCallback(address(exchange));
+        askBidNettingCb = new AskCallsBidNettingCallback(address(exchange));
+        bidAskNettingCb = new BidCallsAskNettingCallback(address(exchange));
 
         // Fund the callback contracts
         // forge-lint: disable-next-line
@@ -60,6 +69,26 @@ contract GridExCallbackTest is GridExBaseTest {
         // forge-lint: disable-next-line
         usdc.transfer(address(placeDuringCallback), 1000_000_000);
 
+        // forge-lint: disable-next-line
+        sea.transfer(address(singlePayAskCallback), 1000 ether);
+        // forge-lint: disable-next-line
+        usdc.transfer(address(singlePayAskCallback), 1000_000_000);
+
+        // forge-lint: disable-next-line
+        sea.transfer(address(singlePayBidBatchCallback), 1000 ether);
+        // forge-lint: disable-next-line
+        usdc.transfer(address(singlePayBidBatchCallback), 1000_000_000);
+
+        // forge-lint: disable-next-line
+        sea.transfer(address(askBidNettingCb), 1000 ether);
+        // forge-lint: disable-next-line
+        usdc.transfer(address(askBidNettingCb), 1000_000_000);
+
+        // forge-lint: disable-next-line
+        sea.transfer(address(bidAskNettingCb), 1000 ether);
+        // forge-lint: disable-next-line
+        usdc.transfer(address(bidAskNettingCb), 1000_000_000);
+
         // Approve exchange for callback contracts
         vm.startPrank(address(maliciousCallback));
         sea.approve(address(exchange), type(uint256).max);
@@ -87,6 +116,26 @@ contract GridExCallbackTest is GridExBaseTest {
         vm.stopPrank();
 
         vm.startPrank(address(placeDuringCallback));
+        sea.approve(address(exchange), type(uint256).max);
+        usdc.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(address(singlePayAskCallback));
+        sea.approve(address(exchange), type(uint256).max);
+        usdc.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(address(singlePayBidBatchCallback));
+        sea.approve(address(exchange), type(uint256).max);
+        usdc.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(address(askBidNettingCb));
+        sea.approve(address(exchange), type(uint256).max);
+        usdc.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(address(bidAskNettingCb));
         sea.approve(address(exchange), type(uint256).max);
         usdc.approve(address(exchange), type(uint256).max);
         vm.stopPrank();
@@ -298,6 +347,50 @@ contract GridExCallbackTest is GridExBaseTest {
         vm.prank(address(noPayCallback));
         vm.expectRevert();
         exchange.fillAskOrder(outerOrderId, amt, 0, abi.encode("reenter"), 0);
+    }
+
+    /// @notice Regression: a single payment in inner ask callback must NOT satisfy both inner + outer ask fills
+    function test_callback_reentrantFillAsk_singlePaymentCannotBeDoubleCounted() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint16 askOrderId = 0x8000;
+
+        _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint64 outerOrderId = toGridOrderId(1, askOrderId);
+        uint64 innerOrderId = toGridOrderId(1, askOrderId + 1);
+
+        singlePayAskCallback.setReentryTarget(innerOrderId, amt);
+
+        vm.prank(address(singlePayAskCallback));
+        vm.expectRevert();
+        exchange.fillAskOrder(outerOrderId, amt, 0, abi.encode("attack"), 0);
+    }
+
+    /// @notice Regression: a single payment in inner bid callback must NOT satisfy inner bid + outer fillBidOrders
+    function test_callback_reentrantFillBidOrders_singlePaymentCannotBeDoubleCounted() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint16 bidOrderId = 0;
+
+        _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint64 outerOrderId = toGridOrderId(1, bidOrderId);
+        uint64 innerOrderId = toGridOrderId(1, bidOrderId + 1);
+        uint64[] memory idList = new uint64[](1);
+        idList[0] = outerOrderId;
+        uint128[] memory amtList = new uint128[](1);
+        amtList[0] = amt;
+
+        singlePayBidBatchCallback.setReentryTarget(innerOrderId, amt);
+
+        vm.prank(address(singlePayBidBatchCallback));
+        vm.expectRevert();
+        exchange.fillBidOrders(1, idList, amtList, 0, 0, abi.encode("attack"), 0);
     }
 
     /// @notice Test callback that reverts
@@ -603,6 +696,143 @@ contract GridExCallbackTest is GridExBaseTest {
         emit log_named_int("USDC net change", int256(usdcAfter) - int256(usdcBefore));
     }
 
+    /// @notice Netting mode: fillAsk callback can call fillBid and pay only net USDC requirement
+    function test_callback_fillAskCallsFillBid_nettingPayment() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint16 askOrderId = 0x8000;
+        uint16 bidOrderId = 0;
+
+        _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint64 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint64 bidGridOrderId = toGridOrderId(1, bidOrderId);
+
+        askBidNettingCb.setTarget(bidGridOrderId, amt);
+
+        uint256 seaBefore = sea.balanceOf(address(askBidNettingCb));
+        uint256 usdcBefore = usdc.balanceOf(address(askBidNettingCb));
+
+        vm.prank(address(askBidNettingCb));
+        exchange.fillAskOrder(askGridOrderId, amt, 0, abi.encode("ask-calls-bid-net"), 0);
+
+        uint256 seaAfter = sea.balanceOf(address(askBidNettingCb));
+        uint256 usdcAfter = usdc.balanceOf(address(askBidNettingCb));
+
+        assertTrue(askBidNettingCb.innerFillExecuted(), "Inner fillBidOrder should execute");
+        assertEq(seaAfter, seaBefore, "SEA should net to zero in ask->bid netting flow");
+        assertTrue(usdcBefore > usdcAfter, "USDC should decrease by spread + fees");
+    }
+
+    /// @notice Netting mode: fillBid callback can call fillAsk and pay only net SEA requirement
+    function test_callback_fillBidCallsFillAsk_nettingPayment() public {
+        uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
+        uint256 gap = askPrice0 / 20;
+        uint256 bidPrice0 = askPrice0 - gap;
+        uint128 amt = 1 ether;
+        uint16 askOrderId = 0x8000;
+        uint16 bidOrderId = 0;
+
+        _placeOrders(address(sea), address(usdc), amt, 5, 5, askPrice0, bidPrice0, gap, false, 500);
+
+        uint64 askGridOrderId = toGridOrderId(1, askOrderId);
+        uint64 bidGridOrderId = toGridOrderId(1, bidOrderId);
+
+        bidAskNettingCb.setTarget(askGridOrderId, amt);
+
+        uint256 seaBefore = sea.balanceOf(address(bidAskNettingCb));
+        uint256 usdcBefore = usdc.balanceOf(address(bidAskNettingCb));
+
+        vm.prank(address(bidAskNettingCb));
+        exchange.fillBidOrder(bidGridOrderId, amt, 0, abi.encode("bid-calls-ask-net"), 0);
+
+        uint256 seaAfter = sea.balanceOf(address(bidAskNettingCb));
+        uint256 usdcAfter = usdc.balanceOf(address(bidAskNettingCb));
+
+        assertTrue(bidAskNettingCb.innerFillExecuted(), "Inner fillAskOrder should execute");
+        assertEq(seaAfter, seaBefore, "SEA should net to zero in bid->ask netting flow");
+        assertTrue(usdcBefore > usdcAfter, "USDC should decrease by spread + fees");
+    }
+
+    /// @notice Triangular arbitrage in callback session:
+    ///         B -> A (outer ask on A/B), A -> C (inner bid on A/C), C -> B (inner ask on B/C).
+    /// @dev Verifies accounting mode supports 3-leg nested settlement across 3 pairs.
+    function test_callback_triangularArbitrage_acrossThreePairs() public {
+        SEA tokenB = new SEA();
+        SEA tokenC = new SEA();
+
+        // Enable B and C as quotable tokens with strict priority order.
+        // This guarantees valid pair orientation: A/B, A/C, and B/C.
+        exchange.setQuoteToken(Currency.wrap(address(tokenB)), 2);
+        exchange.setQuoteToken(Currency.wrap(address(tokenC)), 3);
+
+        // Fund maker for placing orders on pairs that require B/C inventory.
+        tokenB.mint(maker, 1_000_000 ether);
+        tokenC.mint(maker, 1_000_000 ether);
+
+        vm.startPrank(maker);
+        tokenB.approve(address(exchange), type(uint256).max);
+        tokenC.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        uint128 amt = 1 ether;
+        uint128 perBaseAmt = 2 ether;
+        uint256 one = PRICE_MULTIPLIER;
+
+        // Pair 1 (A/B): outer ask consumes B to buy A.
+        uint256 askAB = one;
+        uint256 bidAB = one - (one / 20);
+        _placeOrdersBy(maker, address(sea), address(tokenB), perBaseAmt, 1, 1, askAB, bidAB, one / 20, false, 500);
+
+        // Pair 2 (A/C): inner bid sells A to receive C.
+        uint256 bidAC = one * 2;
+        uint256 askAC = bidAC + (one / 10);
+        _placeOrdersBy(maker, address(sea), address(tokenC), perBaseAmt, 1, 1, askAC, bidAC, one / 10, false, 500);
+
+        // Pair 3 (B/C): inner ask spends C to buy B.
+        uint256 askBC = one;
+        uint256 bidBC = one - (one / 20);
+        _placeOrdersBy(maker, address(tokenB), address(tokenC), perBaseAmt, 1, 1, askBC, bidBC, one / 20, false, 500);
+
+        uint64 pairAB = exchange.getPairIdByTokens(Currency.wrap(address(sea)), Currency.wrap(address(tokenB)));
+        uint64 pairAC = exchange.getPairIdByTokens(Currency.wrap(address(sea)), Currency.wrap(address(tokenC)));
+        uint64 pairBC = exchange.getPairIdByTokens(Currency.wrap(address(tokenB)), Currency.wrap(address(tokenC)));
+
+        uint64 outerAskAB = toGridOrderId(uint48(pairAB), 0x8000);
+        uint64 innerBidAC = toGridOrderId(uint48(pairAC), 0);
+        uint64 innerAskBC = toGridOrderId(uint48(pairBC), 0x8000);
+
+        TriangularArbitrageCallback triCb = new TriangularArbitrageCallback(address(exchange));
+        triCb.setTargets(innerBidAC, innerAskBC);
+
+        vm.startPrank(address(triCb));
+        sea.approve(address(exchange), type(uint256).max);
+        tokenC.approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        uint256 seaBefore = sea.balanceOf(address(triCb));
+        uint256 bBefore = tokenB.balanceOf(address(triCb));
+        uint256 cBefore = tokenC.balanceOf(address(triCb));
+
+        vm.prank(address(triCb));
+        exchange.fillAskOrder(outerAskAB, amt, 0, abi.encode("triangular"), 0);
+
+        uint256 seaAfter = sea.balanceOf(address(triCb));
+        uint256 bAfter = tokenB.balanceOf(address(triCb));
+        uint256 cAfter = tokenC.balanceOf(address(triCb));
+
+        assertTrue(triCb.leg2Executed(), "Leg2 A->C should execute");
+        assertTrue(triCb.leg3Executed(), "Leg3 C->B should execute");
+        assertTrue(triCb.arbitrageExecuted(), "Triangular arbitrage should execute");
+
+        // SEA is received in leg1 then sold in leg2; B is bought in leg3 then paid in outer callback.
+        assertEq(seaAfter, seaBefore, "SEA should net to zero");
+        assertEq(bAfter, bBefore, "Token B should net to zero");
+        assertTrue(cAfter > cBefore, "Token C should increase in this configured profitable route");
+    }
+
     /// @notice Test insufficient payment in multi-order callback
     function test_callback_fillAskOrders_insufficientPayment() public {
         uint256 askPrice0 = PRICE_MULTIPLIER / 500 / (10 ** 12);
@@ -879,6 +1109,90 @@ contract ReentrantNoPayCallback is IGridCallback {
             reentrancySucceeded = true;
         }
         // Deliberately do NOT pay for the outer call — outer fill should revert
+    }
+}
+
+/// @notice Attack callback: pay exactly once in INNER ask callback, pay nothing in OUTER ask callback
+/// @dev Before hardening, this could make one payment satisfy two nested ask fills.
+contract SinglePayReentrantAskCallback is IGridCallback {
+    address public exchange;
+    uint64 public targetOrderId;
+    uint128 public targetAmt;
+    bool private _isInnerCall;
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setReentryTarget(uint64 _orderId, uint128 _amt) external {
+        targetOrderId = _orderId;
+        targetAmt = _amt;
+        _isInnerCall = false;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128, bytes calldata) external override {
+        if (_isInnerCall) {
+            // Pay once (inner only)
+            // forge-lint: disable-next-line
+            IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+            return;
+        }
+
+        _isInnerCall = true;
+        (bool success,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillAskOrder(uint64,uint128,uint128,bytes,uint32)",
+                targetOrderId,
+                targetAmt,
+                uint128(0),
+                abi.encode("inner"),
+                uint32(0)
+            )
+        );
+        require(success, "inner ask fill failed");
+        // Deliberately no outer payment
+    }
+}
+
+/// @notice Attack callback: pay exactly once in INNER bid callback, pay nothing for OUTER fillBidOrders
+/// @dev Before hardening, this could make one payment satisfy nested bid settlement checks.
+contract SinglePayReentrantBidBatchCallback is IGridCallback {
+    address public exchange;
+    uint64 public targetOrderId;
+    uint128 public targetAmt;
+    bool private _isInnerCall;
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setReentryTarget(uint64 _orderId, uint128 _amt) external {
+        targetOrderId = _orderId;
+        targetAmt = _amt;
+        _isInnerCall = false;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128, bytes calldata) external override {
+        if (_isInnerCall) {
+            // Pay once (inner only)
+            // forge-lint: disable-next-line
+            IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+            return;
+        }
+
+        _isInnerCall = true;
+        (bool success,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillBidOrder(uint64,uint128,uint128,bytes,uint32)",
+                targetOrderId,
+                targetAmt,
+                uint128(0),
+                abi.encode("inner"),
+                uint32(0)
+            )
+        );
+        require(success, "inner bid fill failed");
+        // Deliberately no outer payment
     }
 }
 
@@ -1192,5 +1506,160 @@ contract BidCallsAskCallback is IGridCallback {
         // Must also cover the SEA that the inner ask fill sent out of the exchange
         // forge-lint: disable-next-line
         IERC20Minimal(inToken).transfer(msg.sender, inAmt + _innerOutAmt);
+    }
+}
+
+/// @notice Ask->Bid netting callback: pays only net USDC needed by the combined nested flow
+contract AskCallsBidNettingCallback is IGridCallback {
+    address public exchange;
+    uint256 public targetBidOrderId;
+    uint128 public targetBidAmt;
+    bool public innerFillExecuted;
+    bool private _isInnerCall;
+    uint128 private _innerOutAmt; // USDC out from inner bid fill (for assertions/debug)
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setTarget(uint256 _bidOrderId, uint128 _bidAmt) external {
+        targetBidOrderId = _bidOrderId;
+        targetBidAmt = _bidAmt;
+        innerFillExecuted = false;
+        _isInnerCall = false;
+        _innerOutAmt = 0;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128 outAmt, bytes calldata)
+        external
+        override
+    {
+        if (_isInnerCall) {
+            // Inner bid callback: pay SEA for inner bid fill
+            _innerOutAmt = outAmt;
+            // forge-lint: disable-next-line
+            IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+            return;
+        }
+
+        // Outer ask callback: execute inner bid fill first
+        _isInnerCall = true;
+        (bool success,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillBidOrder(uint64,uint128,uint128,bytes,uint32)",
+                targetBidOrderId,
+                targetBidAmt,
+                uint128(0),
+                abi.encode("inner-bid-net"),
+                uint32(0)
+            )
+        );
+        require(success, "Inner fillBidOrder should succeed");
+        innerFillExecuted = true;
+
+        // In accounting mode, outer ask must still provide its own quote input.
+        // The inner bid proceeds are already represented by session-level token deltas.
+        // forge-lint: disable-next-line
+        IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+    }
+}
+
+/// @notice Bid->Ask netting callback: pays only one SEA amount (no extra compensation payment)
+contract BidCallsAskNettingCallback is IGridCallback {
+    address public exchange;
+    uint256 public targetAskOrderId;
+    uint128 public targetAskAmt;
+    bool public innerFillExecuted;
+    bool private _isInnerCall;
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setTarget(uint256 _askOrderId, uint128 _askAmt) external {
+        targetAskOrderId = _askOrderId;
+        targetAskAmt = _askAmt;
+        innerFillExecuted = false;
+        _isInnerCall = false;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128, bytes calldata) external override {
+        if (_isInnerCall) {
+            // Inner ask callback: pay USDC for inner ask fill
+            // forge-lint: disable-next-line
+            IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+            return;
+        }
+
+        // Outer bid callback: execute inner ask fill first
+        _isInnerCall = true;
+        (bool success,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillAskOrder(uint64,uint128,uint128,bytes,uint32)",
+                targetAskOrderId,
+                targetAskAmt,
+                uint128(0),
+                abi.encode("inner-ask-net"),
+                uint32(0)
+            )
+        );
+        require(success, "Inner fillAskOrder should succeed");
+        innerFillExecuted = true;
+
+        // Pay only outer required SEA once; inner ask outflow provides the other side of netting.
+        // forge-lint: disable-next-line
+        IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+    }
+}
+
+/// @notice 3-leg callback arbitrage across three pairs.
+/// @dev Outer leg is callback-enabled; inner legs are direct fills (empty callback data) and are
+///      accounted by the callback session ledger in TradeFacet.
+contract TriangularArbitrageCallback is IGridCallback {
+    address public exchange;
+    uint64 public leg2BidOrderId; // A/C bid: sell A for C
+    uint64 public leg3AskOrderId; // B/C ask: buy B with C
+    bool public leg2Executed;
+    bool public leg3Executed;
+    bool public arbitrageExecuted;
+
+    constructor(address _exchange) {
+        exchange = _exchange;
+    }
+
+    function setTargets(uint64 _leg2BidOrderId, uint64 _leg3AskOrderId) external {
+        leg2BidOrderId = _leg2BidOrderId;
+        leg3AskOrderId = _leg3AskOrderId;
+        leg2Executed = false;
+        leg3Executed = false;
+        arbitrageExecuted = false;
+    }
+
+    function gridFillCallback(address inToken, address, uint128 inAmt, uint128 outAmt, bytes calldata)
+        external
+        override
+    {
+        // Leg 2: sell all A received from outer leg to obtain C.
+        (bool leg2Ok,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillBidOrder(uint64,uint128,uint128,bytes,uint32)", leg2BidOrderId, outAmt, uint128(0), bytes(""), 0
+            )
+        );
+        require(leg2Ok, "triangle leg2 failed");
+        leg2Executed = true;
+
+        // Leg 3: buy exactly the B amount required by outer leg settlement.
+        (bool leg3Ok,) = exchange.call(
+            abi.encodeWithSignature(
+                "fillAskOrder(uint64,uint128,uint128,bytes,uint32)", leg3AskOrderId, inAmt, uint128(0), bytes(""), 0
+            )
+        );
+        require(leg3Ok, "triangle leg3 failed");
+        leg3Executed = true;
+
+        // Settle outer callback obligation in token B.
+        // forge-lint: disable-next-line
+        IERC20Minimal(inToken).transfer(msg.sender, inAmt);
+        arbitrageExecuted = true;
     }
 }

@@ -72,13 +72,13 @@ contract GridExFeeOnTransferTest is GridExBaseTest {
 }
 
 contract FeeOnTransferToken is ERC20 {
-    uint256 internal immutable feeBps;
+    uint256 internal immutable FEE_BPS;
     uint256 internal constant BPS_DENOM = 10_000;
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_, uint256 feeBps_)
         ERC20(name_, symbol_, decimals_)
     {
-        feeBps = feeBps_;
+        FEE_BPS = feeBps_;
     }
 
     function mint(address to, uint256 amount) external {
@@ -100,7 +100,7 @@ contract FeeOnTransferToken is ERC20 {
     }
 
     function _transferWithFee(address from, address to, uint256 amount) internal {
-        uint256 fee = (amount * feeBps) / BPS_DENOM;
+        uint256 fee = (amount * FEE_BPS) / BPS_DENOM;
         uint256 receiveAmount = amount - fee;
 
         balanceOf[from] -= amount;
