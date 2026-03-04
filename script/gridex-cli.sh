@@ -387,8 +387,8 @@ withdraw_profit() {
     check_private_key
     
     print_info "Withdrawing profits from grid $grid_id to $to_address..."
-    cast send "$ROUTER_ADDRESS" "withdrawProfit(uint48,address,uint32)" \
-        "$grid_id" "$to_address" "$flag" \
+    cast send "$ROUTER_ADDRESS" "withdrawGridProfits(uint48,uint256,address,uint32)" \
+        "$grid_id" "0" "$to_address" "$flag" \
         --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
     print_success "Profits withdrawn"
 }
