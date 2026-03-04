@@ -118,6 +118,9 @@ Deploy with an EOA, then transfer control to governance/multisig:
 
 ```bash
 ./script/gridex-cli.sh admin_transfer_ownership <new_owner>
+# optional: transfer only one side
+./script/gridex-cli.sh admin_transfer_ownership <new_owner> router
+./script/gridex-cli.sh admin_transfer_ownership <new_owner> vault
 ```
 
 ## Deployment Commands
@@ -215,7 +218,7 @@ forge verify-contract \
 
 - [ ] Verify all contracts on block explorers
 - [ ] Confirm Linear strategy is whitelisted
-- [ ] Transfer ownership if needed
+- [ ] Transfer ownership of both Router and Vault (or run `admin_transfer_ownership <new_owner>`)
 - [ ] Test basic functionality (place order, fill order)
 - [ ] Update frontend/backend with new addresses
 - [ ] Document deployed addresses

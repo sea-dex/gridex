@@ -53,6 +53,12 @@ check_private_key() {
     fi
 }
 
+# Get vault address from router
+get_vault_address() {
+    check_config
+    cast call "$ROUTER_ADDRESS" "vault()(address)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
+}
+
 # ═══════════════════════════════════════════════════════════════════
 #  ADMIN FACET FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════
@@ -172,17 +178,40 @@ admin_rescue_eth() {
 # Transfer ownership
 admin_transfer_ownership() {
     local new_owner="$1"
+    local target="${2:-both}" # both | router | vault
     if [ -z "$new_owner" ]; then
-        print_error "Usage: $0 admin_transfer_ownership <NEW_OWNER_ADDRESS>"
+        print_error "Usage: $0 admin_transfer_ownership <NEW_OWNER_ADDRESS> [both|router|vault]"
+        exit 1
+    fi
+    if [ "$target" != "both" ] && [ "$target" != "router" ] && [ "$target" != "vault" ]; then
+        print_error "Invalid target: $target (expected: both|router|vault)"
         exit 1
     fi
     check_config
     check_private_key
-    
-    print_info "Transferring ownership to $new_owner..."
-    cast send "$ROUTER_ADDRESS" "transferOwnership(address)" "$new_owner" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Ownership transferred"
+
+    local zero_address="0x0000000000000000000000000000000000000000"
+    local vault_address=""
+
+    if [ "$target" = "both" ] || [ "$target" = "vault" ]; then
+        vault_address="$(get_vault_address)"
+        if [ -z "$vault_address" ] || [ "$vault_address" = "$zero_address" ]; then
+            print_error "Failed to resolve vault address from router"
+            exit 1
+        fi
+
+        print_info "Transferring Vault ownership to $new_owner..."
+        cast send "$vault_address" "transferOwnership(address)" "$new_owner" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+        print_success "Vault ownership transferred"
+    fi
+
+    if [ "$target" = "both" ] || [ "$target" = "router" ]; then
+        print_info "Transferring Router ownership to $new_owner..."
+        cast send "$ROUTER_ADDRESS" "transferOwnership(address)" "$new_owner" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+        print_success "Router ownership transferred"
+    fi
 }
 
 # Set single facet
@@ -457,7 +486,7 @@ Admin Functions (require owner):
   admin_pause
   admin_unpause
   admin_rescue_eth <TO_ADDRESS> <AMOUNT_WEI>
-  admin_transfer_ownership <NEW_OWNER>
+  admin_transfer_ownership <NEW_OWNER> [both|router|vault]
   admin_set_facet <SELECTOR> <FACET_ADDRESS>
   admin_batch_set_facets <SELECTORS> <FACETS>
 
@@ -491,6 +520,9 @@ Examples:
 
   # Pause trading
   $0 admin_pause
+
+  # Transfer Router + Vault ownership
+  $0 admin_transfer_ownership 0xNewOwner
 
   # Get grid order info
   $0 view_get_grid_order 123
