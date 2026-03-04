@@ -1,3 +1,6 @@
+# deprecated
+THIS FILE IS DEPRECATED, use deploy.sh instead
+
 forge create --rpc-url $ARB_TESTNET_RPC --private-key $PRIVATE_KEY src/Factory.sol:Factory
 
 # test

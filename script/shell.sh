@@ -1,3 +1,6 @@
+# deprecated
+THIS FILE IS DEPRECATED, use deploy.sh instead
+
 # usdc --verifier-url https://sepolia.basescan.org/
 forge verify-contract -e $ETHERSCAN_API_KEY --chain-id 84532 0xdaa63945fae1d7f479248db5d4c7592e58ce41d5 test/utils/USDC.sol:USDC
 
