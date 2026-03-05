@@ -800,8 +800,11 @@ contract GridExCallbackTest is GridExBaseTest {
         uint64 pairAC = exchange.getPairIdByTokens(Currency.wrap(address(sea)), Currency.wrap(address(tokenC)));
         uint64 pairBC = exchange.getPairIdByTokens(Currency.wrap(address(tokenB)), Currency.wrap(address(tokenC)));
 
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint64 outerAskAB = toGridOrderId(uint48(pairAB), 0x8000);
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint64 innerBidAC = toGridOrderId(uint48(pairAC), 0);
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint64 innerAskBC = toGridOrderId(uint48(pairBC), 0x8000);
 
         TriangularArbitrageCallback triCb = new TriangularArbitrageCallback(address(exchange));

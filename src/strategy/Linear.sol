@@ -144,6 +144,7 @@ contract Linear is IGridStrategy {
             if (priceLast <= 0) {
                 revert ILinearErrors.LinearBidInvalidLastPrice();
             }
+
             if (
                 FullMath.mulDivRoundingUp(
                         uint256(amt),

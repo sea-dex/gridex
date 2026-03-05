@@ -154,6 +154,10 @@ contract TradeFacet is IOrderEvents {
 
     // forge-lint: disable-next-line(mixed-case-function)
     function _transferETHFrom(address from, uint128 amt, uint128 paid) internal {
+        if (paid < amt) {
+            revert NotEnough();
+        }
+
         address weth = GridExStorage.layout().weth;
         IWETH(weth).deposit{value: amt}();
         if (paid > amt) {

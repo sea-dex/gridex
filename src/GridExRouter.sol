@@ -14,6 +14,12 @@ import {ReentrancyLib} from "./libraries/ReentrancyLib.sol";
 /// @notice Hybrid Router — explicit hot-path functions + fallback for cold paths
 /// @dev Applies reentrancy and pause guards at the Router level before delegatecall to facets.
 ///      All state is stored in GridExStorage's diamond-namespaced slot.
+///
+///      Reentrancy Guard Architecture:
+///      - STRICT lock: For placeGrid/cancelGrid (binary lock, no reentry allowed)
+///      - FILL lock: For fill* operations (depth-counting, allows reentry from callbacks)
+///      - STRICT and FILL are mutually exclusive
+///      - FILL can reenter other FILL operations (for flash-swap arbitrage)
 contract GridExRouter {
     using GridOrder for GridOrder.GridState;
 
@@ -58,38 +64,36 @@ contract GridExRouter {
     receive() external payable {}
 
     // ═══════════════════════════════════════════════════════════════════
-    //  HOT-PATH: Place orders (strict no-reentry + pause check)
+    //  HOT-PATH: Place orders (STRICT lock + pause check)
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Place grid orders with ERC20 tokens, delegated to TradeFacet
     function placeGridOrders(Currency, Currency, IGridOrder.GridOrderParam calldata) external {
-        ReentrancyLib._guardNoReentry();
-        ReentrancyLib._enter();
+        ReentrancyLib._enterStrict();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacetGuarded(l);
+        _delegateToFacetStrict(l);
     }
 
     /// @notice Place grid orders with ETH as either base or quote token
     // forge-lint: disable-next-line(mixed-case-function)
     function placeETHGridOrders(Currency, Currency, IGridOrder.GridOrderParam calldata) external payable {
-        ReentrancyLib._guardNoReentry();
-        ReentrancyLib._enter();
+        ReentrancyLib._enterStrict();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacetGuarded(l);
+        _delegateToFacetStrict(l);
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //  HOT-PATH: Fill orders (pause + reentrancy)
+    //  HOT-PATH: Fill orders (FILL lock + pause check)
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Fill a single ask grid order (buy base token)
     function fillAskOrder(uint64, uint128, uint128, bytes calldata, uint32) external payable {
-        ReentrancyLib._enter();
+        ReentrancyLib._enterFill();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacetGuarded(l);
+        _delegateToFacetFill(l);
     }
 
     /// @notice Fill multiple ask orders in a single transaction
@@ -97,18 +101,18 @@ contract GridExRouter {
         external
         payable
     {
-        ReentrancyLib._enter();
+        ReentrancyLib._enterFill();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacetGuarded(l);
+        _delegateToFacetFill(l);
     }
 
     /// @notice Fill a single bid grid order (sell base token)
     function fillBidOrder(uint64, uint128, uint128, bytes calldata, uint32) external payable {
-        ReentrancyLib._enter();
+        ReentrancyLib._enterFill();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacetGuarded(l);
+        _delegateToFacetFill(l);
     }
 
     /// @notice Fill multiple bid orders in a single transaction
@@ -116,42 +120,38 @@ contract GridExRouter {
         external
         payable
     {
-        ReentrancyLib._enter();
+        ReentrancyLib._enterFill();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
-        _delegateToFacetGuarded(l);
+        _delegateToFacetFill(l);
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //  HOT-PATH: Cancel & withdraw (strict no-reentry)
+    //  HOT-PATH: Cancel & withdraw (STRICT lock)
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Cancel an entire grid and withdraw all remaining tokens
     function cancelGrid(address, uint48, uint32) external {
-        ReentrancyLib._guardNoReentry();
-        ReentrancyLib._enter();
-        _delegateToFacetGuarded(GridExStorage.layout());
+        ReentrancyLib._enterStrict();
+        _delegateToFacetStrict(GridExStorage.layout());
     }
 
     /// @notice Cancel a range of consecutive grid orders
     function cancelGridOrders(address, uint64, uint32, uint32) external {
-        ReentrancyLib._guardNoReentry();
-        ReentrancyLib._enter();
-        _delegateToFacetGuarded(GridExStorage.layout());
+        ReentrancyLib._enterStrict();
+        _delegateToFacetStrict(GridExStorage.layout());
     }
 
     /// @notice Cancel specific orders within a grid by ID list
     function cancelGridOrders(uint48, address, uint64[] memory, uint32) external {
-        ReentrancyLib._guardNoReentry();
-        ReentrancyLib._enter();
-        _delegateToFacetGuarded(GridExStorage.layout());
+        ReentrancyLib._enterStrict();
+        _delegateToFacetStrict(GridExStorage.layout());
     }
 
     /// @notice Withdraw accumulated profits from a grid
     function withdrawGridProfits(uint48, uint256, address, uint32) external {
-        ReentrancyLib._guardNoReentry();
-        ReentrancyLib._enter();
-        _delegateToFacetGuarded(GridExStorage.layout());
+        ReentrancyLib._enterStrict();
+        _delegateToFacetStrict(GridExStorage.layout());
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -193,23 +193,46 @@ contract GridExRouter {
         }
     }
 
-    /// @dev Delegatecall to facet with reentrancy depth counter decrement on completion
-    function _delegateToFacetGuarded(GridExStorage.Layout storage l) internal {
+    /// @dev Delegatecall to facet with STRICT lock release on completion
+    function _delegateToFacetStrict(GridExStorage.Layout storage l) internal {
         address facet = l.selectorToFacet[msg.sig];
         if (facet == address(0)) revert FacetNotFound();
 
         // Compute slot in Solidity so it matches ReentrancyLib exactly
         // forge-lint: disable-next-line(asm-keccak256)
-        bytes32 reentrancySlot = keccak256("gridex.reentrancy.guard");
+        bytes32 strictSlot = keccak256("gridex.reentrancy.strict");
 
         assembly {
             calldatacopy(0, 0, calldatasize())
             let result := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
             returndatacopy(0, 0, returndatasize())
 
-            // Decrement reentrancy depth counter (mirrors ReentrancyLib._exit)
-            let depth := tload(reentrancySlot)
-            tstore(reentrancySlot, sub(depth, 1))
+            // Release STRICT lock
+            tstore(strictSlot, 0)
+
+            switch result
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
+        }
+    }
+
+    /// @dev Delegatecall to facet with FILL depth counter decrement on completion
+    function _delegateToFacetFill(GridExStorage.Layout storage l) internal {
+        address facet = l.selectorToFacet[msg.sig];
+        if (facet == address(0)) revert FacetNotFound();
+
+        // Compute slot in Solidity so it matches ReentrancyLib exactly
+        // forge-lint: disable-next-line(asm-keccak256)
+        bytes32 fillSlot = keccak256("gridex.reentrancy.fill");
+
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+
+            // Decrement FILL depth counter
+            let depth := tload(fillSlot)
+            tstore(fillSlot, sub(depth, 1))
 
             switch result
             case 0 { revert(0, returndatasize()) }
