@@ -28,3 +28,5 @@ plans/
 .claude/
 
 target
+test/
+tests/
