@@ -15,6 +15,7 @@ library GridExStorage {
     struct Layout {
         // --- Ownership ---
         address owner;
+        address guardian;
         // --- Core addresses ---
         address vault;
         address weth;

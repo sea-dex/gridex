@@ -53,6 +53,7 @@ contract GridExRouter {
         l.selectorToFacet[bytes4(keccak256("setWETH(address)"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("setQuoteToken(address,uint256)"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("setStrategyWhitelist(address,bool)"))] = _adminFacet;
+        l.selectorToFacet[bytes4(keccak256("setGuardian(address)"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("setOneshotProtocolFeeBps(uint32)"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("pause()"))] = _adminFacet;
         l.selectorToFacet[bytes4(keccak256("unpause()"))] = _adminFacet;

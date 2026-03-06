@@ -17,6 +17,7 @@ contract AdminFacet is IOrderEvents {
 
     event QuotableTokenUpdated(Currency quote, uint256 priority);
     event FacetUpdated(bytes4 indexed selector, address indexed facet);
+    event GuardianUpdated(address indexed previousGuardian, address indexed newGuardian);
     event Paused(address account);
     event Unpaused(address account);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -24,6 +25,7 @@ contract AdminFacet is IOrderEvents {
     error EnforcedPause();
     error ExpectedPause();
     error NotOwner();
+    error NotGuardianOrOwner();
 
     modifier onlyOwner() {
         _checkOwner();
@@ -32,6 +34,11 @@ contract AdminFacet is IOrderEvents {
 
     function _checkOwner() internal view {
         if (msg.sender != GridExStorage.layout().owner) revert NotOwner();
+    }
+
+    function _checkGuardianOrOwner() internal view {
+        GridExStorage.Layout storage l = GridExStorage.layout();
+        if (msg.sender != l.owner && msg.sender != l.guardian) revert NotGuardianOrOwner();
     }
 
     /// @notice Set the WETH address for this chain
@@ -59,6 +66,16 @@ contract AdminFacet is IOrderEvents {
         emit StrategyWhitelistUpdated(msg.sender, strategy, whitelisted);
     }
 
+    /// @notice Set the guardian address for fast emergency pause
+    /// @param guardian The guardian address
+    function setGuardian(address guardian) external onlyOwner {
+        if (guardian == address(0)) revert IProtocolErrors.InvalidAddress();
+        GridExStorage.Layout storage l = GridExStorage.layout();
+        address oldGuardian = l.guardian;
+        l.guardian = guardian;
+        emit GuardianUpdated(oldGuardian, guardian);
+    }
+
     /// @notice Set the protocol fee for oneshot orders
     /// @param feeBps The new fee in basis points
     function setOneshotProtocolFeeBps(uint32 feeBps) external onlyOwner {
@@ -69,7 +86,8 @@ contract AdminFacet is IOrderEvents {
     }
 
     /// @notice Pause trading operations
-    function pause() external onlyOwner {
+    function pause() external {
+        _checkGuardianOrOwner();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
         l.paused = true;

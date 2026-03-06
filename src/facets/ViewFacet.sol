@@ -117,6 +117,12 @@ contract ViewFacet {
         return GridExStorage.layout().owner;
     }
 
+    /// @notice Get the guardian address
+    /// @return The guardian address
+    function guardian() external view returns (address) {
+        return GridExStorage.layout().guardian;
+    }
+
     /// @notice Get the vault address
     /// @return The vault address
     function vault() external view returns (address) {

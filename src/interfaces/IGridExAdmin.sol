@@ -21,6 +21,9 @@ interface IGridExAdmin {
     /// @notice Set the whitelist status for a strategy contract
     function setStrategyWhitelist(address strategy, bool whitelisted) external;
 
+    /// @notice Set the guardian address
+    function setGuardian(address guardian) external;
+
     /// @notice Set the protocol fee for oneshot orders
     function setOneshotProtocolFeeBps(uint32 feeBps) external;
 

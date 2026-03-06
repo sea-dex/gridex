@@ -14,6 +14,7 @@ import {Geometry} from "../src/strategy/Geometry.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
 import {DeployConfig} from "./config/DeployConfig.sol";
+import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /// @title Deploy
 /// @notice Production deployment script for GridEx protocol with diamond architecture
@@ -60,6 +61,7 @@ contract Deploy is Script {
 
     // ============ State ============
     address public vault;
+    address public timelock;
     address public adminFacet;
     address public tradeFacet;
     address public cancelFacet;
@@ -67,6 +69,8 @@ contract Deploy is Script {
     address public router;
     address public linear;
     address public geometry;
+    address public guardian;
+    uint256 public minDelay;
 
     // ============ Main Entry Points ============
 
@@ -74,6 +78,10 @@ contract Deploy is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+        address timelockAdmin;
+        address timelockProposer;
+        address timelockExecutor;
+        (guardian, minDelay, timelockAdmin, timelockProposer, timelockExecutor) = _getGovernanceConfig(deployer);
 
         // Get chain config or use environment variables
         (address weth, address usd) = _getTokenAddresses();
@@ -85,6 +93,8 @@ contract Deploy is Script {
         console.log("Deployer:", deployer);
         console.log("WETH:", weth);
         console.log("USD:", usd);
+        console.log("Guardian:", guardian);
+        console.log("Timelock Delay:", minDelay);
         console.log("");
 
         // Verify CREATE2 deployer exists
@@ -93,6 +103,7 @@ contract Deploy is Script {
         // Preview expected addresses (same on all chains)
         (
             address expectedVault,
+            address expectedTimelock,
             address expectedAdminFacet,
             address expectedTradeFacet,
             address expectedCancelFacet,
@@ -104,6 +115,7 @@ contract Deploy is Script {
 
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
+        console.log("  Timelock:", expectedTimelock);
         console.log("  AdminFacet:", expectedAdminFacet);
         console.log("  TradeFacet:", expectedTradeFacet);
         console.log("  CancelFacet:", expectedCancelFacet);
@@ -120,6 +132,19 @@ contract Deploy is Script {
         bytes memory vaultBytecode = abi.encodePacked(type(Vault).creationCode, abi.encode(deployer));
         vault = _deployContract(vaultSalt, vaultBytecode, "Vault");
         require(vault == expectedVault, "Vault address mismatch!");
+
+        // Deploy TimelockController (final governor for Router + Vault)
+        address[] memory proposers = new address[](1);
+        address[] memory executors = new address[](1);
+        proposers[0] = timelockProposer;
+        executors[0] = timelockExecutor;
+
+        bytes32 timelockSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Timelock"));
+        bytes memory timelockBytecode = abi.encodePacked(
+            type(TimelockController).creationCode, abi.encode(minDelay, proposers, executors, timelockAdmin)
+        );
+        timelock = _deployContract(timelockSalt, timelockBytecode, "TimelockController");
+        require(timelock == expectedTimelock, "Timelock address mismatch!");
 
         // Deploy AdminFacet (no constructor args)
         bytes32 adminFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "AdminFacet"));
@@ -191,6 +216,17 @@ contract Deploy is Script {
             console.log("[SKIP] Geometry already whitelisted");
         }
 
+        if (ViewFacet(router).guardian() != guardian) {
+            AdminFacet(router).setGuardian(guardian);
+            console.log("[OK] Guardian configured");
+        } else {
+            console.log("[SKIP] Guardian already configured");
+        }
+
+        AdminFacet(router).transferOwnership(timelock);
+        Vault(payable(vault)).transferOwnership(timelock);
+        console.log("[OK] Router and Vault ownership transferred to timelock");
+
         vm.stopBroadcast();
 
         _printSummary(weth, usd);
@@ -237,8 +273,8 @@ contract Deploy is Script {
         console.log("[OK] CancelFacet selectors registered");
 
         // AdminFacet selectors (beyond bootstrap)
-        bytes4[] memory adminSelectors = new bytes4[](9);
-        address[] memory adminFacets = new address[](9);
+        bytes4[] memory adminSelectors = new bytes4[](10);
+        address[] memory adminFacets = new address[](10);
 
         adminSelectors[0] = AdminFacet.setWETH.selector;
         adminFacets[0] = adminFacet;
@@ -246,25 +282,27 @@ contract Deploy is Script {
         adminFacets[1] = adminFacet;
         adminSelectors[2] = AdminFacet.setStrategyWhitelist.selector;
         adminFacets[2] = adminFacet;
-        adminSelectors[3] = AdminFacet.setOneshotProtocolFeeBps.selector;
+        adminSelectors[3] = AdminFacet.setGuardian.selector;
         adminFacets[3] = adminFacet;
-        adminSelectors[4] = AdminFacet.pause.selector;
+        adminSelectors[4] = AdminFacet.setOneshotProtocolFeeBps.selector;
         adminFacets[4] = adminFacet;
-        adminSelectors[5] = AdminFacet.unpause.selector;
+        adminSelectors[5] = AdminFacet.pause.selector;
         adminFacets[5] = adminFacet;
-        adminSelectors[6] = AdminFacet.rescueEth.selector;
+        adminSelectors[6] = AdminFacet.unpause.selector;
         adminFacets[6] = adminFacet;
-        adminSelectors[7] = AdminFacet.transferOwnership.selector;
+        adminSelectors[7] = AdminFacet.rescueEth.selector;
         adminFacets[7] = adminFacet;
-        adminSelectors[8] = AdminFacet.setFacet.selector;
+        adminSelectors[8] = AdminFacet.transferOwnership.selector;
         adminFacets[8] = adminFacet;
+        adminSelectors[9] = AdminFacet.setFacet.selector;
+        adminFacets[9] = adminFacet;
 
         AdminFacet(router).batchSetFacet(adminSelectors, adminFacets);
         console.log("[OK] AdminFacet selectors registered");
 
         // ViewFacet selectors
-        bytes4[] memory viewSelectors = new bytes4[](14);
-        address[] memory viewFacets = new address[](14);
+        bytes4[] memory viewSelectors = new bytes4[](15);
+        address[] memory viewFacets = new address[](15);
 
         viewSelectors[0] = ViewFacet.getGridOrder.selector;
         viewFacets[0] = viewFacet;
@@ -290,10 +328,12 @@ contract Deploy is Script {
         viewFacets[10] = viewFacet;
         viewSelectors[11] = ViewFacet.owner.selector;
         viewFacets[11] = viewFacet;
-        viewSelectors[12] = ViewFacet.vault.selector;
+        viewSelectors[12] = ViewFacet.guardian.selector;
         viewFacets[12] = viewFacet;
-        viewSelectors[13] = ViewFacet.WETH.selector;
+        viewSelectors[13] = ViewFacet.vault.selector;
         viewFacets[13] = viewFacet;
+        viewSelectors[14] = ViewFacet.WETH.selector;
+        viewFacets[14] = viewFacet;
 
         AdminFacet(router).batchSetFacet(viewSelectors, viewFacets);
         console.log("[OK] ViewFacet selectors registered");
@@ -314,6 +354,7 @@ contract Deploy is Script {
 
         (
             address expectedVault,
+            address expectedTimelock,
             address expectedAdminFacet,
             address expectedTradeFacet,
             address expectedCancelFacet,
@@ -325,6 +366,7 @@ contract Deploy is Script {
 
         console.log("Expected Addresses:");
         console.log("  Vault:", expectedVault);
+        console.log("  Timelock:", expectedTimelock);
         console.log("  AdminFacet:", expectedAdminFacet);
         console.log("  TradeFacet:", expectedTradeFacet);
         console.log("  CancelFacet:", expectedCancelFacet);
@@ -337,6 +379,7 @@ contract Deploy is Script {
         // Check if already deployed
         console.log("Deployment Status:");
         console.log("  Vault:", expectedVault.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
+        console.log("  Timelock:", expectedTimelock.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  AdminFacet:", expectedAdminFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  TradeFacet:", expectedTradeFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  CancelFacet:", expectedCancelFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
@@ -352,6 +395,7 @@ contract Deploy is Script {
         view
         returns (
             address expectedVault,
+            address expectedTimelock,
             address expectedAdminFacet,
             address expectedTradeFacet,
             address expectedCancelFacet,
@@ -379,9 +423,10 @@ contract Deploy is Script {
     ///      Router constructor takes (owner, vault, adminFacet).
     function computeAddressesWithOwner(address _owner)
         public
-        pure
+        view
         returns (
             address expectedVault,
+            address expectedTimelock,
             address expectedAdminFacet,
             address expectedTradeFacet,
             address expectedCancelFacet,
@@ -395,6 +440,25 @@ contract Deploy is Script {
         bytes32 vaultSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Vault"));
         bytes memory vaultBytecode = abi.encodePacked(type(Vault).creationCode, abi.encode(_owner));
         expectedVault = _computeAddress(vaultSalt, vaultBytecode);
+
+        // Timelock (governance config affects constructor args)
+        (
+            address configuredGuardian,
+            uint256 configuredDelay,
+            address timelockAdmin,
+            address timelockProposer,
+            address timelockExecutor
+        ) = _getGovernanceConfig(_owner);
+        configuredGuardian;
+        address[] memory proposers = new address[](1);
+        address[] memory executors = new address[](1);
+        proposers[0] = timelockProposer;
+        executors[0] = timelockExecutor;
+        bytes32 timelockSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Timelock"));
+        bytes memory timelockBytecode = abi.encodePacked(
+            type(TimelockController).creationCode, abi.encode(configuredDelay, proposers, executors, timelockAdmin)
+        );
+        expectedTimelock = _computeAddress(timelockSalt, timelockBytecode);
 
         // AdminFacet (no constructor args - same address everywhere)
         bytes32 adminFacetSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "AdminFacet"));
@@ -457,6 +521,24 @@ contract Deploy is Script {
         require(usd != address(0), "USD address not configured");
     }
 
+    function _getGovernanceConfig(address deployer)
+        internal
+        view
+        returns (
+            address configuredGuardian,
+            uint256 configuredDelay,
+            address timelockAdmin,
+            address timelockProposer,
+            address timelockExecutor
+        )
+    {
+        configuredGuardian = vm.envOr("GUARDIAN", deployer);
+        configuredDelay = vm.envOr("TIMELOCK_MIN_DELAY", uint256(2 days));
+        timelockAdmin = vm.envOr("TIMELOCK_ADMIN", deployer);
+        timelockProposer = vm.envOr("TIMELOCK_PROPOSER", deployer);
+        timelockExecutor = vm.envOr("TIMELOCK_EXECUTOR", timelockProposer);
+    }
+
     /// @notice Deploy a contract using CREATE2
     function _deployContract(bytes32 salt, bytes memory bytecode, string memory name)
         internal
@@ -503,6 +585,7 @@ contract Deploy is Script {
         console.log("");
         console.log("Deployed Contracts:");
         console.log("  Vault:", vault);
+        console.log("  Timelock:", timelock);
         console.log("  AdminFacet:", adminFacet);
         console.log("  TradeFacet:", tradeFacet);
         console.log("  CancelFacet:", cancelFacet);
@@ -514,7 +597,9 @@ contract Deploy is Script {
         console.log("Configuration:");
         console.log("  WETH:", weth);
         console.log("  USD:", usd);
+        console.log("  Guardian:", ViewFacet(router).guardian());
         console.log("  Owner:", ViewFacet(router).owner());
+        console.log("  Timelock Delay:", minDelay);
         console.log("");
         console.log("Verification Commands:");
         console.log("----------------------------------------");
@@ -524,6 +609,10 @@ contract Deploy is Script {
     /// @notice Print verification commands
     function _printVerifyCommands() internal view {
         string memory chainId = vm.toString(block.chainid);
+        address deployer = vm.envOr("DEPLOYER_ADDRESS", address(0));
+        if (deployer == address(0)) {
+            deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+        }
 
         console.log("# Verify Vault");
         console.log(
@@ -533,8 +622,20 @@ contract Deploy is Script {
                 " src/Vault.sol:Vault --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
-                vm.toString(ViewFacet(router).owner()),
+                vm.toString(deployer),
                 ")"
+            )
+        );
+        console.log("");
+
+        console.log("# Verify TimelockController");
+        console.log(
+            string.concat(
+                "forge verify-contract ",
+                vm.toString(timelock),
+                " @openzeppelin/contracts/governance/TimelockController.sol:TimelockController --chain ",
+                chainId,
+                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
             )
         );
         console.log("");
@@ -595,7 +696,7 @@ contract Deploy is Script {
                 " src/GridExRouter.sol:GridExRouter --chain ",
                 chainId,
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address,address,address)' ",
-                vm.toString(ViewFacet(router).owner()),
+                vm.toString(deployer),
                 " ",
                 vm.toString(vault),
                 " ",
