@@ -16,6 +16,11 @@ import {ProtocolConstants} from "../src/libraries/ProtocolConstants.sol";
 import {DeployConfig} from "./config/DeployConfig.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
+interface IOwnableLike {
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+}
+
 /// @title Deploy
 /// @notice Production deployment script for GridEx protocol with diamond architecture
 /// @dev Uses CREATE2 via the deterministic deployment proxy for same addresses across chains
@@ -52,7 +57,7 @@ contract Deploy is Script {
 
     /// @notice The salt used for CREATE2 deployment
     /// @dev CRITICAL: This must be the same across all chains for deterministic addresses
-    bytes32 public constant DEPLOYMENT_SALT = keccak256("GridEx.V2.2026.Production.Diamond");
+    bytes32 public constant DEPLOYMENT_SALT = keccak256("GridTrade.V2.2026.Production.Diamond");
 
     /// @notice Deterministic deployment proxy (same address on all EVM chains)
     /// @dev Deployed via keyless deployment, available on most chains
@@ -223,9 +228,8 @@ contract Deploy is Script {
             console.log("[SKIP] Guardian already configured");
         }
 
-        AdminFacet(router).transferOwnership(timelock);
-        Vault(payable(vault)).transferOwnership(timelock);
-        console.log("[OK] Router and Vault ownership transferred to timelock");
+        _transferOwnershipIfNeeded(router, deployer, timelock, "Router");
+        _transferOwnershipIfNeeded(vault, deployer, timelock, "Vault");
 
         vm.stopBroadcast();
 
@@ -542,6 +546,24 @@ contract Deploy is Script {
 
     function _isTestnet(uint256 chainId) internal pure returns (bool) {
         return chainId == 11155111 || chainId == 421614 || chainId == 84532 || chainId == 97;
+    }
+
+    function _transferOwnershipIfNeeded(
+        address target,
+        address expectedCurrentOwner,
+        address newOwner,
+        string memory name
+    ) internal {
+        address currentOwner = IOwnableLike(target).owner();
+
+        if (currentOwner == newOwner) {
+            console.log(string.concat("[SKIP] ", name, " already owned by timelock"));
+            return;
+        }
+
+        require(currentOwner == expectedCurrentOwner, string.concat(name, " owner mismatch"));
+        IOwnableLike(target).transferOwnership(newOwner);
+        console.log(string.concat("[OK] ", name, " ownership transferred to timelock"));
     }
 
     /// @notice Deploy a contract using CREATE2
