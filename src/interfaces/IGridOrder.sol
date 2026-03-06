@@ -42,6 +42,8 @@ interface IGridOrder {
     struct GridConfig {
         /// @notice The grid owner address
         address owner;
+        /// @notice The unique grid identifier (48 bits)
+        uint48 gridId;
         /// @notice The strategy contract for ask orders
         IGridStrategy askStrategy;
         /// @notice The strategy contract for bid orders
@@ -50,8 +52,6 @@ interface IGridOrder {
         uint128 profits;
         /// @notice Base token amount per order
         uint128 baseAmt;
-        /// @notice The unique grid identifier (48 bits)
-        uint48 gridId;
         /// @notice The trading pair ID
         uint64 pairId;
         /// @notice Number of ask orders (max 32768)
