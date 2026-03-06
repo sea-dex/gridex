@@ -478,10 +478,14 @@ contract TradeFacet is IOrderEvents {
     /// @param minAmt The minimum base amount to accept (slippage protection)
     /// @param data Callback data (if non-empty, triggers flash-swap callback)
     /// @param flag Bit flags: 0 = ERC20 only, 1 = quote is ETH, 2 = base is ETH
-    function fillAskOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, uint64 deadline, bytes calldata data, uint32 flag)
-        external
-        payable
-    {
+    function fillAskOrder(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag
+    ) external payable {
         _checkDeadline(deadline);
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.OrderFillResult memory result = l.gridState.fillAskOrder(gridOrderId, amt);
@@ -538,7 +542,7 @@ contract TradeFacet is IOrderEvents {
         }
 
         GridExStorage.Layout storage l = GridExStorage.layout();
-        GridOrder.GridState storage gridState = l.gridState;  
+        GridOrder.GridState storage gridState = l.gridState;
         AccFilled memory filled;
         for (uint256 i; i < idList.length;) {
             uint64 gridOrderId = idList[i];
@@ -599,10 +603,14 @@ contract TradeFacet is IOrderEvents {
     /// @param minAmt The minimum base amount to accept (slippage protection)
     /// @param data Callback data (if non-empty, triggers flash-swap callback)
     /// @param flag Bit flags: 0 = ERC20 only, 1 = base is ETH, 2 = quote is ETH
-    function fillBidOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, uint64 deadline, bytes calldata data, uint32 flag)
-        external
-        payable
-    {
+    function fillBidOrder(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag
+    ) external payable {
         _checkDeadline(deadline);
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.OrderFillResult memory result = l.gridState.fillBidOrder(gridOrderId, amt);
@@ -660,7 +668,7 @@ contract TradeFacet is IOrderEvents {
         }
 
         GridExStorage.Layout storage l = GridExStorage.layout();
-        GridOrder.GridState storage gridState = l.gridState;  
+        GridOrder.GridState storage gridState = l.gridState;
         address taker = msg.sender;
         uint128 filledAmt = 0;
         uint128 filledVol = 0;
