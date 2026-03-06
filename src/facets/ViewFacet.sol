@@ -29,11 +29,12 @@ contract ViewFacet {
     /// @return orderList Array of order information structs
     function getGridOrders(uint64[] calldata idList) external view returns (IGridOrder.OrderInfo[] memory) {
         GridExStorage.Layout storage l = GridExStorage.layout();
+        GridOrder.GridState storage gridState = l.gridState;  
         uint256 len = idList.length;
         IGridOrder.OrderInfo[] memory orderList = new IGridOrder.OrderInfo[](len);
 
         for (uint256 i; i < len;) {
-            orderList[i] = l.gridState.getOrderInfo(idList[i], false);
+            orderList[i] = gridState.getOrderInfo(idList[i], false);
             unchecked {
                 ++i;
             }

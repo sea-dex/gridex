@@ -1,6 +1,8 @@
 #!/bin/bash
 # GridEx Router Facet Call Helper
-# This script provides convenient functions to call GridEx Router functions through fallback
+# This script provides convenient functions to call GridEx Router functions through fallback.
+# When Router/Vault ownership has been transferred to TimelockController, admin calls will
+# schedule or execute through timelock instead of sending directly to the target contract.
 
 set -e
 
@@ -14,6 +16,11 @@ NC='\033[0m' # No Color
 : ${RPC_URL:=""}
 : ${PRIVATE_KEY:=""}
 : ${ROUTER_ADDRESS:=""}
+: ${TIMELOCK_ADDRESS:=""}
+: ${TIMELOCK_ACTION:="schedule"}
+: ${TIMELOCK_DELAY:=""}
+: ${TIMELOCK_PREDECESSOR:="0x0000000000000000000000000000000000000000000000000000000000000000"}
+: ${TIMELOCK_SALT:="0x0000000000000000000000000000000000000000000000000000000000000000"}
 
 # Load .env if exists
 if [ -f ".env" ]; then
@@ -65,6 +72,12 @@ get_router_owner_address() {
     cast call "$ROUTER_ADDRESS" "owner()(address)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
 }
 
+# Get router guardian address
+get_router_guardian_address() {
+    check_config
+    cast call "$ROUTER_ADDRESS" "guardian()(address)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
+}
+
 # Get owner address of a contract implementing owner()
 get_contract_owner_address() {
     local contract_address="$1"
@@ -79,6 +92,124 @@ get_signer_address() {
 # Normalize address to lowercase for comparisons
 normalize_address() {
     echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+is_contract_address() {
+    local address="$1"
+    local code
+    code="$(cast code "$address" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]')"
+    [ -n "$code" ] && [ "$code" != "0x" ]
+}
+
+get_timelock_address() {
+    if [ -n "$TIMELOCK_ADDRESS" ]; then
+        echo "$TIMELOCK_ADDRESS"
+        return
+    fi
+
+    get_router_owner_address
+}
+
+require_timelock_controller() {
+    local timelock_address="$1"
+    if ! cast call "$timelock_address" "getMinDelay()(uint256)" --rpc-url "$RPC_URL" >/dev/null 2>&1; then
+        print_error "Resolved owner $timelock_address does not look like a TimelockController. Set TIMELOCK_ADDRESS explicitly or use the direct owner signer."
+        exit 1
+    fi
+}
+
+get_timelock_delay() {
+    local timelock_address="$1"
+    if [ -n "$TIMELOCK_DELAY" ]; then
+        echo "$TIMELOCK_DELAY"
+        return
+    fi
+
+    cast call "$timelock_address" "getMinDelay()(uint256)" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '[:space:]'
+}
+
+send_via_timelock() {
+    local target="$1"
+    local signature="$2"
+    shift 2
+    local args=("$@")
+    local timelock_address
+    local calldata
+    local action
+    local delay
+
+    timelock_address="$(get_timelock_address)"
+    if [ -z "$timelock_address" ]; then
+        print_error "Unable to resolve timelock address"
+        exit 1
+    fi
+    require_timelock_controller "$timelock_address"
+
+    calldata="$(cast calldata "$signature" "${args[@]}")"
+    action="$(echo "$TIMELOCK_ACTION" | tr '[:upper:]' '[:lower:]')"
+
+    if [ "$action" = "schedule" ]; then
+        delay="$(get_timelock_delay "$timelock_address")"
+        if [ -z "$delay" ]; then
+            print_error "Unable to resolve timelock delay"
+            exit 1
+        fi
+
+        print_info "Scheduling timelock operation via $timelock_address..."
+        cast send "$timelock_address" "schedule(address,uint256,bytes,bytes32,bytes32,uint256)" \
+            "$target" "0" "$calldata" "$TIMELOCK_PREDECESSOR" "$TIMELOCK_SALT" "$delay" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+        print_success "Timelock operation scheduled"
+        print_info "Re-run the same command with TIMELOCK_ACTION=execute after the delay has elapsed."
+        return
+    fi
+
+    if [ "$action" = "execute" ]; then
+        print_info "Executing timelock operation via $timelock_address..."
+        cast send "$timelock_address" "execute(address,uint256,bytes,bytes32,bytes32)" \
+            "$target" "0" "$calldata" "$TIMELOCK_PREDECESSOR" "$TIMELOCK_SALT" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+        print_success "Timelock operation executed"
+        return
+    fi
+
+    print_error "Invalid TIMELOCK_ACTION: $TIMELOCK_ACTION (expected schedule or execute)"
+    exit 1
+}
+
+send_admin_call() {
+    local target="$1"
+    local signature="$2"
+    shift 2
+    local args=("$@")
+    local signer
+    local owner
+
+    signer="$(get_signer_address)"
+    owner="$(get_contract_owner_address "$target")"
+
+    if [ -z "$signer" ] || [ -z "$owner" ]; then
+        print_error "Unable to resolve signer or target owner"
+        exit 1
+    fi
+
+    if [ "$(normalize_address "$signer")" = "$(normalize_address "$owner")" ]; then
+        cast send "$target" "$signature" "${args[@]}" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+        return
+    fi
+
+    if ! is_contract_address "$owner"; then
+        print_error "Signer is not current owner of $target (owner: $owner, signer: $signer)"
+        exit 1
+    fi
+
+    if [ "$(normalize_address "$owner")" != "$(normalize_address "$(get_timelock_address)")" ]; then
+        print_error "Target owner $owner does not match resolved timelock $(get_timelock_address)"
+        exit 1
+    fi
+
+    send_via_timelock "$target" "$signature" "${args[@]}"
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -96,9 +227,8 @@ admin_set_weth() {
     check_private_key
     
     print_info "Setting WETH to $weth_address..."
-    cast send "$ROUTER_ADDRESS" "setWETH(address)" "$weth_address" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "WETH set successfully"
+    send_admin_call "$ROUTER_ADDRESS" "setWETH(address)" "$weth_address"
+    print_success "WETH admin request submitted"
 }
 
 # Set quote token priority
@@ -113,9 +243,8 @@ admin_set_quote_token() {
     check_private_key
     
     print_info "Setting quote token $token_address with priority $priority..."
-    cast send "$ROUTER_ADDRESS" "setQuoteToken(address,uint256)" "$token_address" "$priority" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Quote token set successfully"
+    send_admin_call "$ROUTER_ADDRESS" "setQuoteToken(address,uint256)" "$token_address" "$priority"
+    print_success "Quote token admin request submitted"
 }
 
 # Set strategy whitelist
@@ -137,9 +266,8 @@ admin_set_strategy_whitelist() {
     fi
     
     print_info "Setting strategy $strategy_address whitelist to $whitelisted..."
-    cast send "$ROUTER_ADDRESS" "setStrategyWhitelist(address,bool)" "$strategy_address" "$bool_value" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Strategy whitelist updated"
+    send_admin_call "$ROUTER_ADDRESS" "setStrategyWhitelist(address,bool)" "$strategy_address" "$bool_value"
+    print_success "Strategy whitelist admin request submitted"
 }
 
 # Set oneshot protocol fee
@@ -153,20 +281,31 @@ admin_set_oneshot_fee() {
     check_private_key
     
     print_info "Setting oneshot protocol fee to $fee_bps bps..."
-    cast send "$ROUTER_ADDRESS" "setOneshotProtocolFeeBps(uint32)" "$fee_bps" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Protocol fee updated"
+    send_admin_call "$ROUTER_ADDRESS" "setOneshotProtocolFeeBps(uint32)" "$fee_bps"
+    print_success "Protocol fee admin request submitted"
 }
 
 # Pause trading
 admin_pause() {
     check_config
     check_private_key
-    
+    local signer
+    local owner
+    local guardian
+
+    signer="$(get_signer_address)"
+    owner="$(get_router_owner_address)"
+    guardian="$(get_router_guardian_address)"
+
     print_info "Pausing trading..."
-    cast send "$ROUTER_ADDRESS" "pause()" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Trading paused"
+    if [ "$(normalize_address "$signer")" = "$(normalize_address "$guardian")" ] || \
+        [ "$(normalize_address "$signer")" = "$(normalize_address "$owner")" ]; then
+        cast send "$ROUTER_ADDRESS" "pause()" \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+    else
+        send_admin_call "$ROUTER_ADDRESS" "pause()"
+    fi
+    print_success "Pause request submitted"
 }
 
 # Unpause trading
@@ -175,9 +314,8 @@ admin_unpause() {
     check_private_key
     
     print_info "Unpausing trading..."
-    cast send "$ROUTER_ADDRESS" "unpause()" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Trading unpaused"
+    send_admin_call "$ROUTER_ADDRESS" "unpause()"
+    print_success "Unpause request submitted"
 }
 
 # Rescue ETH
@@ -192,9 +330,8 @@ admin_rescue_eth() {
     check_private_key
     
     print_info "Rescuing $amount wei ETH to $to_address..."
-    cast send "$ROUTER_ADDRESS" "rescueEth(address,uint256)" "$to_address" "$amount" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "ETH rescued"
+    send_admin_call "$ROUTER_ADDRESS" "rescueEth(address,uint256)" "$to_address" "$amount"
+    print_success "ETH rescue request submitted"
 }
 
 # Transfer ownership
@@ -221,6 +358,7 @@ admin_transfer_ownership() {
     local vault_address=""
     local router_owner=""
     local vault_owner=""
+    local timelock_address=""
 
     signer="$(get_signer_address)"
     if [ -z "$signer" ] || [ "$(normalize_address "$signer")" = "$zero_address" ]; then
@@ -238,7 +376,9 @@ admin_transfer_ownership() {
 
     if [ "$target" = "both" ] || [ "$target" = "router" ]; then
         router_owner="$(get_router_owner_address)"
-        if [ "$(normalize_address "$router_owner")" != "$(normalize_address "$signer")" ]; then
+        timelock_address="$(get_timelock_address)"
+        if [ "$(normalize_address "$router_owner")" != "$(normalize_address "$signer")" ] && \
+            [ "$(normalize_address "$router_owner")" != "$(normalize_address "$timelock_address")" ]; then
             print_error "Signer is not current Router owner (router owner: $router_owner, signer: $signer)"
             exit 1
         fi
@@ -246,7 +386,9 @@ admin_transfer_ownership() {
 
     if [ "$target" = "both" ] || [ "$target" = "vault" ]; then
         vault_owner="$(get_contract_owner_address "$vault_address")"
-        if [ "$(normalize_address "$vault_owner")" != "$(normalize_address "$signer")" ]; then
+        timelock_address="$(get_timelock_address)"
+        if [ "$(normalize_address "$vault_owner")" != "$(normalize_address "$signer")" ] && \
+            [ "$(normalize_address "$vault_owner")" != "$(normalize_address "$timelock_address")" ]; then
             print_error "Signer is not current Vault owner (vault owner: $vault_owner, signer: $signer)"
             exit 1
         fi
@@ -254,16 +396,14 @@ admin_transfer_ownership() {
 
     if [ "$target" = "both" ] || [ "$target" = "router" ]; then
         print_info "Transferring Router ownership to $new_owner..."
-        cast send "$ROUTER_ADDRESS" "transferOwnership(address)" "$new_owner" \
-            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-        print_success "Router ownership transferred"
+        send_admin_call "$ROUTER_ADDRESS" "transferOwnership(address)" "$new_owner"
+        print_success "Router ownership transfer request submitted"
     fi
 
     if [ "$target" = "both" ] || [ "$target" = "vault" ]; then
         print_info "Transferring Vault ownership to $new_owner..."
-        cast send "$vault_address" "transferOwnership(address)" "$new_owner" \
-            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-        print_success "Vault ownership transferred"
+        send_admin_call "$vault_address" "transferOwnership(address)" "$new_owner"
+        print_success "Vault ownership transfer request submitted"
     fi
 }
 
@@ -279,9 +419,8 @@ admin_set_facet() {
     check_private_key
     
     print_info "Setting facet $facet_address for selector $selector..."
-    cast send "$ROUTER_ADDRESS" "setFacet(bytes4,address)" "$selector" "$facet_address" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Facet set"
+    send_admin_call "$ROUTER_ADDRESS" "setFacet(bytes4,address)" "$selector" "$facet_address"
+    print_success "Facet update request submitted"
 }
 
 # Batch set facets
@@ -297,10 +436,8 @@ admin_batch_set_facets() {
     local facets="$2"
     
     print_info "Batch setting facets..."
-    cast send "$ROUTER_ADDRESS" "batchSetFacet(bytes4[],address[])" \
-        "[$selectors]" "[$facets]" \
-        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-    print_success "Facets batch set"
+    send_admin_call "$ROUTER_ADDRESS" "batchSetFacet(bytes4[],address[])" "[$selectors]" "[$facets]"
+    print_success "Facet batch update request submitted"
 }
 
 # ═══════════════════════════════════════════════════════════════════
@@ -530,8 +667,13 @@ Environment Variables (set in .env or export):
   RPC_URL         - RPC endpoint URL
   PRIVATE_KEY     - Private key for transactions
   ROUTER_ADDRESS  - GridEx Router contract address
+  TIMELOCK_ADDRESS - Optional TimelockController address (defaults to Router owner)
+  TIMELOCK_ACTION  - schedule or execute for timelock-owned admin calls (default: schedule)
+  TIMELOCK_DELAY   - Optional override for timelock schedule delay in seconds
+  TIMELOCK_PREDECESSOR - Timelock predecessor bytes32 (default: zero hash)
+  TIMELOCK_SALT    - Timelock salt bytes32 (must match between schedule and execute)
 
-Admin Functions (require owner):
+Admin Functions:
   admin_set_weth <WETH_ADDRESS>
   admin_set_quote_token <TOKEN_ADDRESS> <PRIORITY>
   admin_set_strategy_whitelist <STRATEGY_ADDRESS> <true|false>
@@ -567,6 +709,12 @@ Utility Functions:
 Examples:
   # Set USDC as quote token with priority 100
   $0 admin_set_quote_token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 100
+
+  # Schedule a timelock-owned admin call
+  TIMELOCK_ACTION=schedule $0 admin_set_quote_token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 100
+
+  # Execute the same timelock operation after delay
+  TIMELOCK_ACTION=execute $0 admin_set_quote_token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 100
 
   # Whitelist a strategy
   $0 admin_set_strategy_whitelist 0x1234... true

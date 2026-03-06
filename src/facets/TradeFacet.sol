@@ -529,6 +529,7 @@ contract TradeFacet is IOrderEvents {
         }
 
         GridExStorage.Layout storage l = GridExStorage.layout();
+        GridOrder.GridState storage gridState = l.gridState;  
         AccFilled memory filled;
         for (uint256 i; i < idList.length;) {
             uint64 gridOrderId = idList[i];
@@ -538,7 +539,7 @@ contract TradeFacet is IOrderEvents {
                 amt = maxAmt - filled.amt;
             }
 
-            IGridOrder.OrderFillResult memory result = l.gridState.fillAskOrder(gridOrderId, amt);
+            IGridOrder.OrderFillResult memory result = gridState.fillAskOrder(gridOrderId, amt);
             if (result.pairId != pairId) {
                 revert IProtocolErrors.PairIdMismatch();
             }
@@ -647,6 +648,7 @@ contract TradeFacet is IOrderEvents {
         }
 
         GridExStorage.Layout storage l = GridExStorage.layout();
+        GridOrder.GridState storage gridState = l.gridState;  
         address taker = msg.sender;
         uint128 filledAmt = 0;
         uint128 filledVol = 0;
@@ -660,7 +662,7 @@ contract TradeFacet is IOrderEvents {
                 amt = maxAmt - filledAmt;
             }
 
-            IGridOrder.OrderFillResult memory result = l.gridState.fillBidOrder(gridOrderId, amt);
+            IGridOrder.OrderFillResult memory result = gridState.fillBidOrder(gridOrderId, amt);
 
             if (result.pairId != pairId) {
                 revert IProtocolErrors.PairIdMismatch();
