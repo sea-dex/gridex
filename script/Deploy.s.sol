@@ -532,11 +532,16 @@ contract Deploy is Script {
             address timelockExecutor
         )
     {
+        uint256 defaultDelay = _isTestnet(block.chainid) ? 10 minutes : 2 days;
         configuredGuardian = vm.envOr("GUARDIAN", deployer);
-        configuredDelay = vm.envOr("TIMELOCK_MIN_DELAY", uint256(2 days));
+        configuredDelay = vm.envOr("TIMELOCK_MIN_DELAY", defaultDelay);
         timelockAdmin = vm.envOr("TIMELOCK_ADMIN", deployer);
         timelockProposer = vm.envOr("TIMELOCK_PROPOSER", deployer);
         timelockExecutor = vm.envOr("TIMELOCK_EXECUTOR", timelockProposer);
+    }
+
+    function _isTestnet(uint256 chainId) internal pure returns (bool) {
+        return chainId == 11155111 || chainId == 421614 || chainId == 84532 || chainId == 97;
     }
 
     /// @notice Deploy a contract using CREATE2
