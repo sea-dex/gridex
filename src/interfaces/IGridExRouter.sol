@@ -78,7 +78,7 @@ interface IGridExRouter {
         payable;
 
     /// @notice Fill a single ask grid order (buy base token)
-    function fillAskOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
+    function fillAskOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, uint64 deadline, bytes calldata data, uint32 flag)
         external
         payable;
 
@@ -89,12 +89,13 @@ interface IGridExRouter {
         uint128[] calldata amtList,
         uint128 maxAmt,
         uint128 minAmt,
+        uint64 deadline,
         bytes calldata data,
         uint32 flag
     ) external payable;
 
     /// @notice Fill a single bid grid order (sell base token)
-    function fillBidOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
+    function fillBidOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, uint64 deadline, bytes calldata data, uint32 flag)
         external
         payable;
 
@@ -105,6 +106,7 @@ interface IGridExRouter {
         uint128[] calldata amtList,
         uint128 maxAmt,
         uint128 minAmt,
+        uint64 deadline,
         bytes calldata data,
         uint32 flag
     ) external payable;

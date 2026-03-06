@@ -25,4 +25,7 @@ interface IProtocolErrors {
 
     /// @notice Thrown when an ETH transfer fails.
     error ETHTransferFailed();
+
+    /// @notice Thrown when a fill transaction is executed after its deadline.
+    error Expired();
 }

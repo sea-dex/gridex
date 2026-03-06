@@ -362,6 +362,12 @@ contract TradeFacet is IOrderEvents {
         }
     }
 
+    function _checkDeadline(uint64 deadline) internal view {
+        if (deadline != 0 && block.timestamp > deadline) {
+            revert IProtocolErrors.Expired();
+        }
+    }
+
     // ─── Place orders ────────────────────────────────────────────────
 
     /// @notice Place grid orders with ETH as either base or quote token
@@ -472,10 +478,11 @@ contract TradeFacet is IOrderEvents {
     /// @param minAmt The minimum base amount to accept (slippage protection)
     /// @param data Callback data (if non-empty, triggers flash-swap callback)
     /// @param flag Bit flags: 0 = ERC20 only, 1 = quote is ETH, 2 = base is ETH
-    function fillAskOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
+    function fillAskOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, uint64 deadline, bytes calldata data, uint32 flag)
         external
         payable
     {
+        _checkDeadline(deadline);
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.OrderFillResult memory result = l.gridState.fillAskOrder(gridOrderId, amt);
 
@@ -521,9 +528,11 @@ contract TradeFacet is IOrderEvents {
         uint128[] calldata amtList,
         uint128 maxAmt,
         uint128 minAmt,
+        uint64 deadline,
         bytes calldata data,
         uint32 flag
     ) external payable {
+        _checkDeadline(deadline);
         if (idList.length != amtList.length) {
             revert IOrderErrors.InvalidParam();
         }
@@ -590,10 +599,11 @@ contract TradeFacet is IOrderEvents {
     /// @param minAmt The minimum base amount to accept (slippage protection)
     /// @param data Callback data (if non-empty, triggers flash-swap callback)
     /// @param flag Bit flags: 0 = ERC20 only, 1 = base is ETH, 2 = quote is ETH
-    function fillBidOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, bytes calldata data, uint32 flag)
+    function fillBidOrder(uint64 gridOrderId, uint128 amt, uint128 minAmt, uint64 deadline, bytes calldata data, uint32 flag)
         external
         payable
     {
+        _checkDeadline(deadline);
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.OrderFillResult memory result = l.gridState.fillBidOrder(gridOrderId, amt);
 
@@ -640,9 +650,11 @@ contract TradeFacet is IOrderEvents {
         uint128[] calldata amtList,
         uint128 maxAmt,
         uint128 minAmt,
+        uint64 deadline,
         bytes calldata data,
         uint32 flag
     ) external payable {
+        _checkDeadline(deadline);
         if (idList.length != amtList.length) {
             revert IOrderErrors.InvalidParam();
         }

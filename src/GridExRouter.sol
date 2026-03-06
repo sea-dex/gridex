@@ -90,7 +90,7 @@ contract GridExRouter {
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Fill a single ask grid order (buy base token)
-    function fillAskOrder(uint64, uint128, uint128, bytes calldata, uint32) external payable {
+    function fillAskOrder(uint64, uint128, uint128, uint64, bytes calldata, uint32) external payable {
         ReentrancyLib._enterFill();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
@@ -98,7 +98,7 @@ contract GridExRouter {
     }
 
     /// @notice Fill multiple ask orders in a single transaction
-    function fillAskOrders(uint64, uint64[] calldata, uint128[] calldata, uint128, uint128, bytes calldata, uint32)
+    function fillAskOrders(uint64, uint64[] calldata, uint128[] calldata, uint128, uint128, uint64, bytes calldata, uint32)
         external
         payable
     {
@@ -109,7 +109,7 @@ contract GridExRouter {
     }
 
     /// @notice Fill a single bid grid order (sell base token)
-    function fillBidOrder(uint64, uint128, uint128, bytes calldata, uint32) external payable {
+    function fillBidOrder(uint64, uint128, uint128, uint64, bytes calldata, uint32) external payable {
         ReentrancyLib._enterFill();
         GridExStorage.Layout storage l = GridExStorage.layout();
         if (l.paused) revert EnforcedPause();
@@ -117,7 +117,7 @@ contract GridExRouter {
     }
 
     /// @notice Fill multiple bid orders in a single transaction
-    function fillBidOrders(uint64, uint64[] calldata, uint128[] calldata, uint128, uint128, bytes calldata, uint32)
+    function fillBidOrders(uint64, uint64[] calldata, uint128[] calldata, uint128, uint128, uint64, bytes calldata, uint32)
         external
         payable
     {
