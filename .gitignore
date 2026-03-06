@@ -30,3 +30,4 @@ plans/
 target
 test/
 tests/
+.VSCodeCounter/
