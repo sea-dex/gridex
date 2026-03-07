@@ -23,9 +23,24 @@ NC='\033[0m' # No Color
 : ${TIMELOCK_SALT:="0x0000000000000000000000000000000000000000000000000000000000000000"}
 
 # Load .env if exists
-if [ -f ".env" ]; then
-    source .env
-fi
+# if [ -f ".env" ]; then
+#     source .env
+# fi
+# Load .env file if it exists
+load_env() {
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local env_file="$script_dir/.env"
+    
+    if [ -f "$env_file" ]; then
+        # Export variables from .env file, ignoring comments and empty lines
+        set -a
+        source "$env_file"
+        set +a
+        echo -e "${YELLOW}Loaded environment from $env_file${NC}"
+    fi
+}
+
+load_env
 
 # Helper function to print usage
 print_error() {
