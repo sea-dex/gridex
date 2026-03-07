@@ -531,6 +531,11 @@ library GridOrder {
             result.pairId = orderInfo.pairId;
             return result;
         }
+
+        if (rawQuote >= type(uint128).max) {
+            revert IOrderErrors.ExceedQuoteAmt();
+        }
+
         // forge-lint: disable-next-line(unsafe-typecast)
         uint128 filledVol = uint128(rawQuote); // safe: amt is uint128, price < 2^128, so rawQuote < 2^128
         if (filledVol > orderQuoteAmt) {
