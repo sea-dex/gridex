@@ -30,6 +30,7 @@
     "func-name-mixedcase": "warn",
     "modifier-name-mixedcase": "warn",
     "immutable-vars-naming": "warn",
-    "use-natspec": "off"
+    "use-natspec": "off",
+    "use-forbidden-name": "off"
   }
 }

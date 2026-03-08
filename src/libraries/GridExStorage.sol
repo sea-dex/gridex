@@ -10,7 +10,7 @@ import {GridOrder} from "./GridOrder.sol";
 /// @notice Diamond-style namespaced storage for the GridEx protocol
 /// @dev All facets share state through a single Layout struct at a fixed storage slot
 library GridExStorage {
-    bytes32 constant STORAGE_SLOT = keccak256("gridex.diamond.storage.v1");
+    bytes32 constant STORAGE_SLOT = keccak256("gridex.diamond.storage.v2");
 
     struct Layout {
         // --- Ownership ---
