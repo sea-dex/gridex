@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.33;
 
 /// @title GridEx7702BatchExecutor
 /// @notice Minimal ERC-7821 executor intended for EIP-7702 delegated EOAs.
