@@ -447,7 +447,8 @@ contract TradeFacet is IOrderEvents {
         // uint256 startAskOrderId;
         // uint256 startBidOrderId;
         uint48 gridId;
-        (gridId, baseAmt, quoteAmt) = l.gridState.placeGridOrder(pair.pairId, maker, param);
+        uint32 fee;
+        (gridId, fee, baseAmt, quoteAmt) = l.gridState.placeGridOrder(pair.pairId, maker, param);
 
         emit GridOrderCreated(
             maker,
@@ -458,7 +459,7 @@ contract TradeFacet is IOrderEvents {
             // startBidOrderId,
             param.askOrderCount,
             param.bidOrderCount,
-            param.fee,
+            fee,
             param.compound,
             param.oneshot
         );

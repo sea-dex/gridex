@@ -220,7 +220,7 @@ library GridOrder {
         uint64 pairId,
         address maker,
         IGridOrder.GridOrderParam calldata param
-    ) internal returns (uint48) {
+    ) internal returns (uint48, uint32) {
         uint48 gridId = uint48(self.nextGridId++);
 
         // For oneshot orders, override user fee with oneshotProtocolFeeBps
@@ -242,7 +242,7 @@ library GridOrder {
             status: GRID_STATUS_NORMAL
         });
 
-        return gridId;
+        return (gridId, effectiveFee);
     }
 
     /// @notice Place a new grid order
@@ -253,6 +253,7 @@ library GridOrder {
     /// @param maker The grid owner address
     /// @param param The grid order parameters
     /// @return The grid ID (48 bits)
+    /// @return The fee (32 bits)
     /// @return The total base token amount required
     /// @return The total quote token amount required
     function placeGridOrder(
@@ -260,10 +261,10 @@ library GridOrder {
         uint64 pairId,
         address maker,
         IGridOrder.GridOrderParam calldata param
-    ) internal returns (uint48, uint128, uint128) {
+    ) internal returns (uint48, uint32, uint128, uint128) {
         validateGridOrderParam(param);
 
-        uint48 gridId = createGridConfig(self, pairId, maker, param);
+        (uint48 gridId, uint32 fee) = createGridConfig(self, pairId, maker, param);
 
         uint128 baseAmt = param.baseAmount;
         uint128 quoteAmt;
@@ -290,6 +291,7 @@ library GridOrder {
 
         return (
             gridId,
+            fee,
             // toGridOrderId(gridId, ProtocolConstants.ASK_ORDER_START_ID),
             // toGridOrderId(gridId, ProtocolConstants.BID_ORDER_START_ID),
             baseAmt * param.askOrderCount,
