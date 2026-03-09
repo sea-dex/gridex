@@ -468,8 +468,95 @@ view_get_grid_order() {
     fi
     check_config
     
-    cast call "$ROUTER_ADDRESS" "getGridOrder(uint64)" "$order_id" \
-        --rpc-url "$RPC_URL"
+    local raw_output
+    raw_output=$(cast call "$ROUTER_ADDRESS" "getGridOrder(uint64)" "$order_id" \
+        --rpc-url "$RPC_URL" 2>/dev/null)
+    
+    # Parse the OrderInfo struct using cast --abi-decode
+    # OrderInfo struct: (bool isAsk, bool compound, bool oneshot, uint32 fee, uint32 status,
+    #                    uint48 gridId, uint16 orderId, uint128 amount, uint128 revAmount,
+    #                    uint128 baseAmt, uint256 price, uint256 revPrice, uint64 pairId)
+    local decoded
+    decoded=$(cast --abi-decode "getGridOrder(uint64)(bool,bool,bool,uint32,uint32,uint48,uint16,uint128,uint128,uint128,uint256,uint256,uint64)" "$raw_output" 2>/dev/null)
+    
+    if [ -z "$decoded" ]; then
+        # Fallback to raw output if decoding fails
+        echo "$raw_output"
+        return
+    fi
+    
+    # Parse the decoded values into an array (one value per line)
+    local i=0
+    while IFS= read -r line; do
+        values[$i]="$line"
+        ((i++))
+    done <<< "$decoded"
+    
+    # Extract values (cast --abi-decode returns one value per line)
+    local is_ask="${values[0]}"
+    local compound="${values[1]}"
+    local oneshot="${values[2]}"
+    local fee="${values[3]}"
+    local status="${values[4]}"
+    local grid_id="${values[5]}"
+    local order_id_val="${values[6]}"
+    local amount="${values[7]}"
+    local rev_amount="${values[8]}"
+    local base_amt="${values[9]}"
+    local price="${values[10]}"
+    local rev_price="${values[11]}"
+    local pair_id="${values[12]}"
+    
+    # Format status
+    local status_str="Active"
+    if [ "$status" = "1" ]; then
+        status_str="Cancelled"
+    fi
+    
+    # Format order type
+    local order_type="Bid"
+    if [ "$is_ask" = "true" ]; then
+        order_type="Ask"
+    fi
+    
+    # Format compound
+    local compound_str="No"
+    if [ "$compound" = "true" ]; then
+        compound_str="Yes"
+    fi
+    
+    # Format oneshot
+    local oneshot_str="No"
+    if [ "$oneshot" = "true" ]; then
+        oneshot_str="Yes"
+    fi
+    
+    # Format fee (basis points to percentage)
+    local fee_pct
+    fee_pct=$(printf "%.4f" $(echo "scale=4; $fee / 10000" | bc 2>/dev/null) 2>/dev/null || echo "$fee bps")
+    
+    # Print formatted output
+    echo ""
+    echo "=========================================="
+    echo "           Grid Order Info"
+    echo "=========================================="
+    echo "Grid ID:        $grid_id"
+    echo "Order ID:       $order_id_val"
+    echo "Pair ID:        $pair_id"
+    echo "------------------------------------------"
+    echo "Type:           $order_type"
+    echo "Status:         $status_str"
+    echo "Compound:       $compound_str"
+    echo "Oneshot:        $oneshot_str"
+    echo "Fee:            ${fee_pct}% ($fee bps)"
+    echo "------------------------------------------"
+    echo "Amount:         $amount"
+    echo "Rev Amount:     $rev_amount"
+    echo "Base Amount:    $base_amt"
+    echo "------------------------------------------"
+    echo "Price:          $price"
+    echo "Rev Price:      $rev_price"
+    echo "=========================================="
 }
 
 # Get grid profits
