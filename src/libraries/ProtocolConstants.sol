@@ -30,9 +30,6 @@ library ProtocolConstants {
     /// @dev Bid order IDs start at 0.
     uint16 internal constant BID_ORDER_START_ID = 0;
 
-    /// @dev Maximum orders per side (32768).
-    uint16 internal constant MAX_ORDERS_PER_SIDE = 0x8000;
-
     // ---------------------------------------------------------------------
     // Grid ID (uint48)
     // ---------------------------------------------------------------------

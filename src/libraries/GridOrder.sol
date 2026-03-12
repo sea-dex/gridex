@@ -23,7 +23,7 @@ import {ProtocolConstants} from "./ProtocolConstants.sol";
 library GridOrder {
     /// @notice Minimum fee in basis points (0.0001%)
     /// @dev Fee is represented as basis points where 1 = 0.0001% (1e-6)
-    ///      MIN_FEE of 10 = 0.0001%
+    ///      MIN_FEE of 1 = 0.0001%
     uint32 public constant MIN_FEE = 1;
 
     /// @notice Maximum fee in basis points (10%)
@@ -99,12 +99,6 @@ library GridOrder {
                 revert IOrderErrors.InvalidGridFee();
             }
         }
-        // else {
-        // For oneshot, validate that oneshotFeeBps is set
-        // if (oneshotFeeBps > MAX_FEE || oneshotFeeBps < MIN_FEE) {
-        //     revert IOrderErrors.InvalidGridFee();
-        // }
-        // }
 
         unchecked {
             uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.askOrderCount);
