@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.33;
 
+import {BaseStrategy} from "./BaseStrategy.sol";
+import {IOrderErrors} from "../interfaces/IOrderErrors.sol";
 import {IGridStrategy} from "../interfaces/IGridStrategy.sol";
 import {IGeometryErrors} from "../interfaces/IGeometryErrors.sol";
-import {ProtocolConstants} from "../libraries/ProtocolConstants.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
 /// @title Geometry
@@ -13,15 +14,9 @@ import {FullMath} from "../libraries/FullMath.sol";
 ///      - ratio is scaled by 1e18
 ///      - ask requires ratio > 1e18 (increasing prices)
 ///      - bid requires ratio < 1e18 (decreasing prices)
-contract Geometry is IGridStrategy {
-    /// @notice Price multiplier for quote/base pricing precision.
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
-
+contract Geometry is BaseStrategy {
     /// @notice Ratio multiplier for geometric progression.
     uint256 public constant RATIO_MULTIPLIER = 10 ** 18;
-
-    /// @notice The GridEx contract address that can create strategies.
-    address public immutable GRID_EX;
 
     /// @notice Geometry strategy parameters.
     struct GeometryStrategy {
@@ -35,29 +30,8 @@ contract Geometry is IGridStrategy {
     /// @notice Emitted when a new geometry strategy is created.
     event GeometryStrategyCreated(bool isAsk, uint48 gridId, uint256 price0, uint256 ratio);
 
-    /// @notice Modifier to restrict access to GridEx contract only
-    modifier onlyGridEx() {
-        _onlyGridEx();
-        _;
-    }
-
-    /// @notice Ensures only the GridEx contract can call the function
-    function _onlyGridEx() internal view {
-        require(msg.sender == GRID_EX, "Unauthorized");
-    }
-
     /// @param _gridEx The GridEx contract address.
-    constructor(address _gridEx) {
-        require(_gridEx != address(0), "Invalid gridEx address");
-        GRID_EX = _gridEx;
-    }
-
-    function gridIdKey(bool isAsk, uint48 gridId) internal pure returns (uint256) {
-        if (isAsk) {
-            return (uint256(ProtocolConstants.ASK_ORDER_FLAG) << 128) | uint256(gridId);
-        }
-        return uint256(gridId);
-    }
+    constructor(address _gridEx) BaseStrategy(_gridEx) {}
 
     function _powRatio(uint256 ratio, uint128 exp) internal pure returns (uint256 result) {
         result = RATIO_MULTIPLIER;
@@ -99,6 +73,10 @@ contract Geometry is IGridStrategy {
             // creating grids whose high-order ask prices are not computable.
             uint256 highestAskPrice = _priceAt(price0, ratio, uint128(count - 1));
 
+            if (!_validateQuoteAmountNoOverflow(highestAskPrice, amt, count)) {
+                revert IOrderErrors.ExceedQuoteAmt();
+            }
+
             // Verify reverse price for order 0 (the lowest reverse price) produces
             // non-zero quote
             uint256 reversePrice0 = FullMath.mulDiv(price0, RATIO_MULTIPLIER, ratio);
@@ -114,6 +92,11 @@ contract Geometry is IGridStrategy {
             if (count > 1 && ratio >= RATIO_MULTIPLIER) {
                 revert IGeometryErrors.GeometryBidRatioTooHigh();
             }
+
+            if (!_validateQuoteAmountNoOverflow(price0, amt, count)) {
+                revert IOrderErrors.ExceedQuoteAmt();
+            }
+
             uint256 lastPrice = _priceAt(price0, ratio, uint128(count - 1));
             if (FullMath.mulDivRoundingUp(uint256(amt), lastPrice, PRICE_MULTIPLIER) == 0) {
                 revert IGeometryErrors.GeometryBidZeroQuote();

@@ -1,41 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.33;
 
-// import {IGridOrder} from "../interfaces/IGridOrder.sol";
+import {BaseStrategy} from "./BaseStrategy.sol";
+import {IOrderErrors} from "../interfaces/IOrderErrors.sol";
 import {IGridStrategy} from "../interfaces/IGridStrategy.sol";
 import {ILinearErrors} from "../interfaces/ILinearErrors.sol";
-import {ProtocolConstants} from "../libraries/ProtocolConstants.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
 /// @title Linear
 /// @author GridEx Protocol
 /// @notice Linear pricing strategy for grid orders
 /// @dev Implements IGridStrategy with linear price progression (constant price gap between orders)
-contract Linear is IGridStrategy {
-    /// @notice Price multiplier for fixed-point arithmetic (10^36)
-    uint256 public constant PRICE_MULTIPLIER = 10 ** 36;
-
-    /// @notice The GridEx contract address that can create strategies
-    address public immutable GRID_EX;
-
-    /// @notice Ensures only the GridEx contract can call the function
-    function _onlyGridEx() internal view {
-        require(msg.sender == GRID_EX, "Unauthorized");
-    }
-
-    /// @notice Modifier to restrict access to GridEx contract only
-    modifier onlyGridEx() {
-        _onlyGridEx();
-        _;
-    }
-
-    /// @notice Creates a new Linear strategy contract
-    /// @param _gridEx The GridEx contract address
-    constructor(address _gridEx) {
-        require(_gridEx != address(0), "Invalid gridEx address");
-        GRID_EX = _gridEx;
-    }
-
+contract Linear is BaseStrategy {
     /// @notice Emitted when a new linear strategy is created
     /// @param isAsk True if this is an ask strategy, false for bid
     /// @param gridId The grid ID this strategy belongs to
@@ -56,17 +32,9 @@ contract Linear is IGridStrategy {
     /// @dev Key is computed from isAsk and gridId
     mapping(uint256 => LinearStrategy) public strategies;
 
-    /// @notice Compute the storage key for a strategy
-    /// @dev Ask strategies have high bit set to differentiate from bid strategies
-    /// @param isAsk True if this is an ask strategy
-    /// @param gridId The grid ID
-    /// @return The storage key
-    function gridIdKey(bool isAsk, uint48 gridId) internal pure returns (uint256) {
-        if (isAsk) {
-            return (uint256(ProtocolConstants.ASK_ORDER_FLAG) << 128) | uint256(gridId);
-        }
-        return uint256(gridId);
-    }
+    /// @notice Creates a new Linear strategy contract
+    /// @param _gridEx The GridEx contract address
+    constructor(address _gridEx) BaseStrategy(_gridEx) {}
 
     /// @inheritdoc IGridStrategy
     function createGridStrategy(bool isAsk, uint48 gridId, bytes memory data) external override onlyGridEx {
@@ -80,7 +48,7 @@ contract Linear is IGridStrategy {
 
     /// @inheritdoc IGridStrategy
     function validateParams(bool isAsk, uint128 amt, bytes calldata data, uint32 count) external pure override {
-        if (count < 1) {
+        if (count == 0) {
             revert ILinearErrors.LinearInvalidCount();
         }
         (uint256 price0, int256 gap) = abi.decode(data, (uint256, int256));
@@ -106,9 +74,15 @@ contract Linear is IGridStrategy {
 
             // casting to 'uint256' is safe because gap > 0
             // forge-lint: disable-next-line(unsafe-typecast)
-            if (uint256(price0) + uint256(count - 1) * uint256(int256(gap)) >= type(uint256).max) {
+            uint256 highestPrice = uint256(price0) + uint256(count - 1) * uint256(int256(gap));
+            if (highestPrice >= type(uint256).max) {
                 revert ILinearErrors.LinearAskPriceOverflow();
             }
+
+            if (!_validateQuoteAmountNoOverflow(highestPrice, amt, count)) {
+                revert IOrderErrors.ExceedQuoteAmt();
+            }
+
             // ensure quote amount is non-zero
             if (
                 FullMath.mulDivRoundingUp(
@@ -125,6 +99,11 @@ contract Linear is IGridStrategy {
             if (count > 1 && gap >= 0) {
                 revert ILinearErrors.LinearBidGapNonNegative();
             }
+
+            if (!_validateQuoteAmountNoOverflow(price0, amt, count)) {
+                revert IOrderErrors.ExceedQuoteAmt();
+            }
+
             // casting to 'uint256' is safe because gap < 0
             // forge-lint: disable-next-line(unsafe-typecast)
             if (uint256(price0) + uint256(-int256(gap)) >= type(uint256).max) {

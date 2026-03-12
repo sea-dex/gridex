@@ -99,7 +99,7 @@ library GridOrder {
                 revert IOrderErrors.InvalidGridFee();
             }
         }
- 
+
         if (param.oneshot && param.compound) {
             revert IOrderErrors.InvalidGridParams();
         }
@@ -107,6 +107,11 @@ library GridOrder {
         unchecked {
             // buy price should great than 0
             if (param.bidOrderCount > 0) {
+                uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.bidOrderCount);
+                if (totalBaseAmt > type(uint128).max) {
+                    revert IOrderErrors.ExceedMaxAmount();
+                }
+
                 // require(param.bidOrderCount > 1, "E1");
                 param.bidStrategy.validateParams(false, param.baseAmount, param.bidData, param.bidOrderCount);
             }
@@ -287,12 +292,7 @@ library GridOrder {
             }
         }
 
-        return (
-            gridId,
-            fee,
-            baseAmt * param.askOrderCount,
-            quoteAmt
-        );
+        return (gridId, fee, baseAmt * param.askOrderCount, quoteAmt);
     }
 
     /// @notice Get order information
