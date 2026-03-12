@@ -100,6 +100,10 @@ library GridOrder {
             }
         }
 
+        if (param.oneshot && param.compound) {
+            revert IOrderErrors.InvalidGridParams();
+        }
+
         unchecked {
             uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.askOrderCount);
             if (totalBaseAmt > type(uint128).max) {
@@ -431,6 +435,7 @@ library GridOrder {
             // Safe: amt less than orderBaseAmt
             orderBaseAmt -= amt;
         }
+
         // calculate orderQuoteAmt and grid profit
         {
             if (orderInfo.compound) {

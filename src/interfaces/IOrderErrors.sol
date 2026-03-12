@@ -50,10 +50,10 @@ interface IOrderErrors {
     /// @notice Thrown when the order is not a limit order
     error NotLimitOrder();
 
-    /// @notice Thrown when msg.sender is not the order owner
-
     /// @notice Thrown when the strategy is not whitelisted
     error StrategyNotWhitelisted();
+
+    /// @notice Thrown when msg.sender is not the order owner
     error NotOrderOwner();
 
     /// @notice Thrown when maximum ask order ID is reached
@@ -76,6 +76,9 @@ interface IOrderErrors {
 
     /// @notice Thrown when grid ID is invalid
     error InvalidGridId();
+
+    /// @notice Thrown when grid params invalid
+    error InvalidGridParams();
 
     /// @notice Thrown when the grid order has already been canceled
     error OrderCanceled();
