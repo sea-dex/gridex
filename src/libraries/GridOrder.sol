@@ -286,8 +286,6 @@ library GridOrder {
         return (
             gridId,
             fee,
-            // toGridOrderId(gridId, ProtocolConstants.ASK_ORDER_START_ID),
-            // toGridOrderId(gridId, ProtocolConstants.BID_ORDER_START_ID),
             baseAmt * param.askOrderCount,
             quoteAmt
         );
