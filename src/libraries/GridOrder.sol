@@ -105,11 +105,6 @@ library GridOrder {
         }
 
         unchecked {
-            uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.askOrderCount);
-            if (totalBaseAmt > type(uint128).max) {
-                revert IOrderErrors.ExceedMaxAmount();
-            }
-
             // buy price should great than 0
             if (param.bidOrderCount > 0) {
                 // require(param.bidOrderCount > 1, "E1");
@@ -117,6 +112,11 @@ library GridOrder {
             }
 
             if (param.askOrderCount > 0) {
+                uint256 totalBaseAmt = uint256(param.baseAmount) * uint256(param.askOrderCount);
+                if (totalBaseAmt > type(uint128).max) {
+                    revert IOrderErrors.ExceedMaxAmount();
+                }
+
                 // ASK orders
                 param.askStrategy.validateParams(true, param.baseAmount, param.askData, param.askOrderCount);
             }
