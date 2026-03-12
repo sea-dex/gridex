@@ -99,7 +99,7 @@ library GridOrder {
                 revert IOrderErrors.InvalidGridFee();
             }
         }
-
+ 
         if (param.oneshot && param.compound) {
             revert IOrderErrors.InvalidGridParams();
         }
