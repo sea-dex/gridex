@@ -380,9 +380,9 @@ library GridOrder {
     /// @notice Mark a one-shot order as completed
     /// @param self The grid state storage
     /// @param gridOrderId The grid order ID to complete
-    function completeOneShotOrder(GridState storage self, uint64 gridOrderId) internal {
-        self.orderStatus[gridOrderId] = true;
-    }
+    // function completeOneShotOrder(GridState storage self, uint64 gridOrderId) internal {
+    //     self.orderStatus[gridOrderId] = true;
+    // }
 
     /// @notice Fill an ask order (taker buys base token)
     /// @dev Calculates fill amounts, fees, and updates order state
@@ -466,9 +466,6 @@ library GridOrder {
         if (orderInfo.isAsk) {
             result.orderAmt = orderBaseAmt;
             result.orderRevAmt = orderQuoteAmt;
-            if (orderInfo.oneshot && orderBaseAmt == 0) {
-                completeOneShotOrder(self, gridOrderId);
-            }
         } else {
             result.orderAmt = orderQuoteAmt;
             result.orderRevAmt = orderBaseAmt;
@@ -574,9 +571,6 @@ library GridOrder {
         } else {
             result.orderAmt = orderQuoteAmt;
             result.orderRevAmt = orderBaseAmt;
-            if (orderInfo.oneshot && orderQuoteAmt == 0) {
-                completeOneShotOrder(self, gridOrderId);
-            }
         }
 
         IGridOrder.Order storage order = self.orderInfos[gridOrderId];
