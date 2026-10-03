@@ -249,8 +249,8 @@ contract Deploy is Script {
     /// @notice Register all facet selectors to the router
     function _registerAllSelectors() internal {
         // TradeFacet selectors
-        bytes4[] memory tradeSelectors = new bytes4[](6);
-        address[] memory tradeFacets = new address[](6);
+        bytes4[] memory tradeSelectors = new bytes4[](10);
+        address[] memory tradeFacets = new address[](10);
 
         tradeSelectors[0] = TradeFacet.placeGridOrders.selector;
         tradeFacets[0] = tradeFacet;
@@ -264,6 +264,14 @@ contract Deploy is Script {
         tradeFacets[4] = tradeFacet;
         tradeSelectors[5] = TradeFacet.fillBidOrders.selector;
         tradeFacets[5] = tradeFacet;
+        tradeSelectors[6] = TradeFacet.fillAskOrderWithPermit.selector;
+        tradeFacets[6] = tradeFacet;
+        tradeSelectors[7] = TradeFacet.fillAskOrdersWithPermit.selector;
+        tradeFacets[7] = tradeFacet;
+        tradeSelectors[8] = TradeFacet.fillBidOrderWithPermit.selector;
+        tradeFacets[8] = tradeFacet;
+        tradeSelectors[9] = TradeFacet.fillBidOrdersWithPermit.selector;
+        tradeFacets[9] = tradeFacet;
 
         AdminFacet(router).batchSetFacet(tradeSelectors, tradeFacets);
         console.log("[OK] TradeFacet selectors registered");

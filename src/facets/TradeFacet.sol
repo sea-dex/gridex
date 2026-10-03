@@ -17,6 +17,12 @@ import {GridExStorage} from "../libraries/GridExStorage.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
+/// @dev Minimal EIP-2612 permit interface used by permit-enabled fill entrypoints.
+interface IERC20Permit {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external;
+}
+
 /// @title TradeFacet
 /// @author GridEx Protocol
 /// @notice Core trading logic: place + fill grid orders
@@ -105,6 +111,24 @@ contract TradeFacet is IOrderEvents {
         if (!success) {
             emit RefundFailed(to, value);
         }
+    }
+
+    function _maybePermit(
+        Currency token,
+        uint32 flag,
+        bool withPermit,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
+        if (!withPermit || flag & 0x01 > 0) return;
+        // Permit signatures can be submitted by anyone and may be consumed before this fill.
+        // Let transferFrom below decide whether the resulting allowance is sufficient.
+        try IERC20Permit(Currency.unwrap(token))
+            .permit(msg.sender, address(this), permitValue, permitDeadline, v, r, s) {}
+            catch {}
     }
 
     function _settleAssetWith(
@@ -474,11 +498,6 @@ contract TradeFacet is IOrderEvents {
     }
 
     /// @notice Fill a single ask grid order (buy base token)
-    /// @param gridOrderId The combined grid ID and order ID
-    /// @param amt The base amount to buy
-    /// @param minAmt The minimum base amount to accept (slippage protection)
-    /// @param data Callback data (if non-empty, triggers flash-swap callback)
-    /// @param flag Bit flags: 0 = ERC20 only, 1 = quote is ETH, 2 = base is ETH
     function fillAskOrder(
         uint64 gridOrderId,
         uint128 amt,
@@ -487,6 +506,40 @@ contract TradeFacet is IOrderEvents {
         bytes calldata data,
         uint32 flag
     ) external payable {
+        _fillAskOrder(gridOrderId, amt, minAmt, deadline, data, flag, false, 0, 0, 0, bytes32(0), bytes32(0));
+    }
+
+    /// @notice Fill a single ask grid order using an EIP-2612 permit for the quote token.
+    function fillAskOrderWithPermit(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable {
+        _fillAskOrder(gridOrderId, amt, minAmt, deadline, data, flag, true, permitValue, permitDeadline, v, r, s);
+    }
+
+    function _fillAskOrder(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        bool withPermit,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
         _checkDeadline(deadline);
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.OrderFillResult memory result = l.gridState.fillAskOrder(gridOrderId, amt);
@@ -511,6 +564,7 @@ contract TradeFacet is IOrderEvents {
             _callbackSessionExit();
             _incProtocolProfits(pair.quote, result.protocolFee);
         } else {
+            _maybePermit(pair.quote, flag, withPermit, permitValue, permitDeadline, v, r, s);
             if (_isCallbackSessionActive()) {
                 _callbackSessionRecord(pair.quote, pair.base, inAmt, result.filledAmt);
             }
@@ -520,13 +574,6 @@ contract TradeFacet is IOrderEvents {
     }
 
     /// @notice Fill multiple ask orders in a single transaction
-    /// @param pairId The trading pair ID
-    /// @param idList Array of grid order IDs to fill
-    /// @param amtList Array of base amounts to fill for each order
-    /// @param maxAmt Maximum total base amount to buy (0 = no limit)
-    /// @param minAmt Minimum total base amount to accept
-    /// @param data Callback data for flash-swap
-    /// @param flag Bit flags for ETH handling
     function fillAskOrders(
         uint64 pairId,
         uint64[] calldata idList,
@@ -537,6 +584,48 @@ contract TradeFacet is IOrderEvents {
         bytes calldata data,
         uint32 flag
     ) external payable {
+        _fillAskOrders(
+            pairId, idList, amtList, maxAmt, minAmt, deadline, data, flag, false, 0, 0, 0, bytes32(0), bytes32(0)
+        );
+    }
+
+    /// @notice Fill multiple ask orders using an EIP-2612 permit for the quote token.
+    function fillAskOrdersWithPermit(
+        uint64 pairId,
+        uint64[] calldata idList,
+        uint128[] calldata amtList,
+        uint128 maxAmt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable {
+        _fillAskOrders(
+            pairId, idList, amtList, maxAmt, minAmt, deadline, data, flag, true, permitValue, permitDeadline, v, r, s
+        );
+    }
+
+    function _fillAskOrders(
+        uint64 pairId,
+        uint64[] calldata idList,
+        uint128[] calldata amtList,
+        uint128 maxAmt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        bool withPermit,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
         _checkDeadline(deadline);
         if (idList.length != amtList.length) {
             revert IOrderErrors.InvalidParam();
@@ -588,6 +677,7 @@ contract TradeFacet is IOrderEvents {
             _callbackSessionExit();
             _incProtocolProfits(quote, filled.protocolFee);
         } else {
+            _maybePermit(quote, flag, withPermit, permitValue, permitDeadline, v, r, s);
             if (_isCallbackSessionActive()) {
                 _callbackSessionRecord(pair.quote, pair.base, filled.vol, filled.amt);
             }
@@ -599,11 +689,6 @@ contract TradeFacet is IOrderEvents {
     // ─── Fill bid orders ─────────────────────────────────────────────
 
     /// @notice Fill a single bid grid order (sell base token)
-    /// @param gridOrderId The combined grid ID and order ID (64 bits)
-    /// @param amt The base amount to sell
-    /// @param minAmt The minimum base amount to accept (slippage protection)
-    /// @param data Callback data (if non-empty, triggers flash-swap callback)
-    /// @param flag Bit flags: 0 = ERC20 only, 1 = base is ETH, 2 = quote is ETH
     function fillBidOrder(
         uint64 gridOrderId,
         uint128 amt,
@@ -612,6 +697,40 @@ contract TradeFacet is IOrderEvents {
         bytes calldata data,
         uint32 flag
     ) external payable {
+        _fillBidOrder(gridOrderId, amt, minAmt, deadline, data, flag, false, 0, 0, 0, bytes32(0), bytes32(0));
+    }
+
+    /// @notice Fill a single bid grid order using an EIP-2612 permit for the base token.
+    function fillBidOrderWithPermit(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable {
+        _fillBidOrder(gridOrderId, amt, minAmt, deadline, data, flag, true, permitValue, permitDeadline, v, r, s);
+    }
+
+    function _fillBidOrder(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        bool withPermit,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
         _checkDeadline(deadline);
         GridExStorage.Layout storage l = GridExStorage.layout();
         IGridOrder.OrderFillResult memory result = l.gridState.fillBidOrder(gridOrderId, amt);
@@ -637,6 +756,7 @@ contract TradeFacet is IOrderEvents {
             _callbackSessionExit();
             _incProtocolProfits(pair.quote, result.protocolFee);
         } else {
+            _maybePermit(pair.base, flag, withPermit, permitValue, permitDeadline, v, r, s);
             if (_isCallbackSessionActive()) {
                 _callbackSessionRecord(pair.base, pair.quote, result.filledAmt, outAmt);
             }
@@ -646,13 +766,6 @@ contract TradeFacet is IOrderEvents {
     }
 
     /// @notice Fill multiple bid orders in a single transaction
-    /// @param pairId The trading pair ID
-    /// @param idList Array of grid order IDs to fill
-    /// @param amtList Array of base amounts to fill for each order
-    /// @param maxAmt Maximum total base amount to sell (0 = no limit)
-    /// @param minAmt Minimum total base amount to accept
-    /// @param data Callback data for flash-swap
-    /// @param flag Bit flags for ETH handling
     function fillBidOrders(
         uint64 pairId,
         uint64[] calldata idList,
@@ -663,6 +776,48 @@ contract TradeFacet is IOrderEvents {
         bytes calldata data,
         uint32 flag
     ) external payable {
+        _fillBidOrders(
+            pairId, idList, amtList, maxAmt, minAmt, deadline, data, flag, false, 0, 0, 0, bytes32(0), bytes32(0)
+        );
+    }
+
+    /// @notice Fill multiple bid orders using an EIP-2612 permit for the base token.
+    function fillBidOrdersWithPermit(
+        uint64 pairId,
+        uint64[] calldata idList,
+        uint128[] calldata amtList,
+        uint128 maxAmt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable {
+        _fillBidOrders(
+            pairId, idList, amtList, maxAmt, minAmt, deadline, data, flag, true, permitValue, permitDeadline, v, r, s
+        );
+    }
+
+    function _fillBidOrders(
+        uint64 pairId,
+        uint64[] calldata idList,
+        uint128[] calldata amtList,
+        uint128 maxAmt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        bool withPermit,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
         _checkDeadline(deadline);
         if (idList.length != amtList.length) {
             revert IOrderErrors.InvalidParam();
@@ -671,9 +826,9 @@ contract TradeFacet is IOrderEvents {
         GridExStorage.Layout storage l = GridExStorage.layout();
         GridOrder.GridState storage gridState = l.gridState;
         address taker = msg.sender;
-        uint128 filledAmt = 0;
-        uint128 filledVol = 0;
-        uint128 protocolFee = 0;
+        uint128 filledAmt;
+        uint128 filledVol;
+        uint128 protocolFee;
 
         for (uint256 i; i < idList.length;) {
             uint64 gridOrderId = idList[i];
@@ -725,6 +880,7 @@ contract TradeFacet is IOrderEvents {
             _callbackSessionExit();
             _incProtocolProfits(pair.quote, protocolFee);
         } else {
+            _maybePermit(pair.base, flag, withPermit, permitValue, permitDeadline, v, r, s);
             if (_isCallbackSessionActive()) {
                 _callbackSessionRecord(pair.base, pair.quote, filledAmt, filledVol);
             }

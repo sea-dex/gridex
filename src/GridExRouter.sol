@@ -139,6 +139,90 @@ contract GridExRouter {
         _delegateToFacetFill(l);
     }
 
+    /// @notice Fill a single ask order using an EIP-2612 permit for the quote token.
+    function fillAskOrderWithPermit(
+        uint64,
+        uint128,
+        uint128,
+        uint64,
+        bytes calldata,
+        uint32,
+        uint256,
+        uint256,
+        uint8,
+        bytes32,
+        bytes32
+    ) external payable {
+        ReentrancyLib._enterFill();
+        GridExStorage.Layout storage l = GridExStorage.layout();
+        if (l.paused) revert EnforcedPause();
+        _delegateToFacetFill(l);
+    }
+
+    /// @notice Fill multiple ask orders using an EIP-2612 permit for the quote token.
+    function fillAskOrdersWithPermit(
+        uint64,
+        uint64[] calldata,
+        uint128[] calldata,
+        uint128,
+        uint128,
+        uint64,
+        bytes calldata,
+        uint32,
+        uint256,
+        uint256,
+        uint8,
+        bytes32,
+        bytes32
+    ) external payable {
+        ReentrancyLib._enterFill();
+        GridExStorage.Layout storage l = GridExStorage.layout();
+        if (l.paused) revert EnforcedPause();
+        _delegateToFacetFill(l);
+    }
+
+    /// @notice Fill a single bid order using an EIP-2612 permit for the base token.
+    function fillBidOrderWithPermit(
+        uint64,
+        uint128,
+        uint128,
+        uint64,
+        bytes calldata,
+        uint32,
+        uint256,
+        uint256,
+        uint8,
+        bytes32,
+        bytes32
+    ) external payable {
+        ReentrancyLib._enterFill();
+        GridExStorage.Layout storage l = GridExStorage.layout();
+        if (l.paused) revert EnforcedPause();
+        _delegateToFacetFill(l);
+    }
+
+    /// @notice Fill multiple bid orders using an EIP-2612 permit for the base token.
+    function fillBidOrdersWithPermit(
+        uint64,
+        uint64[] calldata,
+        uint128[] calldata,
+        uint128,
+        uint128,
+        uint64,
+        bytes calldata,
+        uint32,
+        uint256,
+        uint256,
+        uint8,
+        bytes32,
+        bytes32
+    ) external payable {
+        ReentrancyLib._enterFill();
+        GridExStorage.Layout storage l = GridExStorage.layout();
+        if (l.paused) revert EnforcedPause();
+        _delegateToFacetFill(l);
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //  HOT-PATH: Cancel & withdraw (STRICT lock)
     // ═══════════════════════════════════════════════════════════════════

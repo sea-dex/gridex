@@ -121,6 +121,70 @@ interface IGridExRouter {
         uint32 flag
     ) external payable;
 
+    /// @notice Fill a single ask order using an EIP-2612 permit for the quote token
+    function fillAskOrderWithPermit(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+
+    /// @notice Fill multiple ask orders using an EIP-2612 permit for the quote token
+    function fillAskOrdersWithPermit(
+        uint64 pairId,
+        uint64[] calldata idList,
+        uint128[] calldata amtList,
+        uint128 maxAmt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+
+    /// @notice Fill a single bid order using an EIP-2612 permit for the base token
+    function fillBidOrderWithPermit(
+        uint64 gridOrderId,
+        uint128 amt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+
+    /// @notice Fill multiple bid orders using an EIP-2612 permit for the base token
+    function fillBidOrdersWithPermit(
+        uint64 pairId,
+        uint64[] calldata idList,
+        uint128[] calldata amtList,
+        uint128 maxAmt,
+        uint128 minAmt,
+        uint64 deadline,
+        bytes calldata data,
+        uint32 flag,
+        uint256 permitValue,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+
     // ═══════════════════════════════════════════════════════════════════
     //  CANCEL & WITHDRAW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════
