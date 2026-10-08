@@ -34,6 +34,9 @@ contract TradeFacet is IOrderEvents {
     using GridOrder for GridOrder.GridState;
     using SafeTransferLib for ERC20;
 
+    /// @dev Bound optional permit work so failure can fall back to an existing allowance.
+    uint256 private constant PERMIT_GAS_LIMIT = 100_000;
+
     /// @dev Transient callback settlement session depth.
     bytes32 private constant CALLBACK_SESSION_DEPTH_SLOT = keccak256("gridex.callback.session.depth");
     /// @dev Number of tokens touched in the current callback settlement session.
@@ -126,8 +129,9 @@ contract TradeFacet is IOrderEvents {
         if (!withPermit || flag & 0x01 > 0) return;
         // Permit signatures can be submitted by anyone and may be consumed before this fill.
         // Let transferFrom below decide whether the resulting allowance is sufficient.
-        try IERC20Permit(Currency.unwrap(token))
-            .permit(msg.sender, address(this), permitValue, permitDeadline, v, r, s) {}
+        try IERC20Permit(Currency.unwrap(token)).permit{gas: PERMIT_GAS_LIMIT}(
+            msg.sender, address(this), permitValue, permitDeadline, v, r, s
+        ) {}
             catch {}
     }
 
