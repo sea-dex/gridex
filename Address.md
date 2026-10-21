@@ -26,7 +26,6 @@ Linear       0xa7a92fdbfeac632c45f4aad466e0ae0a430a8ddd
     Router:        0xa0F2a4b56fbA7F98332D39fB18f4073bB2b78dd9
     Linear:        0xFce4A9fE4764101259E154C7E4Ebce90763A9085
     Geometry:      0x75320716bF2Bbfb27F2e0F1cC3b2dDc7a9Da626f
-    BatchExecutor: 0x739E82B14cdBED50091452f17e3E89245D43E53C
 
 
 ## BSC-tetnet

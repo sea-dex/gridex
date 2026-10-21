@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {Script, console} from "forge-std/Script.sol";
 
 import {GridExRouter} from "../src/GridExRouter.sol";
-import {GridEx7702BatchExecutor} from "../src/GridEx7702BatchExecutor.sol";
 import {TradeFacet} from "../src/facets/TradeFacet.sol";
 import {CancelFacet} from "../src/facets/CancelFacet.sol";
 import {AdminFacet} from "../src/facets/AdminFacet.sol";
@@ -75,7 +74,6 @@ contract Deploy is Script {
     address public router;
     address public linear;
     address public geometry;
-    address public batchExecutor;
     address public guardian;
     uint256 public minDelay;
 
@@ -117,8 +115,7 @@ contract Deploy is Script {
             address expectedViewFacet,
             address expectedRouter,
             address expectedLinear,
-            address expectedGeometry,
-            address expectedBatchExecutor
+            address expectedGeometry
         ) = computeAddressesWithOwner(deployer);
 
         console.log("Expected Addresses:");
@@ -131,7 +128,6 @@ contract Deploy is Script {
         console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
         console.log("  Geometry:", expectedGeometry);
-        console.log("  BatchExecutor:", expectedBatchExecutor);
         console.log("");
 
         vm.startBroadcast(deployerPrivateKey);
@@ -208,12 +204,6 @@ contract Deploy is Script {
         bytes memory geometryBytecode = abi.encodePacked(type(Geometry).creationCode, abi.encode(router));
         geometry = _deployContract(geometrySalt, geometryBytecode, "Geometry");
         require(geometry == expectedGeometry, "Geometry address mismatch!");
-
-        // Deploy GridEx7702BatchExecutor (no constructor args)
-        bytes32 batchExecutorSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "BatchExecutor"));
-        bytes memory batchExecutorBytecode = type(GridEx7702BatchExecutor).creationCode;
-        batchExecutor = _deployContract(batchExecutorSalt, batchExecutorBytecode, "GridEx7702BatchExecutor");
-        require(batchExecutor == expectedBatchExecutor, "BatchExecutor address mismatch!");
 
         // Configure: Whitelist Linear strategy
         if (!ViewFacet(router).isStrategyWhitelisted(linear)) {
@@ -383,8 +373,7 @@ contract Deploy is Script {
             address expectedViewFacet,
             address expectedRouter,
             address expectedLinear,
-            address expectedGeometry,
-            address expectedBatchExecutor
+            address expectedGeometry
         ) = computeAddresses(weth, usd);
 
         console.log("Expected Addresses:");
@@ -397,7 +386,6 @@ contract Deploy is Script {
         console.log("  Router:", expectedRouter);
         console.log("  Linear:", expectedLinear);
         console.log("  Geometry:", expectedGeometry);
-        console.log("  BatchExecutor:", expectedBatchExecutor);
         console.log("");
 
         // Check if already deployed
@@ -410,9 +398,7 @@ contract Deploy is Script {
         console.log("  ViewFacet:", expectedViewFacet.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  Router:", expectedRouter.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
         console.log("  Linear:", expectedLinear.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
-        console.log("  Geometry:", expectedGeometry.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
-        console.log("  BatchExecutor:", expectedBatchExecutor.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");
-    }
+        console.log("  Geometry:", expectedGeometry.code.length > 0 ? "DEPLOYED" : "NOT DEPLOYED");    }
 
     /// @notice Compute expected addresses for current deployer
     function computeAddresses(address, address)
@@ -427,8 +413,7 @@ contract Deploy is Script {
             address expectedViewFacet,
             address expectedRouter,
             address expectedLinear,
-            address expectedGeometry,
-            address expectedBatchExecutor
+            address expectedGeometry
         )
     {
         // Get deployer address for computing addresses
@@ -459,8 +444,7 @@ contract Deploy is Script {
             address expectedViewFacet,
             address expectedRouter,
             address expectedLinear,
-            address expectedGeometry,
-            address expectedBatchExecutor
+            address expectedGeometry
         )
     {
         // Vault (takes owner as constructor arg - same on all chains if same owner)
@@ -522,11 +506,6 @@ contract Deploy is Script {
         bytes32 geometrySalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "Geometry"));
         bytes memory geometryBytecode = abi.encodePacked(type(Geometry).creationCode, abi.encode(expectedRouter));
         expectedGeometry = _computeAddress(geometrySalt, geometryBytecode);
-
-        // GridEx7702BatchExecutor (no constructor args - same address everywhere)
-        bytes32 batchExecutorSalt = keccak256(abi.encodePacked(DEPLOYMENT_SALT, "BatchExecutor"));
-        bytes memory batchExecutorBytecode = type(GridEx7702BatchExecutor).creationCode;
-        expectedBatchExecutor = _computeAddress(batchExecutorSalt, batchExecutorBytecode);
     }
 
     // ============ Internal Functions ============
@@ -648,7 +627,6 @@ contract Deploy is Script {
         console.log("  Router:", router);
         console.log("  Linear:", linear);
         console.log("  Geometry:", geometry);
-        console.log("  BatchExecutor:", batchExecutor);
         console.log("");
         console.log("Configuration:");
         console.log("  WETH:", weth);
@@ -786,18 +764,6 @@ contract Deploy is Script {
                 " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --constructor-args $(cast abi-encode 'constructor(address)' ",
                 vm.toString(router),
                 ")"
-            )
-        );
-        console.log("");
-
-        console.log("# Verify GridEx7702BatchExecutor (no constructor args)");
-        console.log(
-            string.concat(
-                "forge verify-contract ",
-                vm.toString(batchExecutor),
-                " src/GridEx7702BatchExecutor.sol:GridEx7702BatchExecutor --chain ",
-                chainId,
-                " --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
             )
         );
     }
